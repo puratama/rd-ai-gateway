@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       }));
 
     // 4. Transform Puter models to OpenAI-compatible format
-    const transformed = puterModels.map((m: Record<string, unknown>) => ({{
+    const transformed = puterModels.map((m: Record<string, unknown>) => ({
       id: m.id || m.puterId || "",
       object: "model",
       created: m.release_date
