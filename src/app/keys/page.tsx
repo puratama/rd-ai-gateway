@@ -38,7 +38,7 @@ export default function KeysPage() {
   const [showKeyId, setShowKeyId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<Record<string, unknown> | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
 
   const internalApiKey = "admin"; // Will use internal auth
@@ -97,7 +97,7 @@ export default function KeysPage() {
       const allKeys = loadApiKeys();
       setStats({
         totalRequests: records.length,
-        totalTokens: records.reduce((sum: number, r: any) => sum + (r.totalTokens || 0), 0),
+        totalTokens: records.reduce((sum: number, r: Record<string, unknown>) => sum + ((r.totalTokens as number) || 0), 0),
         activeKeys: allKeys.filter((k) => k.isActive).length,
       });
     } catch {}

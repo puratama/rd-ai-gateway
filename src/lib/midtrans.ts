@@ -56,7 +56,7 @@ export async function createTransaction(
 
   const auth = Buffer.from(MIDTRANS_SERVER_KEY + ":").toString("base64");
 
-  const body: any = {
+  const body: Record<string, unknown> = {
     transaction_details: {
       order_id: orderId,
       gross_amount: amount,

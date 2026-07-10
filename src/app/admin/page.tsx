@@ -27,7 +27,7 @@ interface AdminStats {
   subscriptions: { total: number; active: number; byPlan: Record<string, number> };
   providers: Record<string, number>;
   dailyUsage: Record<string, number>;
-  plans: any[];
+  plans: import("@/lib/server-store").MembershipPlan[];
 }
 
 export default function AdminPage() {
@@ -35,7 +35,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
-  const [editingPlan, setEditingPlan] = useState<any | null>(null);
+  const [editingPlan, setEditingPlan] = useState<import("@/lib/server-store").MembershipPlan | null>(null);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
 
   const internalKey = process.env.NEXT_PUBLIC_INTERNAL_KEY || "demo-key-xperimne";
@@ -343,12 +343,12 @@ function ConfigItem({ label, value, secret }: { label: string; value: string; se
   );
 }
 
-function PlanEditor({ plan, onSave, onClose, internalKey }: { plan: any; onSave: (data: any) => void; onClose: () => void; internalKey: string }) {
+function PlanEditor({ plan, onSave, onClose, internalKey }: { plan: import("@/lib/server-store").MembershipPlan | null; onSave: (data: Record<string, unknown>) => void; onClose: () => void; internalKey: string }) {
   const [form, setForm] = useState(plan || {});
   const [saving, setSaving] = useState(false);
 
-  const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }));
-  const updateFeatures = (key: string, value: any) => setForm((prev: any) => ({ ...prev, features: { ...prev.features, [key]: value } }));
+  const update = (key: string, value: string | number | boolean | undefined) => setForm((prev: Record<string, unknown>) => ({ ...prev, [key]: value }));
+  const updateFeatures = (key: string, value: string | number | boolean | undefined) => setForm((prev: Record<string, unknown>) => ({ ...prev, features: { ...(prev.features as Record<string, unknown>), [key]: value } }));
 
   const handleSave = async () => {
     setSaving(true);
