@@ -28,6 +28,12 @@ interface ApiKeyItem {
   totalTokens: number;
 }
 
+interface UsageStats {
+  totalRequests: number;
+  totalTokens: number;
+  activeKeys: number;
+}
+
 export default function KeysPage() {
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +44,7 @@ export default function KeysPage() {
   const [showKeyId, setShowKeyId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [stats, setStats] = useState<Record<string, unknown> | null>(null);
+  const [stats, setStats] = useState<UsageStats | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
 
   const internalApiKey = "admin"; // Will use internal auth

@@ -8,13 +8,15 @@ export async function POST(request: NextRequest) {
     // 1. Validate API Key (server-side)
     const authHeader = request.headers.get("authorization");
     let apiKeyId: string | null = null;
+    let userId: string | null = null;
 
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
       const { validateServerKey } = await import("@/lib/server-store");
-      const apiKey = validateServerKey(token);
+      const apiKey = await validateServerKey(token);
       if (apiKey) {
         apiKeyId = apiKey.id;
+        userId = apiKey.userId;
       }
     }
 
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
     // 3. Rate limiting & model access check (only for API key users)
     if (apiKeyId) {
       const { checkRateLimit, checkModelAccess } = await import("@/lib/server-store");
-      const limitCheck = checkRateLimit(apiKeyId);
+      const limitCheck = await checkRateLimit(apiKeyId);
       if (!limitCheck.allowed) {
         return new Response(
           JSON.stringify({
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
           { status: 429, headers: { "Content-Type": "application/json", "X-RateLimit-Plan": limitCheck.plan?.name || "Free" } }
         );
       }
-      if (!checkModelAccess(apiKeyId, model)) {
+      if (!await checkModelAccess(apiKeyId, model)) {
         return new Response(
           JSON.stringify({
             error: `Model "${model}" is not included in your plan`,
@@ -51,22 +53,22 @@ export async function POST(request: NextRequest) {
           { status: 403, headers: { "Content-Type": "application/json" } }
         );
       }
-    }
 
-    // Track request count for rate limiting
-    if (apiKeyId) {
-      try {
-        const { getSubscriptionByKey, loadSubscriptions, saveSubscriptions } = await import("@/lib/server-store");
-        const sub = getSubscriptionByKey(apiKeyId);
-        if (sub) {
-          const subs = loadSubscriptions();
-          const idx = subs.findIndex((s: import("@/lib/server-store").Subscription) => s.id === sub.id);
-          if (idx >= 0) {
-            subs[idx].requestsToday++;
-            saveSubscriptions(subs);
-          }
-        }
-      } catch {}
+      // Check active package quota
+      const { prisma } = await import("@/lib/db");
+      const activePackage = await prisma.userPackage.findFirst({
+        where: {
+          userId: userId!,
+          status: "active",
+          expiresAt: { gt: new Date() },
+          tokensRemaining: { gt: 0 },
+        },
+        orderBy: { expiresAt: "asc" },
+      });
+      if (activePackage) {
+        // Store for deduction after completion
+        (request as unknown as Record<string, unknown>)._quotaPackageId = activePackage.id;
+      }
     }
 
     // 4. Route request through provider chain with auto-fallback
@@ -147,22 +149,32 @@ export async function POST(request: NextRequest) {
           // Track usage after stream completes
           if (apiKeyId && !streamError && fullText) {
             try {
-              const { generateId, updateServerKeyUsage, addServerUsageRecord } =
+              const { updateServerKeyUsage, addServerUsageRecord } =
                 await import("@/lib/server-store");
               const promptTokens = estimateTokens(JSON.stringify(messages));
               const completionTokens = estimateTokens(fullText);
-              updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
-              addServerUsageRecord({
-                id: generateId(),
-                apiKeyId,
+              await updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
+              await addServerUsageRecord({
+                userId: apiKeyId,
                 model,
                 provider: result.provider,
+                source: "api",
                 promptTokens,
                 completionTokens,
                 totalTokens: promptTokens + completionTokens,
-                timestamp: Date.now(),
                 endpoint: "/v1/chat/completions",
               });
+              // Deduct from package quota if active
+              const pkgId = (request as unknown as Record<string, unknown>)._quotaPackageId;
+              if (typeof pkgId === "string") {
+                const { prisma } = await import("@/lib/db");
+                await prisma.userPackage.update({
+                  where: { id: pkgId },
+                  data: {
+                    tokensRemaining: { decrement: promptTokens + completionTokens },
+                  },
+                }).catch(() => {});
+              }
             } catch {
               // Non-critical
             }
@@ -192,25 +204,35 @@ export async function POST(request: NextRequest) {
     // Track usage for non-streaming
     if (apiKeyId) {
       try {
-        const { generateId, updateServerKeyUsage, addServerUsageRecord } =
+        const { updateServerKeyUsage, addServerUsageRecord } =
           await import("@/lib/server-store");
         const promptTokens =
           data.usage?.prompt_tokens || estimateTokens(JSON.stringify(messages));
         const completionTokens =
           data.usage?.completion_tokens ||
           estimateTokens(data.choices?.[0]?.message?.content || "");
-        updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
-        addServerUsageRecord({
-          id: generateId(),
-          apiKeyId,
+        await updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
+        await addServerUsageRecord({
+          userId: apiKeyId,
           model,
           provider: result.provider,
+          source: "api",
           promptTokens,
           completionTokens,
           totalTokens: promptTokens + completionTokens,
-          timestamp: Date.now(),
           endpoint: "/v1/chat/completions",
         });
+        // Deduct from package quota if active
+        const pkgId = (request as unknown as Record<string, unknown>)._quotaPackageId;
+        if (typeof pkgId === "string") {
+          const { prisma } = await import("@/lib/db");
+          await prisma.userPackage.update({
+            where: { id: pkgId },
+            data: {
+              tokensRemaining: { decrement: promptTokens + completionTokens },
+            },
+          }).catch(() => {});
+        }
       } catch {
         // Non-critical
       }

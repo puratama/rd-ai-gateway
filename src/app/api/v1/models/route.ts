@@ -44,26 +44,26 @@ export async function GET(request: NextRequest) {
 
     // 4. Transform Puter models to OpenAI-compatible format
     const transformed = puterModels.map((m: Record<string, unknown>) => ({
-      id: m.id || m.puterId || "",
-      object: "model",
+      id: String(m.id || m.puterId || ""),
+      object: "model" as const,
       created: m.release_date
-        ? new Date(m.release_date).getTime() / 1000
+        ? new Date(m.release_date as string).getTime() / 1000
         : Math.floor(Date.now() / 1000),
-      owned_by: m.provider || "puter",
-      name: m.name || m.id || "",
+      owned_by: String(m.provider || "puter"),
+      name: String(m.name || m.id || ""),
       context: m.context || undefined,
       max_tokens: m.max_tokens || undefined,
-      provider: m.provider || "unknown",
+      provider: String(m.provider || "unknown"),
       modalities: m.modalities || [],
       open_weights: m.open_weights || false,
       tool_call: m.tool_call || false,
       pricing: m.costs
         ? {
-            prompt: m.costs.prompt_cost_per_million
-              ? m.costs.prompt_cost_per_million / 100
+            prompt: (m.costs as Record<string, number>).prompt_cost_per_million
+              ? (m.costs as Record<string, number>).prompt_cost_per_million / 100
               : 0,
-            completion: m.costs.completion_cost_per_million
-              ? m.costs.completion_cost_per_million / 100
+            completion: (m.costs as Record<string, number>).completion_cost_per_million
+              ? (m.costs as Record<string, number>).completion_cost_per_million / 100
               : 0,
           }
         : undefined,

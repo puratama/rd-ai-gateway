@@ -1,6 +1,6 @@
 // LLM Router - routes requests to providers with auto-fallback
 import {
-  findProvidersForModel,
+  findProvidersForModelAsync,
   getProviderApiKey,
   shouldFallback,
   type ProviderConfig,
@@ -73,7 +73,7 @@ export async function routeRequest(
   req: RouterRequest,
   signal?: AbortSignal
 ): Promise<RouterResult> {
-  const providers = findProvidersForModel(req.model);
+  const providers = await findProvidersForModelAsync(req.model);
   const attempts: { provider: string; status: number; error?: string }[] = [];
 
   if (providers.length === 0) {
@@ -128,7 +128,7 @@ export async function routeRequest(
     } catch (error: unknown) {
       if (signal?.aborted) throw error;
 
-      const errorMsg = error.message || String(error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
       attempts.push({ provider: provider.name, status: 0, error: errorMsg });
       lastError = errorMsg;
 

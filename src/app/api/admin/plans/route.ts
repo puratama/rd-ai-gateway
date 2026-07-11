@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const { loadPlans } = await import("@/lib/server-store");
-    const plans = loadPlans();
+    const plans = await loadPlans();
     return NextResponse.json({ plans });
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
     const { createPlan } = await import("@/lib/server-store");
     const body = await request.json();
-    const plan = createPlan(body);
+    const plan = await createPlan(body);
     return NextResponse.json({ plan }, { status: 201 });
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
@@ -46,7 +46,7 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
-    const plan = updatePlan(id, updates);
+    const plan = await updatePlan(id, updates);
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
@@ -67,7 +67,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
-    const success = deletePlan(id);
+    const success = await deletePlan(id);
     if (!success) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }

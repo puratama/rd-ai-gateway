@@ -122,11 +122,11 @@ export function getUsageSummary(apiKeyId: string) {
   let totalCompletionTokens = 0;
 
   for (const record of records) {
-    modelBreakdown[record.model] = (modelBreakdown[record.model] || 0) + record.totalTokens;
-    const date = new Date(record.timestamp).toISOString().slice(0, 10);
-    dailyUsage[date] = (dailyUsage[date] || 0) + record.totalTokens;
-    totalPromptTokens += record.promptTokens || 0;
-    totalCompletionTokens += record.completionTokens || 0;
+    modelBreakdown[record.model as string] = (modelBreakdown[record.model as string] || 0) + (record.totalTokens as number || 0);
+    const date = new Date(record.timestamp as number).toISOString().slice(0, 10);
+    dailyUsage[date] = (dailyUsage[date] || 0) + (record.totalTokens as number || 0);
+    totalPromptTokens += (record.promptTokens as number) || 0;
+    totalCompletionTokens += (record.completionTokens as number) || 0;
   }
 
   return {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MessageSquare, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import type { Message } from "@/types";
 
@@ -22,18 +22,17 @@ export default function ChatArea({ messages, isStreaming, streamingContent }: Ch
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Sparkles className="w-8 h-8 text-emerald-400" />
+          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Sparkles className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="text-xl font-semibold text-zinc-200 mb-2">
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             AI Gateway
           </h2>
-          <p className="text-sm text-zinc-500 leading-relaxed">
+          <p className="text-sm text-muted-foreground leading-relaxed">
             Access hundreds of AI models through one unified interface.
-            Powered by <span className="text-emerald-400">Puter.js</span>.
             No API keys needed — just start chatting.
           </p>
-          <div className="mt-8 flex items-center justify-center gap-6 text-xs text-zinc-600">
+          <div className="mt-8 flex items-center justify-center gap-6 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               GPT-4
@@ -63,7 +62,6 @@ export default function ChatArea({ messages, isStreaming, streamingContent }: Ch
           <MessageBubble key={msg.id} message={msg} />
         ))}
 
-        {/* Streaming message */}
         {isStreaming && streamingContent && (
           <MessageBubble
             message={{

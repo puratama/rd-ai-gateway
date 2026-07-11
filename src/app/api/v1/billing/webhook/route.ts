@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get billing record
-    const billingRecord = getBillingRecord(orderId);
+    const billingRecord = await getBillingRecord(orderId);
     if (!billingRecord) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
@@ -28,18 +28,19 @@ export async function POST(request: NextRequest) {
     );
 
     // Update billing record
-    updateBillingStatus(
+    await updateBillingStatus(
       orderId,
       status,
-      status === "completed" ? Date.now() : undefined
     );
 
     // If payment completed, extend subscription
-    if (status === "completed") {
-      extendSubscription(
-        billingRecord.apiKeyId,
+    if (status === "completed" && billingRecord.planId) {
+      const { getPlan } = await import("@/lib/server-store");
+      const plan = await getPlan(billingRecord.planId);
+      await extendSubscription(
+        billingRecord.userId,
         billingRecord.planId,
-        billingRecord.billingPeriod
+        plan?.billingPeriod as import("@/lib/server-store").BillingPeriod || "monthly"
       );
     }
 

@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { validateServerKey, getPlan, createBillingRecord, generateId, extendSubscription } = await import("@/lib/server-store");
-    const apiKey = validateServerKey(auth);
+    const apiKey = await validateServerKey(auth);
     if (!apiKey) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
@@ -16,21 +16,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { planId } = body;
 
-    const plan = getPlan(planId);
+    const plan = await getPlan(planId);
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
     const orderId = `TOPUP-${generateId()}-${Date.now()}`;
 
-    const billingRecord = createBillingRecord({
-      apiKeyId: apiKey.id,
-      planId,
+    const billingRecord = await createBillingRecord({
+      userId: apiKey.userId,
+      type: "subscription",
       amount: plan.price,
-      currency: "IDR",
       status: "pending",
       midtransOrderId: orderId,
-      billingPeriod: plan.billingPeriod,
+      planId,
       description: `Renewal: ${plan.name} - ${plan.billingPeriod}`,
     });
 
@@ -48,7 +47,7 @@ export async function POST(request: NextRequest) {
       });
     } catch {
       // Dev mode fallback - extend directly
-      extendSubscription(apiKey.id, planId, plan.billingPeriod);
+      await extendSubscription(apiKey.userId, planId, plan.billingPeriod as import("@/lib/server-store").BillingPeriod);
       return NextResponse.json({
         billing: billingRecord,
         plan,

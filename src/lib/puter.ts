@@ -15,11 +15,11 @@ export async function getModels(): Promise<ModelInfo[]> {
     const data = await response.json();
     if (data?.data && Array.isArray(data.data)) {
       modelsCache = data.data.map((m: Record<string, unknown>) => ({
-        id: m.id || "",
-        name: m.id || m.name || "",
-        provider: getProviderFromModel(m.id || ""),
-        context: m.context || undefined,
-        description: m.description || undefined,
+        id: String(m.id || ""),
+        name: String(m.id || m.name || ""),
+        provider: getProviderFromModel(String(m.id || "")),
+        context: m.context ? Number(m.context) : undefined,
+        description: m.description ? String(m.description) : undefined,
       }));
       return modelsCache as ModelInfo[];
     }
@@ -38,11 +38,11 @@ async function getModelsFallback(): Promise<ModelInfo[]> {
     const models = await puter.ai.listModels();
     if (Array.isArray(models)) {
       return models.map((m: Record<string, unknown>) => ({
-        id: m.id || m.name || "",
-        name: m.name || m.id || "",
-        provider: m.provider || "unknown",
-        context: m.context || undefined,
-        description: m.description || undefined,
+        id: String(m.id || m.name || ""),
+        name: String(m.name || m.id || ""),
+        provider: String(m.provider || "unknown"),
+        context: m.context ? Number(m.context) : undefined,
+        description: m.description ? String(m.description) : undefined,
       }));
     }
     return [];
@@ -215,7 +215,7 @@ export async function chat(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await (puter.ai.chat as any)(messages, { model });
       if (typeof response === "object" && response !== null) {
-        return ((response as Record<string, unknown>).message as Record<string, unknown>)?.content || (response as Record<string, unknown>).text || JSON.stringify(response);
+        return String((response as Record<string, unknown>).message || (response as Record<string, unknown>).text || JSON.stringify(response));
       }
       return String(response);
     } catch (error: unknown) {

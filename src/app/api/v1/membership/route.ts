@@ -9,13 +9,13 @@ export async function GET(request: NextRequest) {
     }
 
     const { validateServerKey, getSubscriptionByKey, getPlan, loadPlans } = await import("@/lib/server-store");
-    const apiKey = validateServerKey(auth);
+    const apiKey = await validateServerKey(auth);
     if (!apiKey) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
 
-    const sub = getSubscriptionByKey(apiKey.id);
-    const plans = loadPlans().filter((p) => p.isActive);
+    const sub = await getSubscriptionByKey(apiKey.id);
+    const plans = (await loadPlans()).filter((p) => p.isActive);
 
     return NextResponse.json({
       subscription: sub,
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         billingPeriod: p.billingPeriod,
         features: p.features,
       })),
-      currentPlan: sub ? getPlan(sub.planId) : getPlan("free"),
+      currentPlan: sub ? await getPlan(sub.planId) : await getPlan("free"),
     });
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
@@ -43,22 +43,22 @@ export async function POST(request: NextRequest) {
     }
 
     const { validateServerKey, createSubscription, getPlan } = await import("@/lib/server-store");
-    const apiKey = validateServerKey(auth);
+    const apiKey = await validateServerKey(auth);
     if (!apiKey) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
 
     const body = await request.json();
-    const { planId, autoRenew = true } = body;
+    const { planId } = body;
 
-    const plan = getPlan(planId);
+    const plan = await getPlan(planId);
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
     if (plan.price === 0) {
       // Free plan - just create subscription immediately
-      const sub = createSubscription(apiKey.id, planId);
+      const sub = await createSubscription(apiKey.userId, planId);
       return NextResponse.json({ subscription: sub, plan });
     }
 
@@ -66,14 +66,13 @@ export async function POST(request: NextRequest) {
     const { createBillingRecord, generateId } = await import("@/lib/server-store");
     const orderId = `ORDER-${generateId()}-${Date.now()}`;
 
-    const billingRecord = createBillingRecord({
-      apiKeyId: apiKey.id,
-      planId,
+    const billingRecord = await createBillingRecord({
+      userId: apiKey.userId,
+      type: "subscription",
       amount: plan.price,
-      currency: "IDR",
       status: "pending",
       midtransOrderId: orderId,
-      billingPeriod: plan.billingPeriod,
+      planId,
       description: `${plan.name} - ${plan.billingPeriod}`,
     });
 

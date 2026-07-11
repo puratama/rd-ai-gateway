@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
     if (token === process.env.INTERNAL_API_KEY) {
       // Admin - can see all usage or specific key
       if (keyId) {
-        return NextResponse.json(getServerUsageSummary(keyId));
+        return NextResponse.json(await getServerUsageSummary(keyId));
       }
-      const allRecords = loadServerUsageRecords();
-      const allKeys = loadServerKeys();
+      const allRecords = await loadServerUsageRecords();
+      const allKeys = await loadServerKeys();
       return NextResponse.json({
         totalRequests: allRecords.length,
         totalTokens: allRecords.reduce((sum, r) => sum + (r.totalTokens || 0), 0),
@@ -38,9 +38,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (token) {
-      const apiKey = validateServerKey(token);
+      const apiKey = await validateServerKey(token);
       if (apiKey) {
-        return NextResponse.json(getServerUsageSummary(apiKey.id));
+        return NextResponse.json(await getServerUsageSummary(apiKey.userId));
       }
     }
 

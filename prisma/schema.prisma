@@ -1,0 +1,224 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: [REDACTED-URL]
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ====== Users & Auth ======
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  name         String?
+
+  // Puter integration (hidden from user)
+  puterUid    String? @unique
+  puterStatus String  @default("pending") // pending | active | failed
+
+  // Relations
+  apiKey         ApiKey?
+  wallet         Wallet?
+  subscriptions  Subscription[]
+  packages       UserPackage[]
+  usageRecords   UsageRecord[]
+  billingRecords BillingRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ====== API Keys ======
+
+model ApiKey {
+  id     String  @id @default(cuid())
+  key    String  @unique
+  name   String
+  userId String  @unique
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  isActive    Boolean   @default(true)
+  usageCount  Int       @default(0)
+  totalTokens Int       @default(0)
+  lastUsed    DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+// ====== Wallet ======
+
+model Wallet {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  balance   Decimal @default(0) // IDR
+  updatedAt DateTime @updatedAt
+}
+
+// ====== Plans ======
+
+model Plan {
+  id            String @id @default(cuid())
+  name          String
+  description   String?
+  type          String // "subscription" | "package"
+  backend       String // "puter" | "aggregator"
+  billingPeriod String // "daily" | "weekly" | "monthly" | "yearly"
+  price         Decimal // IDR
+
+  // Quota limits
+  maxTokensPerPeriod Int
+  maxRequestsPerDay  Int
+
+  // Access control
+  allowedModels    String[] // empty = all
+  allowedProviders String[] // empty = all
+  streaming        Boolean  @default(true)
+  imageGeneration  Boolean  @default(false)
+  apiAccess        Boolean  @default(true)
+  priority         String   @default("normal") // low | normal | high
+
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  subscriptions Subscription[]
+  packages      UserPackage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ====== Subscriptions ======
+
+model Subscription {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId String
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  status     String   @default("active") // active | expired | cancelled
+  tokensUsed Int      @default(0)
+  startDate  DateTime @default(now())
+  endDate    DateTime
+  autoRenew  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+// ====== User Packages ======
+
+model UserPackage {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId String
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  status          String   @default("active") // active | expired | depleted
+  tokensRemaining Int
+  tokensTotal     Int
+  expiresAt       DateTime
+
+  billingId String?
+
+  createdAt DateTime @default(now())
+}
+
+// ====== Usage Records ======
+
+model UsageRecord {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  model    String
+  provider String?
+  source   String // "puter" | "aggregator"
+
+  promptTokens     Int @default(0)
+  completionTokens Int @default(0)
+  totalTokens      Int @default(0)
+
+  cost     Decimal?
+  endpoint String
+
+  createdAt DateTime @default(now())
+}
+
+// ====== Billing Records ======
+
+model BillingRecord {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type   String // "topup" | "package_purchase" | "subscription"
+  amount Decimal // IDR
+  status String  @default("pending") // pending | paid | failed | expired
+
+  midtransOrderId String? @unique
+  midtransToken   String?
+  midtransUrl     String?
+
+  planId      String?
+  description String?
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// ====== App Models (sold in app) ======
+
+model AppModel {
+  id        String @id @default(cuid())
+  modelId   String @unique
+  name      String
+  provider  String
+  source    String // "puter" | "aggregator"
+  category  String // chat | reasoning | coding | fast | image
+  contextWindow Int @default(0)
+
+  // Pricing
+  costPer1kPrompt     Decimal?
+  costPer1kCompletion Decimal?
+  markupPercent       Decimal  @default(0)
+  sellPricePer1kPrompt     Decimal?
+  sellPricePer1kCompletion Decimal?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ====== Aggregator Config ======
+
+model AggregatorConfig {
+  id        String  @id @default(cuid())
+  name      String
+  baseUrl   String
+  apiKeyEnc String // encrypted
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ====== Puter Limits ======
+
+model PuterLimit {
+  id                   String @id @default(cuid())
+  freeRequestsPerMonth Int
+  freeTokensPerMonth   Int
+  appMaxRequestsPerDay Int
+  appMaxTokensPerMonth Int
+
+  updatedAt DateTime @updatedAt
+}

@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { getAdminStats } = await import("@/lib/server-store");
-    const stats = getAdminStats();
+    const stats = await getAdminStats();
     return NextResponse.json(stats);
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });

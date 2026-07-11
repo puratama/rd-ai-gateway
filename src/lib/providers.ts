@@ -5,32 +5,52 @@ export interface ProviderConfig {
   label: string;
   baseUrl: string;
   apiKeyEnv: string;
-  models: string[];        // Models this provider can serve directly
-  modelPrefixes: string[]; // Model ID prefixes to identify supported models
-  priority: number;        // Lower = tried first
+  models: string[];
+  modelPrefixes: string[];
+  priority: number;
 }
 
-// All configured providers
+// Load aggregator config from DB (async)
+async function getAggregatorProvider(): Promise<ProviderConfig | null> {
+  try {
+    const { getAggregatorConfig } = await import("./server-store");
+    const config = await getAggregatorConfig();
+    if (!config || !config.isActive) return null;
+    const apiKey = process.env.AGGREGATOR_API_KEY || "";
+    if (!apiKey) return null;
+    return {
+      name: config.name.toLowerCase().replace(/\s+/g, "-"),
+      label: config.name,
+      baseUrl: config.baseUrl,
+      apiKeyEnv: "AGGREGATOR_API_KEY",
+      models: [],
+      modelPrefixes: [],
+      priority: -1,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Sync — static providers only (no DB lookup)
 export function getProviders(): ProviderConfig[] {
   const providers: ProviderConfig[] = [];
 
-  // Puter is always available (primary aggregator)
   providers.push({
     name: "puter",
     label: "Puter",
-    baseUrl: "https://api.puter.com/puterai/openai/v1",
+    baseUrl: "[REDACTED-URL]",
     apiKeyEnv: "PUTER_AUTH_TOKEN",
-    models: [], // Puter supports ALL models via its aggregation
-    modelPrefixes: [], // Puter supports everything
+    models: [],
+    modelPrefixes: [],
     priority: 0,
   });
 
-  // OpenAI (direct fallback)
   if (process.env.OPENAI_API_KEY) {
     providers.push({
       name: "openai",
       label: "OpenAI",
-      baseUrl: "https://api.openai.com/v1",
+      baseUrl: "[REDACTED-URL]",
       apiKeyEnv: "OPENAI_API_KEY",
       models: ["gpt-4o", "gpt-4o-mini", "gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-mini", "o3", "o3-mini", "gpt-5"],
       modelPrefixes: ["gpt-", "o1", "o3", "dall-e", "tts-", "whisper-"],
@@ -38,12 +58,11 @@ export function getProviders(): ProviderConfig[] {
     });
   }
 
-  // DeepSeek (direct fallback, OpenAI-compatible)
   if (process.env.DEEPSEEK_API_KEY) {
     providers.push({
       name: "deepseek",
       label: "DeepSeek",
-      baseUrl: "https://api.deepseek.com/v1",
+      baseUrl: "[REDACTED-URL]",
       apiKeyEnv: "DEEPSEEK_API_KEY",
       models: ["deepseek-chat", "deepseek-reasoner", "deepseek-v4-pro"],
       modelPrefixes: ["deepseek-"],
@@ -51,12 +70,11 @@ export function getProviders(): ProviderConfig[] {
     });
   }
 
-  // Anthropic (via OpenAI compatibility layer)
   if (process.env.ANTHROPIC_API_KEY) {
     providers.push({
       name: "anthropic",
       label: "Anthropic",
-      baseUrl: "https://api.anthropic.com/v1",
+      baseUrl: "[REDACTED-URL]",
       apiKeyEnv: "ANTHROPIC_API_KEY",
       models: ["claude-sonnet-4", "claude-haiku-3.5", "claude-opus-4", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
       modelPrefixes: ["claude-"],
@@ -67,18 +85,36 @@ export function getProviders(): ProviderConfig[] {
   return providers;
 }
 
-// Find which providers support a given model
+// Async — includes DB aggregator at highest priority
+export async function getProvidersAsync(): Promise<ProviderConfig[]> {
+  const providers = getProviders();
+  const aggregator = await getAggregatorProvider();
+  if (aggregator) providers.unshift(aggregator);
+  return providers;
+}
+
+// Find providers for model (sync — no DB aggregator)
 export function findProvidersForModel(modelId: string): ProviderConfig[] {
   const providers = getProviders();
   const id = modelId.toLowerCase();
 
   return providers.filter((p) => {
-    // Exact match
     if (p.models.some((m) => m.toLowerCase() === id)) return true;
-    // Prefix match
     if (p.modelPrefixes.some((prefix) => id.startsWith(prefix))) return true;
-    // Puter supports everything
     if (p.name === "puter") return true;
+    return false;
+  });
+}
+
+// Find providers for model (async — includes DB aggregator)
+export async function findProvidersForModelAsync(modelId: string): Promise<ProviderConfig[]> {
+  const providers = await getProvidersAsync();
+  const id = modelId.toLowerCase();
+
+  return providers.filter((p) => {
+    if (p.models.some((m) => m.toLowerCase() === id)) return true;
+    if (p.modelPrefixes.some((prefix) => id.startsWith(prefix))) return true;
+    if (p.name === "puter" || p.apiKeyEnv === "AGGREGATOR_API_KEY") return true;
     return false;
   });
 }
@@ -90,20 +126,17 @@ export function getProviderApiKey(provider: ProviderConfig): string | null {
 
 // Check if provider is configured (has API key)
 export function isProviderConfigured(provider: ProviderConfig): boolean {
-  if (provider.name === "puter") return true; // Puter is always configured
+  if (provider.name === "puter") return true;
   return !!process.env[provider.apiKeyEnv];
 }
 
 // Get all models across all providers (for model listing)
 export function getAllProviderModels(): { id: string; provider: string; context?: number }[] {
   const models: { id: string; provider: string; context?: number }[] = [];
-
-  // Puter models are fetched live from API, so we don't add static list here
-  // But we add direct provider models as fallback
   const providers = getProviders();
 
   for (const p of providers) {
-    if (p.name === "puter") continue; // Skip Puter, fetched live
+    if (p.name === "puter") continue;
     for (const modelId of p.models) {
       models.push({
         id: modelId,
@@ -133,15 +166,13 @@ function getDefaultContext(modelId: string): number | undefined {
 // Error classification for fallback decisions
 export function shouldFallback(error: unknown): boolean {
   if (!error) return false;
-  const msg = String(error.message || error).toLowerCase();
-  // Don't fallback on auth errors or bad requests
+  const msg = String(error instanceof Error ? error.message : error).toLowerCase();
   if (msg.includes("401") || msg.includes("unauthorized") || msg.includes("invalid api key")) return false;
   if (msg.includes("400") || msg.includes("bad request")) return false;
-  // Fallback on network/server errors
   if (msg.includes("fetch failed") || msg.includes("network") || msg.includes("econnrefused")) return true;
   if (msg.includes("500") || msg.includes("502") || msg.includes("503") || msg.includes("service unavailable")) return true;
   if (msg.includes("timeout") || msg.includes("timed out")) return true;
   if (msg.includes("429") || msg.includes("rate limit")) return true;
-  if (msg.includes("404")) return true; // Model might not be available on this provider
-  return true; // Fallback on unknown errors
+  if (msg.includes("404")) return true;
+  return true;
 }

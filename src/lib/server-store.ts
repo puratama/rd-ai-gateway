@@ -1,183 +1,19 @@
-import fs from "fs";
-import path from "path";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-const KEYS_FILE = path.join(DATA_DIR, "api-keys.json");
-const USAGE_FILE = path.join(DATA_DIR, "usage-records.json");
-const PLANS_FILE = path.join(DATA_DIR, "membership-plans.json");
-const SUBS_FILE = path.join(DATA_DIR, "subscriptions.json");
-const BILLING_FILE = path.join(DATA_DIR, "billing-records.json");
-
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-function readJSON(filePath: string): unknown[] {
-  try {
-    ensureDataDir();
-    if (!fs.existsSync(filePath)) return [];
-    const data = fs.readFileSync(filePath, "utf-8");
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
-
-function writeJSON(filePath: string, data: unknown[]) {
-  try {
-    ensureDataDir();
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-  } catch (e) {
-    console.error("Failed to write", filePath, e);
-  }
-}
-
-export function generateId(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
-
-// ====== API Keys ======
-
-export interface ServerApiKey {
-  id: string;
-  key: string;
-  name: string;
-  createdAt: number;
-  lastUsed: number | null;
-  isActive: boolean;
-  usageCount: number;
-  totalTokens: number;
-}
-
-export function loadServerKeys(): ServerApiKey[] {
-  return readJSON(KEYS_FILE);
-}
-
-export function saveServerKeys(keys: ServerApiKey[]) {
-  writeJSON(KEYS_FILE, keys);
-}
-
-export function validateServerKey(key: string): ServerApiKey | null {
-  const keys = loadServerKeys();
-  const found = keys.find((k) => k.key === key);
-  if (!found || !found.isActive) return null;
-  return found;
-}
-
-export function createServerKey(name: string): ServerApiKey {
-  const keys = loadServerKeys();
-  const newKey: ServerApiKey = {
-    id: generateId(),
-    key: `xpgw_${generateId()}${generateId().slice(0, 16)}`,
-    name,
-    createdAt: Date.now(),
-    lastUsed: null,
-    isActive: true,
-    usageCount: 0,
-    totalTokens: 0,
-  };
-  keys.push(newKey);
-  saveServerKeys(keys);
-  return newKey;
-}
-
-export function revokeServerKey(id: string): boolean {
-  const keys = loadServerKeys();
-  const index = keys.findIndex((k) => k.id === id);
-  if (index === -1) return false;
-  keys[index].isActive = false;
-  saveServerKeys(keys);
-  return true;
-}
-
-export function deleteServerKey(id: string): boolean {
-  const keys = loadServerKeys();
-  const filtered = keys.filter((k) => k.id !== id);
-  if (filtered.length === keys.length) return false;
-  saveServerKeys(filtered);
-  return true;
-}
-
-export function updateServerKeyUsage(keyId: string, tokens: number) {
-  const keys = loadServerKeys();
-  const index = keys.findIndex((k) => k.id === keyId);
-  if (index === -1) return;
-  keys[index].usageCount++;
-  keys[index].totalTokens += tokens;
-  keys[index].lastUsed = Date.now();
-  saveServerKeys(keys);
-}
-
-// ====== Usage Records ======
-
-export interface ServerUsageRecord {
-  id: string;
-  apiKeyId: string;
-  model: string;
-  provider?: string;
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  timestamp: number;
-  endpoint: string;
-}
-
-export function loadServerUsageRecords(): ServerUsageRecord[] {
-  return readJSON(USAGE_FILE);
-}
-
-export function addServerUsageRecord(record: ServerUsageRecord) {
-  const records = loadServerUsageRecords();
-  records.push(record);
-  if (records.length > 10000) {
-    records.splice(0, records.length - 10000);
-  }
-  writeJSON(USAGE_FILE, records);
-}
-
-export function getServerUsageSummary(apiKeyId: string) {
-  const records = loadServerUsageRecords().filter((r) => r.apiKeyId === apiKeyId);
-  const modelBreakdown: Record<string, number> = {};
-  const dailyUsage: Record<string, number> = {};
-
-  let totalPromptTokens = 0;
-  let totalCompletionTokens = 0;
-
-  for (const record of records) {
-    modelBreakdown[record.model] = (modelBreakdown[record.model] || 0) + record.totalTokens;
-    const date = new Date(record.timestamp).toISOString().slice(0, 10);
-    dailyUsage[date] = (dailyUsage[date] || 0) + record.totalTokens;
-    totalPromptTokens += record.promptTokens || 0;
-    totalCompletionTokens += record.completionTokens || 0;
-  }
-
-  return {
-    totalRequests: records.length,
-    totalTokens: totalPromptTokens + totalCompletionTokens,
-    totalPromptTokens,
-    totalCompletionTokens,
-    modelBreakdown,
-    dailyUsage,
-    apiKeyId,
-  };
-}
-
-// ====== Membership Plans ======
+import { prisma } from "./db";
 
 export type BillingPeriod = "daily" | "weekly" | "monthly" | "yearly";
 
 export interface MembershipPlan {
   id: string;
   name: string;
-  description: string;
-  price: number; // in IDR
-  billingPeriod: BillingPeriod;
+  description?: string | null;
+  type: string;
+  backend: string;
+  billingPeriod: string;
+  price: number;
   features: {
     maxRequestsPerDay: number;
     maxTokensPerMonth: number;
-    allowedModels: string[]; // empty = all models
+    allowedModels: string[];
     allowedProviders: string[];
     streaming: boolean;
     imageGeneration: boolean;
@@ -190,347 +26,513 @@ export interface MembershipPlan {
   updatedAt: number;
 }
 
-const DEFAULT_PLANS: MembershipPlan[] = [
-  {
-    id: "free",
-    name: "Free",
-    description: "Coba AI Gateway gratis. 100 request per hari, model terbatas.",
-    price: 0,
-    billingPeriod: "monthly",
-    features: {
-      maxRequestsPerDay: 100,
-      maxTokensPerMonth: 100000,
-      allowedModels: ["gpt-4o-mini", "deepseek-chat", "gemini-2.5-flash", "claude-haiku-3.5"],
-      allowedProviders: ["puter"],
-      streaming: true,
-      imageGeneration: false,
-      apiAccess: true,
-      priority: "low",
-    },
-    isActive: true,
-    sortOrder: 0,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    description: "Untuk power user. 10K request per hari, akses semua model.",
-    price: 50000,
-    billingPeriod: "monthly",
-    features: {
-      maxRequestsPerDay: 10000,
-      maxTokensPerMonth: 5000000,
-      allowedModels: [],
-      allowedProviders: [],
-      streaming: true,
-      imageGeneration: true,
-      apiAccess: true,
-      priority: "normal",
-    },
-    isActive: true,
-    sortOrder: 1,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    description: "Unlimited requests, all models, priority support.",
-    price: 500000,
-    billingPeriod: "monthly",
-    features: {
-      maxRequestsPerDay: 100000,
-      maxTokensPerMonth: 50000000,
-      allowedModels: [],
-      allowedProviders: [],
-      streaming: true,
-      imageGeneration: true,
-      apiAccess: true,
-      priority: "high",
-    },
-    isActive: true,
-    sortOrder: 2,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-];
+export interface Subscription {
+  id: string;
+  userId: string;
+  planId: string;
+  status: string;
+  tokensUsed: number;
+  startDate: number;
+  endDate: number;
+  autoRenew: boolean;
+  createdAt: number;
+}
 
-let plansInitialized = false;
+export function generateId(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
 
-export function loadPlans(): MembershipPlan[] {
-  const plans = readJSON(PLANS_FILE) as MembershipPlan[];
-  if (plans.length === 0 && !plansInitialized) {
-    plansInitialized = true;
-    writeJSON(PLANS_FILE, DEFAULT_PLANS);
-    return DEFAULT_PLANS;
+// ====== API Keys ======
+
+export async function loadServerKeys() {
+  return prisma.apiKey.findMany({ include: { user: true } });
+}
+
+export async function validateServerKey(key: string) {
+  const apiKey = await prisma.apiKey.findUnique({
+    where: { key, isActive: true },
+    include: { user: { include: { wallet: true } } },
+  });
+  return apiKey;
+}
+
+export async function createServerKey(name: string, email?: string) {
+  const user = await prisma.user.create({
+    data: {
+      email: email || `${name}-${Date.now()}@generated.local`,
+      passwordHash: "generated",
+      name,
+      puterStatus: "pending",
+      wallet: { create: { balance: 0 } },
+      apiKey: {
+        create: {
+          key: `xpgw_${generateId()}${generateId().slice(0, 16)}`,
+          name,
+        },
+      },
+    },
+    include: { apiKey: true, wallet: true },
+  });
+  return user.apiKey!;
+}
+
+export async function revokeServerKey(id: string) {
+  try {
+    await prisma.apiKey.update({ where: { id }, data: { isActive: false } });
+    return true;
+  } catch {
+    return false;
   }
-  return plans;
 }
 
-export function savePlans(plans: MembershipPlan[]) {
-  writeJSON(PLANS_FILE, plans);
+export async function deleteServerKey(id: string) {
+  try {
+    await prisma.apiKey.delete({ where: { id } });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export function getPlan(id: string): MembershipPlan | null {
-  return loadPlans().find((p) => p.id === id) || null;
+export async function updateServerKeyUsage(keyId: string, tokens: number) {
+  await prisma.apiKey.update({
+    where: { id: keyId },
+    data: {
+      usageCount: { increment: 1 },
+      totalTokens: { increment: tokens },
+      lastUsed: new Date(),
+    },
+  });
 }
 
-export function createPlan(plan: Omit<MembershipPlan, "id" | "createdAt" | "updatedAt">): MembershipPlan {
-  const plans = loadPlans();
-  const newPlan: MembershipPlan = {
-    ...plan,
-    id: generateId(),
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  } as MembershipPlan;
-  plans.push(newPlan);
-  savePlans(plans);
-  return newPlan;
+// ====== Usage Records ======
+
+export async function loadServerUsageRecords() {
+  return prisma.usageRecord.findMany({ orderBy: { createdAt: "desc" }, take: 10000 });
 }
 
-export function updatePlan(id: string, updates: Partial<MembershipPlan>): MembershipPlan | null {
-  const plans = loadPlans();
-  const index = plans.findIndex((p) => p.id === id);
-  if (index === -1) return null;
-  plans[index] = { ...plans[index], ...updates, updatedAt: Date.now() };
-  savePlans(plans);
-  return plans[index];
+export async function addServerUsageRecord(record: {
+  userId: string;
+  model: string;
+  provider?: string;
+  source: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  endpoint: string;
+}) {
+  return prisma.usageRecord.create({ data: record });
 }
 
-export function deletePlan(id: string): boolean {
-  const plans = loadPlans();
-  const filtered = plans.filter((p) => p.id !== id);
-  if (filtered.length === plans.length) return false;
-  savePlans(filtered);
-  return true;
+export async function getServerUsageSummary(userId: string) {
+  const records = await prisma.usageRecord.findMany({ where: { userId } });
+  const modelBreakdown: Record<string, number> = {};
+  const dailyUsage: Record<string, number> = {};
+  let totalPromptTokens = 0;
+  let totalCompletionTokens = 0;
+
+  for (const record of records) {
+    modelBreakdown[record.model] = (modelBreakdown[record.model] || 0) + record.totalTokens;
+    const date = record.createdAt.toISOString().slice(0, 10);
+    dailyUsage[date] = (dailyUsage[date] || 0) + record.totalTokens;
+    totalPromptTokens += record.promptTokens;
+    totalCompletionTokens += record.completionTokens;
+  }
+
+  return {
+    totalRequests: records.length,
+    totalTokens: totalPromptTokens + totalCompletionTokens,
+    totalPromptTokens,
+    totalCompletionTokens,
+    modelBreakdown,
+    dailyUsage,
+    userId,
+  };
+}
+
+// ====== Plans ======
+
+function mapPlan(p: {
+  id: string;
+  name: string;
+  description?: string | null;
+  type: string;
+  backend: string;
+  billingPeriod: string;
+  price: unknown;
+  maxTokensPerPeriod: number;
+  maxRequestsPerDay: number;
+  allowedModels: string[];
+  allowedProviders: string[];
+  streaming: boolean;
+  imageGeneration: boolean;
+  apiAccess: boolean;
+  priority: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): MembershipPlan {
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description ?? null,
+    type: p.type,
+    backend: p.backend,
+    billingPeriod: p.billingPeriod,
+    price: Number(p.price),
+    features: {
+      maxRequestsPerDay: p.maxRequestsPerDay,
+      maxTokensPerMonth: p.maxTokensPerPeriod,
+      allowedModels: p.allowedModels,
+      allowedProviders: p.allowedProviders,
+      streaming: p.streaming,
+      imageGeneration: p.imageGeneration,
+      apiAccess: p.apiAccess,
+      priority: p.priority as "low" | "normal" | "high",
+    },
+    isActive: p.isActive,
+    sortOrder: p.sortOrder,
+    createdAt: p.createdAt.getTime(),
+    updatedAt: p.updatedAt.getTime(),
+  };
+}
+
+export async function loadPlans(): Promise<MembershipPlan[]> {
+  const plans = await prisma.plan.findMany({ orderBy: { sortOrder: "asc" } });
+  return plans.map(mapPlan);
+}
+
+export async function getPlan(id: string): Promise<MembershipPlan | null> {
+  const p = await prisma.plan.findUnique({ where: { id } });
+  return p ? mapPlan(p) : null;
+}
+
+export async function createPlan(data: {
+  name: string;
+  description?: string;
+  type: string;
+  backend: string;
+  billingPeriod: string;
+  price: number;
+  maxTokensPerPeriod: number;
+  maxRequestsPerDay: number;
+  allowedModels?: string[];
+  allowedProviders?: string[];
+  streaming?: boolean;
+  imageGeneration?: boolean;
+  apiAccess?: boolean;
+  priority?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}) {
+  return prisma.plan.create({ data });
+}
+
+export async function updatePlan(id: string, data: Record<string, unknown>) {
+  try {
+    return await prisma.plan.update({ where: { id }, data });
+  } catch {
+    return null;
+  }
+}
+
+export async function deletePlan(id: string) {
+  try {
+    await prisma.plan.delete({ where: { id } });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ====== Subscriptions ======
 
-export interface Subscription {
-  id: string;
-  apiKeyId: string;
-  planId: string;
-  status: "active" | "expired" | "cancelled" | "trial";
-  startDate: number;
-  endDate: number;
-  autoRenew: boolean;
-  // Usage tracking for current period
-  requestsToday: number;
-  tokensThisPeriod: number;
-  lastResetDate: number;
-  createdAt: number;
+export async function getSubscriptionsByUserId(userId: string) {
+  return prisma.subscription.findMany({
+    where: { userId },
+    include: { plan: true },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
-export function loadSubscriptions(): Subscription[] {
-  return readJSON(SUBS_FILE);
+export async function getActiveSubscription(userId: string) {
+  return prisma.subscription.findFirst({
+    where: { userId, status: "active", endDate: { gt: new Date() } },
+    include: { plan: true },
+  });
 }
 
-export function saveSubscriptions(subs: Subscription[]) {
-  writeJSON(SUBS_FILE, subs);
-}
-
-export function getSubscriptionByKey(apiKeyId: string): Subscription | null {
-  const subs = loadSubscriptions();
-  const sub = subs.find((s) => s.apiKeyId === apiKeyId);
-  if (!sub) return null;
-
-  // Check if expired
-  if (sub.status === "active" && sub.endDate < Date.now()) {
-    sub.status = "expired";
-    saveSubscriptions(subs);
-  }
-
-  // Reset daily counter if new day
-  const today = new Date().setHours(0, 0, 0, 0);
-  if (sub.lastResetDate < today) {
-    sub.requestsToday = 0;
-    sub.lastResetDate = today;
-    saveSubscriptions(subs);
-  }
-
-  return sub;
-}
-
-export function createSubscription(apiKeyId: string, planId: string, trialDays = 0): Subscription {
-  const subs = loadSubscriptions();
-  const plan = getPlan(planId);
+export async function createSubscription(userId: string, planId: string) {
+  const plan = await prisma.plan.findUnique({ where: { id: planId } });
   if (!plan) throw new Error("Plan not found");
 
-  const now = Date.now();
-  let endDate: number;
-
-  if (trialDays > 0) {
-    endDate = now + trialDays * 86400000;
-  } else {
-    endDate = calcEndDate(plan.billingPeriod, now);
+  const endDate = new Date();
+  switch (plan.billingPeriod) {
+    case "daily": endDate.setDate(endDate.getDate() + 1); break;
+    case "weekly": endDate.setDate(endDate.getDate() + 7); break;
+    case "monthly": endDate.setMonth(endDate.getMonth() + 1); break;
+    case "yearly": endDate.setFullYear(endDate.getFullYear() + 1); break;
   }
 
-  const sub: Subscription = {
-    id: generateId(),
-    apiKeyId,
-    planId,
-    status: trialDays > 0 ? "trial" : "active",
-    startDate: now,
-    endDate,
-    autoRenew: true,
-    requestsToday: 0,
-    tokensThisPeriod: 0,
-    lastResetDate: new Date().setHours(0, 0, 0, 0),
-    createdAt: now,
-  };
-
-  subs.push(sub);
-  saveSubscriptions(subs);
-  return sub;
+  return prisma.subscription.create({
+    data: { userId, planId, endDate },
+    include: { plan: true },
+  });
 }
 
-export function cancelSubscription(id: string): boolean {
-  const subs = loadSubscriptions();
-  const index = subs.findIndex((s) => s.id === id);
-  if (index === -1) return false;
-  subs[index].status = "cancelled";
-  saveSubscriptions(subs);
-  return true;
+// ====== User Packages ======
+
+export async function getActivePackages(userId: string) {
+  return prisma.userPackage.findMany({
+    where: { userId, status: "active", expiresAt: { gt: new Date() }, tokensRemaining: { gt: 0 } },
+    include: { plan: true },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
-export function extendSubscription(apiKeyId: string, planId: string, period: BillingPeriod): boolean {
-  const subs = loadSubscriptions();
-  const index = subs.findIndex((s) => s.apiKeyId === apiKeyId && s.planId === planId);
-  if (index === -1) return false;
-  subs[index].endDate = calcEndDate(period, subs[index].endDate);
-  subs[index].status = "active";
-  saveSubscriptions(subs);
-  return true;
+export async function createUserPackage(userId: string, planId: string, billingId?: string) {
+  const plan = await prisma.plan.findUnique({ where: { id: planId } });
+  if (!plan) throw new Error("Plan not found");
+
+  const expiresAt = new Date();
+  switch (plan.billingPeriod) {
+    case "daily": expiresAt.setDate(expiresAt.getDate() + 1); break;
+    case "weekly": expiresAt.setDate(expiresAt.getDate() + 7); break;
+    case "monthly": expiresAt.setMonth(expiresAt.getMonth() + 1); break;
+  }
+
+  return prisma.userPackage.create({
+    data: {
+      userId,
+      planId,
+      tokensRemaining: plan.maxTokensPerPeriod,
+      tokensTotal: plan.maxTokensPerPeriod,
+      expiresAt,
+      billingId,
+    },
+    include: { plan: true },
+  });
 }
 
-function calcEndDate(period: BillingPeriod, from: number): number {
+export async function decrementPackageTokens(packageId: string, tokens: number) {
+  return prisma.userPackage.update({
+    where: { id: packageId },
+    data: { tokensRemaining: { decrement: tokens } },
+  });
+}
+
+// ====== Wallet ======
+
+export async function getWallet(userId: string) {
+  return prisma.wallet.findUnique({ where: { userId } });
+}
+
+export async function topupWallet(userId: string, amount: number) {
+  return prisma.wallet.update({
+    where: { userId },
+    data: { balance: { increment: amount } },
+  });
+}
+
+export async function deductWallet(userId: string, amount: number) {
+  const wallet = await prisma.wallet.findUnique({ where: { userId } });
+  if (!wallet || Number(wallet.balance) < amount) return null;
+  return prisma.wallet.update({
+    where: { userId },
+    data: { balance: { decrement: amount } },
+  });
+}
+
+// ====== Billing ======
+
+export async function createBillingRecord(data: {
+  userId: string;
+  type: string;
+  amount: number;
+  status?: string;
+  midtransOrderId?: string;
+  planId?: string;
+  description?: string;
+}) {
+  return prisma.billingRecord.create({ data: { ...data, status: data.status || "pending" } });
+}
+
+export async function updateBillingStatus(orderId: string, status: string) {
+  return prisma.billingRecord.update({
+    where: { midtransOrderId: orderId },
+    data: { status, paidAt: status === "paid" ? new Date() : undefined },
+  });
+}
+
+export async function getBillingByOrderId(orderId: string) {
+  return prisma.billingRecord.findUnique({ where: { midtransOrderId: orderId } });
+}
+
+export const getBillingRecord = getBillingByOrderId;
+
+// ====== Subscriptions (backward-compat wrappers) ======
+
+export async function getSubscriptionByKey(apiKeyId: string) {
+  const apiKey = await prisma.apiKey.findUnique({ where: { id: apiKeyId } });
+  if (!apiKey) return null;
+  return prisma.subscription.findFirst({
+    where: { userId: apiKey.userId, status: "active", endDate: { gt: new Date() } },
+    include: { plan: true },
+  });
+}
+
+export async function loadSubscriptions() {
+  return prisma.subscription.findMany({ include: { plan: true } });
+}
+
+export async function cancelSubscription(id: string) {
+  try {
+    await prisma.subscription.update({ where: { id }, data: { status: "cancelled" } });
+    return true;
+  } catch { return false; }
+}
+
+export async function extendSubscription(userId: string, planId: string, period: BillingPeriod) {
+  const sub = await prisma.subscription.findFirst({
+    where: { userId, planId, status: "active" },
+    include: { plan: true },
+  });
+  if (!sub) return false;
+  const endDate = new Date(sub.endDate);
   switch (period) {
-    case "daily": return from + 86400000;
-    case "weekly": return from + 7 * 86400000;
-    case "monthly": return from + 30 * 86400000;
-    case "yearly": return from + 365 * 86400000;
+    case "daily": endDate.setDate(endDate.getDate() + 1); break;
+    case "weekly": endDate.setDate(endDate.getDate() + 7); break;
+    case "monthly": endDate.setMonth(endDate.getMonth() + 1); break;
+    case "yearly": endDate.setFullYear(endDate.getFullYear() + 1); break;
   }
+  await prisma.subscription.update({ where: { id: sub.id }, data: { endDate } });
+  return true;
 }
 
-// Check if an API key can make a request (rate limiting)
-export function checkRateLimit(apiKeyId: string): { allowed: boolean; reason?: string; plan?: MembershipPlan } {
-  const sub = getSubscriptionByKey(apiKeyId);
+// ====== Rate Limit & Model Access ======
+
+export async function checkRateLimit(apiKeyId: string): Promise<{ allowed: boolean; reason?: string; plan?: MembershipPlan }> {
+  const apiKey = await prisma.apiKey.findUnique({ where: { id: apiKeyId } });
+  if (!apiKey) return { allowed: false, reason: "API key not found" };
+
+  const sub = await prisma.subscription.findFirst({
+    where: { userId: apiKey.userId, status: "active", endDate: { gt: new Date() } },
+    include: { plan: true },
+  });
+
   if (!sub) {
-    // Default to Free plan
-    const freePlan = getPlan("free");
-    if (!freePlan) return { allowed: true };
-    return { allowed: true, plan: freePlan };
+    // No subscription → use free plan limits
+    const freePlan = await getPlan("free");
+    return { allowed: true, plan: freePlan ?? undefined };
   }
 
-  const plan = getPlan(sub.planId);
+  const plan = await getPlan(sub.planId);
   if (!plan) return { allowed: false, reason: "Plan not found" };
 
-  if (sub.status !== "active" && sub.status !== "trial") {
-    return { allowed: false, reason: `Subscription ${sub.status}`, plan };
-  }
+  // Check daily request limit via usage records
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayCount = await prisma.usageRecord.count({
+    where: { userId: apiKey.userId, createdAt: { gte: today } },
+  });
 
-  if (sub.requestsToday >= plan.features.maxRequestsPerDay) {
+  if (todayCount >= plan.features.maxRequestsPerDay) {
     return { allowed: false, reason: `Daily limit reached (${plan.features.maxRequestsPerDay})`, plan };
   }
 
   return { allowed: true, plan };
 }
 
-// Check if model is allowed for this key
-export function checkModelAccess(apiKeyId: string, modelId: string): boolean {
-  const sub = getSubscriptionByKey(apiKeyId);
+export async function checkModelAccess(apiKeyId: string, modelId: string): Promise<boolean> {
+  const apiKey = await prisma.apiKey.findUnique({ where: { id: apiKeyId } });
+  if (!apiKey) return false;
+
+  const sub = await prisma.subscription.findFirst({
+    where: { userId: apiKey.userId, status: "active", endDate: { gt: new Date() } },
+    include: { plan: true },
+  });
+
   if (!sub) {
-    const freePlan = getPlan("free");
+    const freePlan = await getPlan("free");
     if (!freePlan) return true;
     return freePlan.features.allowedModels.length === 0 || freePlan.features.allowedModels.includes(modelId);
   }
 
-  const plan = getPlan(sub.planId);
+  const plan = await getPlan(sub.planId);
   if (!plan) return false;
-  if (plan.features.allowedModels.length === 0) return true; // All models allowed
+  if (plan.features.allowedModels.length === 0) return true;
   return plan.features.allowedModels.includes(modelId);
 }
 
-// ====== Billing Records ======
+// ====== App Models ======
 
-export interface BillingRecord {
-  id: string;
-  apiKeyId: string;
-  planId: string;
-  amount: number; // in IDR
-  currency: "IDR";
-  status: "pending" | "completed" | "failed" | "refunded";
-  midtransOrderId: string;
-  billingPeriod: BillingPeriod;
-  description: string;
-  createdAt: number;
-  paidAt?: number;
+export async function loadAppModels() {
+  return prisma.appModel.findMany({ orderBy: [{ provider: "asc" }, { name: "asc" }] });
 }
 
-export function loadBillingRecords(): BillingRecord[] {
-  return readJSON(BILLING_FILE);
+export async function updateAppModel(id: string, data: Record<string, unknown>) {
+  return prisma.appModel.update({ where: { id }, data });
 }
 
-export function saveBillingRecords(records: BillingRecord[]) {
-  writeJSON(BILLING_FILE, records);
+export async function upsertAppModel(modelId: string, data: Record<string, unknown>) {
+  return prisma.appModel.upsert({
+    where: { modelId },
+    create: data as Parameters<typeof prisma.appModel.upsert>[0]["create"],
+    update: data,
+  });
 }
 
-export function createBillingRecord(record: Omit<BillingRecord, "id" | "createdAt">): BillingRecord {
-  const records = loadBillingRecords();
-  const newRecord: BillingRecord = {
-    ...record,
-    id: generateId(),
-    createdAt: Date.now(),
-  };
-  records.push(newRecord);
-  saveBillingRecords(records);
-  return newRecord;
+// ====== Aggregator Config ======
+
+export async function getAggregatorConfig() {
+  return prisma.aggregatorConfig.findFirst({ where: { isActive: true } });
 }
 
-export function updateBillingStatus(midtransOrderId: string, status: BillingRecord["status"], paidAt?: number): boolean {
-  const records = loadBillingRecords();
-  const index = records.findIndex((r) => r.midtransOrderId === midtransOrderId);
-  if (index === -1) return false;
-  records[index].status = status;
-  if (paidAt) records[index].paidAt = paidAt;
-  saveBillingRecords(records);
-  return true;
+export async function updateAggregatorConfig(data: Record<string, unknown>) {
+  const existing = await prisma.aggregatorConfig.findFirst({ where: { isActive: true } });
+  if (existing) {
+    return prisma.aggregatorConfig.update({ where: { id: existing.id }, data });
+  }
+  return prisma.aggregatorConfig.create({ data: data as Parameters<typeof prisma.aggregatorConfig.create>[0]["data"] });
 }
 
-export function getBillingRecord(midtransOrderId: string): BillingRecord | null {
-  return loadBillingRecords().find((r) => r.midtransOrderId === midtransOrderId) || null;
+// ====== Puter Limits ======
+
+export async function getPuterLimits() {
+  return prisma.puterLimit.findFirst({ orderBy: { updatedAt: "desc" } });
+}
+
+export async function updatePuterLimits(data: Record<string, unknown>) {
+  const existing = await prisma.puterLimit.findFirst();
+  if (existing) {
+    return prisma.puterLimit.update({ where: { id: existing.id }, data });
+  }
+  return prisma.puterLimit.create({ data: data as Parameters<typeof prisma.puterLimit.create>[0]["data"] });
 }
 
 // ====== Admin Stats ======
 
-export function getAdminStats() {
-  const keys = loadServerKeys();
-  const records = loadServerUsageRecords();
-  const subs = loadSubscriptions();
-  const plans = loadPlans();
-  const billing = loadBillingRecords();
+export async function getAdminStats() {
+  const keys = await prisma.apiKey.findMany();
+  const records = await prisma.usageRecord.findMany();
+  const subs = await prisma.subscription.findMany();
+  const plans = await prisma.plan.findMany();
+  const billing = await prisma.billingRecord.findMany();
 
-  // Active users (keys with usage)
   const activeKeys = keys.filter((k) => k.isActive);
   const usedKeys = activeKeys.filter((k) => k.usageCount > 0);
 
-  // Revenue
-  const completedPayments = billing.filter((b) => b.status === "completed");
-  const totalRevenue = completedPayments.reduce((sum, b) => sum + b.amount, 0);
+  const completedPayments = billing.filter((b) => b.status === "paid");
+  const totalRevenue = completedPayments.reduce((sum, b) => sum + Number(b.amount), 0);
   const pendingRevenue = billing
     .filter((b) => b.status === "pending")
-    .reduce((sum, b) => sum + b.amount, 0);
+    .reduce((sum, b) => sum + Number(b.amount), 0);
 
-  // Usage stats
-  const totalTokens = records.reduce((sum, r) => sum + (r.totalTokens || 0), 0);
+  const totalTokens = records.reduce((sum, r) => sum + r.totalTokens, 0);
   const today = new Date().toISOString().slice(0, 10);
-  const todayTokens = records
-    .filter((r) => new Date(r.timestamp).toISOString().slice(0, 10) === today)
-    .reduce((sum, r) => sum + (r.totalTokens || 0), 0);
+  const todayRecords = records.filter((r) => r.createdAt.toISOString().slice(0, 10) === today);
+  const todayTokens = todayRecords.reduce((sum, r) => sum + r.totalTokens, 0);
 
-  // Provider breakdown
   const providerUsage: Record<string, number> = {};
   records.forEach((r) => {
     if (r.provider) {
@@ -538,21 +540,19 @@ export function getAdminStats() {
     }
   });
 
-  // Daily usage for chart (last 30 days)
   const dailyUsage: Record<string, number> = {};
   for (let i = 29; i >= 0; i--) {
     const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
     dailyUsage[d] = 0;
   }
   records.forEach((r) => {
-    const d = new Date(r.timestamp).toISOString().slice(0, 10);
+    const d = r.createdAt.toISOString().slice(0, 10);
     if (dailyUsage[d] !== undefined) {
       dailyUsage[d] += r.totalTokens;
     }
   });
 
-  // Subscription stats
-  const activeSubs = subs.filter((s) => s.status === "active" || s.status === "trial");
+  const activeSubs = subs.filter((s) => s.status === "active");
   const subsByPlan: Record<string, number> = {};
   activeSubs.forEach((s) => {
     subsByPlan[s.planId] = (subsByPlan[s.planId] || 0) + 1;
@@ -566,9 +566,7 @@ export function getAdminStats() {
       totalRequests: records.length,
       totalTokens,
       todayTokens,
-      todayRequests: records.filter(
-        (r) => new Date(r.timestamp).toISOString().slice(0, 10) === today
-      ).length,
+      todayRequests: todayRecords.length,
     },
     revenue: {
       totalRevenue,
@@ -584,6 +582,6 @@ export function getAdminStats() {
     },
     providers: providerUsage,
     dailyUsage,
-    plans,
+    plans: plans.map(mapPlan),
   };
 }

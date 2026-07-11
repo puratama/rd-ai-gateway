@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       // Regular user can only see their own key info
       if (token) {
         const { validateServerKey } = await import("@/lib/server-store");
-        const apiKey = validateServerKey(token);
+        const apiKey = await validateServerKey(token);
         if (apiKey) {
           return NextResponse.json({
             keys: [{
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { loadServerKeys } = await import("@/lib/server-store");
-    const keys = loadServerKeys();
+    const keys = await loadServerKeys();
     return NextResponse.json({ keys });
   } catch (error: unknown) {
     return NextResponse.json(
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { createServerKey } = await import("@/lib/server-store");
-    const newKey = createServerKey(name);
+    const newKey = await createServerKey(name);
 
     return NextResponse.json({ key: newKey }, { status: 201 });
   } catch (error: unknown) {
@@ -92,7 +92,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { revokeServerKey, deleteServerKey } = await import("@/lib/server-store");
-    const success = action === "delete" ? deleteServerKey(id) : revokeServerKey(id);
+    const success = action === "delete" ? await deleteServerKey(id) : await revokeServerKey(id);
 
     if (!success) {
       return NextResponse.json({ error: "API key not found" }, { status: 404 });
