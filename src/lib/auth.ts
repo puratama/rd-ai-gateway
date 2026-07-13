@@ -1,14 +1,14 @@
-import { SignJWT, jwtVerify } from "jose";
+import { type JWTPayload, SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
 const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || process.env.AUTH_SALT || "xperimne-secret-fallback");
 const COOKIE_NAME = "xpgw_session";
 const EXPIRY = "7d";
 
-export interface SessionPayload {
+export interface SessionPayload extends JWTPayload {
   sub: string;    // user id
   email: string;
-  role: string;   // "user" | "superadmin"
+  role: "user" | "superadmin";
 }
 
 export async function createSession(payload: SessionPayload): Promise<string> {

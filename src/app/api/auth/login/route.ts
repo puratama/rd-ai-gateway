@@ -26,10 +26,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    await createSession({ sub: user.id, email: user.email, role: user.role });
+    const role = user.role === "superadmin" ? "superadmin" : "user";
+    await createSession({ sub: user.id, email: user.email, role });
 
     return NextResponse.json({
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role },
       apiKey: user.apiKey?.key,
       wallet: user.wallet ? { balance: Number(user.wallet.balance) } : null,
     });
