@@ -90,14 +90,10 @@ export async function POST(request: NextRequest) {
         plan,
       });
     } catch (midtransError: unknown) {
-      // Fallback: create subscription directly for development
-      const sub = createSubscription(apiKey.id, planId);
-      return NextResponse.json({
-        subscription: sub,
-        plan,
-        note: "Payment not configured. Subscription activated directly.",
-        devMode: true,
-      });
+      return NextResponse.json(
+        { error: "Payment gateway unavailable. Please try again later." },
+        { status: 502 }
+      );
     }
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
