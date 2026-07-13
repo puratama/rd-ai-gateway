@@ -1,5 +1,7 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { createTransaction } from "@/lib/midtrans";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +12,7 @@ export async function POST(request: NextRequest) {
 
     const apiKey = await prisma.apiKey.findUnique({
       where: { key: token, isActive: true },
-      include: { user: { include: { wallet: true } } },
+      include: { user: true },
     });
 
     if (!apiKey) {
@@ -18,20 +20,43 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount } = body;
+    const amount = Number(body.amount);
 
-    if (!amount || amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ error: "amount must be > 0" }, { status: 400 });
     }
 
-    const wallet = await prisma.wallet.update({
-      where: { userId: apiKey.userId },
-      data: { balance: { increment: amount } },
+    const orderId = `TOPUP-${randomUUID()}-${Date.now()}`;
+    const billing = await prisma.billingRecord.create({
+      data: {
+        userId: apiKey.userId,
+        type: "topup",
+        status: "pending",
+        amount,
+        midtransOrderId: orderId,
+        description: "Wallet topup",
+      },
+    });
+
+    const transaction = await createTransaction(orderId, amount, {
+      name: apiKey.user.name ?? undefined,
+      email: apiKey.user.email,
+    });
+
+    const updatedBilling = await prisma.billingRecord.update({
+      where: { id: billing.id },
+      data: {
+        midtransToken: transaction.token,
+        midtransUrl: transaction.redirect_url,
+      },
     });
 
     return NextResponse.json({
-      balance: Number(wallet.balance),
-      toppedUp: amount,
+      billing: updatedBilling,
+      transaction: {
+        token: transaction.token,
+        redirectUrl: transaction.redirect_url,
+      },
     });
   } catch (error: unknown) {
     return NextResponse.json(
