@@ -31,9 +31,27 @@ model User {
   packages       UserPackage[]
   usageRecords   UsageRecord[]
   billingRecords BillingRecord[]
+  conversations  Conversation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ====== Conversations ======
+
+model Conversation {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title    String
+  model    String
+  messages Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
 }
 
 // ====== API Keys ======

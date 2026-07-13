@@ -13,33 +13,36 @@ import { PanelLeftClose, PanelLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Message, Conversation } from "@/types";
 
-const STORAGE_KEY = "ai-gateway-conversations";
-
-function loadConversations(): Conversation[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+function getApiKey(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("xperimne-api-key") || "";
 }
 
-function saveConversations(conversations: Conversation[]) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
-  } catch {
-    // Storage full or unavailable
-  }
+function normalizeConv(raw: { id: string; title: string; model: string; messages: unknown; createdAt: string | number; updatedAt: string | number }): Conversation {
+  return {
+    id: raw.id,
+    title: raw.title,
+    model: raw.model,
+    messages: Array.isArray(raw.messages) ? (raw.messages as Message[]) : [],
+    createdAt: typeof raw.createdAt === "string" ? new Date(raw.createdAt).getTime() : raw.createdAt,
+    updatedAt: typeof raw.updatedAt === "string" ? new Date(raw.updatedAt).getTime() : raw.updatedAt,
+  };
+}
+
+async function apiFetch(path: string, init?: RequestInit) {
+  const key = getApiKey();
+  if (!key) return null;
+  const res = await fetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, ...(init?.headers || {}) },
+  });
+  if (!res.ok) return null;
+  return res.json();
 }
 
 export default function DashboardPage() {
-  const [conversations, setConversations] = useState<Conversation[]>(loadConversations);
-  const [activeId, setActiveId] = useState<string | null>(() => {
-    const initial = loadConversations();
-    return initial.length > 0 ? initial[0].id : null;
-  });
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedModel, setSelectedModel] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -47,6 +50,18 @@ export default function DashboardPage() {
   const [puterReady, setPuterReady] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<Message[]>([]);
+  const suppressSave = useRef(true);
+
+  useEffect(() => {
+    apiFetch("/api/conversations").then((data) => {
+      if (Array.isArray(data)) {
+        const convs = data.map(normalizeConv);
+        setConversations(convs);
+        if (convs.length > 0) setActiveId(convs[0].id);
+      }
+      suppressSave.current = false;
+    });
+  }, []);
 
   const activeConversation = conversations.find((c) => c.id === activeId) || null;
 
@@ -57,12 +72,6 @@ export default function DashboardPage() {
   useEffect(() => {
     messagesRef.current = getCurrentMessages();
   });
-
-  useEffect(() => {
-    if (conversations.length > 0) {
-      saveConversations(conversations);
-    }
-  }, [conversations]);
 
   useEffect(() => {
     async function init() {
@@ -95,6 +104,11 @@ export default function DashboardPage() {
     setStreamingContent("");
     setIsStreaming(false);
 
+    apiFetch("/api/conversations", {
+      method: "POST",
+      body: JSON.stringify({ id, title: newConv.title, model: selectedModel, messages: [] }),
+    });
+
     recordEvent({
       type: "conversation_created",
       timestamp: now,
@@ -108,6 +122,14 @@ export default function DashboardPage() {
       setConversations((prev) =>
         prev.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c))
       );
+
+      const body: Record<string, unknown> = {};
+      if (updates.title !== undefined) body.title = updates.title;
+      if (updates.messages !== undefined) body.messages = updates.messages;
+      if (updates.model !== undefined) body.model = updates.model;
+      if (Object.keys(body).length > 0) {
+        apiFetch(`/api/conversations/${id}`, { method: "PUT", body: JSON.stringify(body) });
+      }
     },
     []
   );
@@ -115,6 +137,8 @@ export default function DashboardPage() {
   const deleteConversation = useCallback((id: string) => {
     setConversations((prev) => prev.filter((c) => c.id !== id));
     setActiveId((prev) => (prev === id ? null : prev));
+
+    apiFetch(`/api/conversations/${id}`, { method: "DELETE" });
 
     recordEvent({
       type: "conversation_deleted",

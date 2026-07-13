@@ -1,16 +1,43 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { Grid3X3, Search, RefreshCw, Database, Filter } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-const providers = [
-  { name: "OpenAI", models: "GPT-4, GPT-4o, o3, o4-mini, GPT-5" },
-  { name: "Anthropic", models: "Claude 3.5, Claude 4, Claude Opus" },
-  { name: "Google", models: "Gemini 2.0, Gemini 2.5 Pro/Flash" },
-  { name: "DeepSeek", models: "DeepSeek-V3, DeepSeek-R1" },
-  { name: "Mistral", models: "Mistral Large, Small, Nemo" },
-  { name: "xAI", models: "Grok-2, Grok-3" },
-  { name: "Meta", models: "Llama 3, Llama 4" },
-  { name: "Together", models: "Open-source models hosting" },
-  { name: "Replicate", models: "Community & fine-tuned models" },
+interface ModelFromAPI {
+  id: string;
+  name: string;
+  provider: string;
+  context?: number;
+}
+
+interface ProviderGroup {
+  name: string;
+  models: string;
+}
+
+function groupByProvider(models: ModelFromAPI[]): ProviderGroup[] {
+  const map = new Map<string, string[]>();
+  for (const m of models) {
+    const existing = map.get(m.provider) || [];
+    existing.push(m.name);
+    map.set(m.provider, existing);
+  }
+  return Array.from(map.entries())
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([name, list]) => ({
+      name,
+      models: list.slice(0, 5).join(", ") + (list.length > 5 ? ` +${list.length - 5} more` : ""),
+    }));
+}
+
+const FALLBACK_PROVIDERS: ProviderGroup[] = [
+  { name: "OpenAI", models: "GPT-4o, GPT-4o Mini, o3, GPT-5" },
+  { name: "Anthropic", models: "Claude Sonnet 4, Claude Haiku 3.5, Claude Opus 4" },
+  { name: "Google", models: "Gemini 2.0 Flash, Gemini 2.5 Pro" },
+  { name: "DeepSeek", models: "DeepSeek V3, DeepSeek R1" },
+  { name: "Meta", models: "Llama 3.3 70B" },
+  { name: "Mistral", models: "Mistral Large" },
 ];
 
 const selectorTips = [
@@ -29,6 +56,20 @@ const recommendations = [
 ];
 
 export default function ModelsPage() {
+  const [providers, setProviders] = useState<ProviderGroup[]>(FALLBACK_PROVIDERS);
+
+  useEffect(() => {
+    fetch("/api/v1/models")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.data && Array.isArray(data.data)) {
+          const grouped = groupByProvider(data.data);
+          if (grouped.length > 0) setProviders(grouped);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div>
       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium mb-4">
