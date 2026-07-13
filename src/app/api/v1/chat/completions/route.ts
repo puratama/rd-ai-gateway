@@ -168,12 +168,28 @@ export async function POST(request: NextRequest) {
               const pkgId = (request as unknown as Record<string, unknown>)._quotaPackageId;
               if (typeof pkgId === "string") {
                 const { prisma } = await import("@/lib/db");
-                await prisma.userPackage.update({
+                const updatedPackage = await prisma.userPackage.update({
                   where: { id: pkgId },
                   data: {
                     tokensRemaining: { decrement: promptTokens + completionTokens },
                   },
-                }).catch(() => {});
+                }).catch(() => null);
+
+                if (
+                  userId &&
+                  updatedPackage &&
+                  updatedPackage.tokensTotal > 0 &&
+                  updatedPackage.tokensRemaining < updatedPackage.tokensTotal * 0.2
+                ) {
+                  const percent = Math.round(
+                    ((updatedPackage.tokensTotal - updatedPackage.tokensRemaining) /
+                      updatedPackage.tokensTotal) *
+                      100
+                  );
+                  void import("@/lib/notifications")
+                    .then(({ notifyUsageAlert }) => notifyUsageAlert(userId, percent))
+                    .catch(() => {});
+                }
               }
             } catch {
               // Non-critical
@@ -226,12 +242,26 @@ export async function POST(request: NextRequest) {
         const pkgId = (request as unknown as Record<string, unknown>)._quotaPackageId;
         if (typeof pkgId === "string") {
           const { prisma } = await import("@/lib/db");
-          await prisma.userPackage.update({
+          const updatedPackage = await prisma.userPackage.update({
             where: { id: pkgId },
             data: {
               tokensRemaining: { decrement: promptTokens + completionTokens },
             },
-          }).catch(() => {});
+          }).catch(() => null);
+
+          if (
+            userId &&
+            updatedPackage &&
+            updatedPackage.tokensTotal > 0 &&
+            updatedPackage.tokensRemaining < updatedPackage.tokensTotal * 0.2
+          ) {
+            const percent = Math.round(
+              ((updatedPackage.tokensTotal - updatedPackage.tokensRemaining) / updatedPackage.tokensTotal) * 100
+            );
+            void import("@/lib/notifications")
+              .then(({ notifyUsageAlert }) => notifyUsageAlert(userId, percent))
+              .catch(() => {});
+          }
         }
       } catch {
         // Non-critical

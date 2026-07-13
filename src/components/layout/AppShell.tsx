@@ -16,6 +16,7 @@ import {
   X,
   Wallet,
 } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -203,6 +204,9 @@ export default function AppShell({ children, variant = "user" }: AppShellProps) 
             </div>
             <span className="text-sm font-semibold">{logoLabel}</span>
           </Link>
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </header>
 
         {/* Content area */}
