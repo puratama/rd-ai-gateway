@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --color-primary: oklch(0.55 0.22 280);
+  --color-primary-foreground: oklch(1 0 0);
+  --color-secondary: oklch(0.55 0.2 270);
+  --color-secondary-foreground: oklch(1 0 0);
+  --color-accent: oklch(0.65 0.22 350);
+  --color-accent-foreground: oklch(1 0 0);
+  --color-background: oklch(0.1 0.01 280);
+  --color-foreground: oklch(0.98 0 0);
+  --color-muted: oklch(0.18 0.01 280);
+  --color-muted-foreground: oklch(0.65 0.02 280);
+  --color-card: oklch(0.14 0.01 280);
+  --color-card-foreground: oklch(0.98 0 0);
+  --color-border: oklch(0.22 0.01 280);
+  --color-input: oklch(0.22 0.01 280);
+  --color-ring: oklch(0.55 0.22 280);
+  --color-destructive: oklch(0.55 0.22 25);
+  --color-destructive-foreground: oklch(0.98 0 0);
+  --color-popover: oklch(0.14 0.01 280);
+  --color-popover-foreground: oklch(0.98 0 0);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

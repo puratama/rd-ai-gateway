@@ -1,308 +1,299 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { v4 as uuidv4 } from "uuid";
-import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
-import ChatArea from "@/components/ChatArea";
-import PromptInput from "@/components/PromptInput";
-import { chatStream, getModels } from "@/lib/puter";
-import { recordEvent } from "@/lib/analytics";
-import type { Message, Conversation } from "@/types";
+import Link from "next/link";
+import {
+  Zap,
+  Shield,
+  CreditCard,
+  Globe,
+  ArrowRight,
+  Check,
+  Sparkles,
+  Terminal,
+  BarChart3,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
-const STORAGE_KEY = "ai-gateway-conversations";
+const features = [
+  {
+    icon: Zap,
+    title: "500+ AI Models",
+    description: "Access GPT-4, Claude, Gemini, Llama, and hundreds more through a single API endpoint.",
+  },
+  {
+    icon: CreditCard,
+    title: "Pay-As-You-Go",
+    description: "No monthly commitments. Top up your wallet and only pay for what you use.",
+  },
+  {
+    icon: Shield,
+    title: "Unified API Key",
+    description: "One API key for all providers. No need to manage multiple accounts or keys.",
+  },
+  {
+    icon: Globe,
+    title: "Multi-Provider Failover",
+    description: "Automatic failover between providers ensures 99.9% uptime for your AI workloads.",
+  },
+];
 
-function loadConversations(): Conversation[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
+const stats = [
+  { value: "500+", label: "AI Models" },
+  { value: "99.9%", label: "Uptime" },
+  { value: "<100ms", label: "Latency" },
+  { value: "10K+", label: "Developers" },
+];
 
-function saveConversations(conversations: Conversation[]) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
-  } catch {
-    // Storage full or unavailable
-  }
-}
+const pricingTiers = [
+  {
+    name: "Starter",
+    price: "Free",
+    description: "For trying out the platform",
+    features: ["1,000 tokens/day", "Basic models", "Community support", "1 API key"],
+    cta: "Get Started",
+    popular: false,
+  },
+  {
+    name: "Pro",
+    price: "Rp 99K",
+    period: "/month",
+    description: "For serious developers",
+    features: ["1M tokens/month", "All models", "Priority support", "10 API keys", "Streaming", "Analytics"],
+    cta: "Start Pro",
+    popular: true,
+  },
+  {
+    name: "Enterprise",
+    price: "Custom",
+    description: "For teams and businesses",
+    features: ["Unlimited tokens", "Custom models", "Dedicated support", "Unlimited keys", "SLA", "On-prem option"],
+    cta: "Contact Sales",
+    popular: false,
+  },
+];
 
-export default function Home() {
-  const [conversations, setConversations] = useState<Conversation[]>(loadConversations);
-  const [activeId, setActiveId] = useState<string | null>(() => {
-    const initial = loadConversations();
-    return initial.length > 0 ? initial[0].id : null;
-  });
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
-  const [puterReady, setPuterReady] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const messagesRef = useRef<Message[]>([]);
-
-  const activeConversation = conversations.find((c) => c.id === activeId) || null;
-
-  const getCurrentMessages = useCallback((): Message[] => {
-    return activeConversation?.messages || [];
-  }, [activeConversation]);
-
-  // Keep messagesRef in sync
-  useEffect(() => {
-    messagesRef.current = getCurrentMessages();
-  });
-
-  // Save conversations on change
-  useEffect(() => {
-    if (conversations.length > 0) {
-      saveConversations(conversations);
-    }
-  }, [conversations]);
-
-  // Load models and check Puter
-  useEffect(() => {
-    async function init() {
-      try {
-        const models = await getModels();
-        if (models.length > 0 && !selectedModel) {
-          setSelectedModel(models[0].id);
-        }
-        setPuterReady(true);
-      } catch {
-        // Puter not ready yet
-      }
-    }
-    init();
-  }, []);
-
-  const createNewConversation = useCallback(() => {
-    const id = uuidv4();
-    const now = Date.now();
-    const newConv: Conversation = {
-      id,
-      title: "New conversation",
-      messages: [],
-      model: selectedModel,
-      createdAt: now,
-      updatedAt: now,
-    };
-    setConversations((prev) => [newConv, ...prev]);
-    setActiveId(newConv.id);
-    setStreamingContent("");
-    setIsStreaming(false);
-
-    recordEvent({
-      type: "conversation_created",
-      timestamp: now,
-      model: selectedModel,
-      conversationId: id,
-    });
-  }, [selectedModel]);
-
-  const updateConversation = useCallback(
-    (id: string, updates: Partial<Conversation>) => {
-      setConversations((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c))
-      );
-    },
-    []
-  );
-
-  const deleteConversation = useCallback((id: string) => {
-    setConversations((prev) => prev.filter((c) => c.id !== id));
-    setActiveId((prev) => (prev === id ? null : prev));
-
-    recordEvent({
-      type: "conversation_deleted",
-      timestamp: Date.now(),
-      conversationId: id,
-    });
-  }, []);
-
-  const handleSend = useCallback(
-    async (content: string) => {
-      if (!selectedModel || isStreaming) return;
-
-      // Baca messages terbaru dari ref untuk menghindari stale closure
-      const currentMessages = messagesRef.current;
-
-      // Create conversation if none active
-      let convId = activeId;
-      if (!convId) {
-        const newConv: Conversation = {
-          id: uuidv4(),
-          title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
-          messages: [],
-          model: selectedModel,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        setConversations((prev) => [newConv, ...prev]);
-        setActiveId(newConv.id);
-        convId = newConv.id;
-      }
-
-      const msgTimestamp = Date.now();
-      const userMessage: Message = {
-        id: uuidv4(),
-        role: "user",
-        content,
-        timestamp: msgTimestamp,
-      };
-
-      // Record message sent event
-      recordEvent({
-        type: "message_sent",
-        timestamp: msgTimestamp,
-        model: selectedModel,
-        conversationId: convId,
-        messageLength: content.length,
-      });
-
-      // Add user message
-      const updatedMessages = [...currentMessages, userMessage];
-      updateConversation(convId, {
-        messages: updatedMessages,
-        title:
-          currentMessages.length === 0
-            ? content.slice(0, 50) + (content.length > 50 ? "..." : "")
-            : undefined,
-      });
-
-      // Siapkan messages untuk API
-      const apiMessages = updatedMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      // Buat AbortController untuk stream
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      setIsStreaming(true);
-      setStreamingContent("");
-
-      const assistantMessageId = uuidv4();
-
-      await chatStream(
-        apiMessages,
-        selectedModel,
-        {
-          onText: (text) => {
-            setStreamingContent((prev) => prev + text);
-          },
-          onDone: (fullText) => {
-            const respTimestamp = Date.now();
-            const assistantMessage: Message = {
-              id: assistantMessageId,
-              role: "assistant",
-              content: fullText,
-              timestamp: respTimestamp,
-            };
-
-            // Record message received event
-            recordEvent({
-              type: "message_received",
-              timestamp: respTimestamp,
-              model: selectedModel,
-              conversationId: convId,
-              messageLength: fullText.length,
-            });
-
-            // Gunakan setter function untuk menghindari stale closure
-            setConversations((prev) =>
-              prev.map((c) =>
-                c.id === convId
-                  ? {
-                      ...c,
-                      messages: [...c.messages, assistantMessage],
-                      updatedAt: respTimestamp,
-                    }
-                  : c
-              )
-            );
-            setStreamingContent("");
-            setIsStreaming(false);
-            abortControllerRef.current = null;
-          },
-          onError: (error) => {
-            const errorMessage: Message = {
-              id: assistantMessageId,
-              role: "assistant",
-              content: `Error: ${error.message}`,
-              timestamp: Date.now(),
-            };
-
-            setConversations((prev) =>
-              prev.map((c) =>
-                c.id === convId
-                  ? {
-                      ...c,
-                      messages: [...c.messages, errorMessage],
-                      updatedAt: Date.now(),
-                    }
-                  : c
-              )
-            );
-            setStreamingContent("");
-            setIsStreaming(false);
-            abortControllerRef.current = null;
-          },
-        },
-        abortController.signal
-      );
-    },
-    [selectedModel, isStreaming, activeId, updateConversation]
-  );
-
-  const handleStop = useCallback(() => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
-    setIsStreaming(false);
-    setStreamingContent("");
-  }, []);
-
-  const currentMessages = getCurrentMessages();
-
+export default function LandingPage() {
   return (
-    <div className="h-full flex flex-col bg-black">
-      <Navbar
-        sidebarCollapsed={sidebarCollapsed}
-        onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
-        selectedModel={selectedModel}
-        onModelSelect={setSelectedModel}
-      />
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Navigation */}
+      <nav className="fixed top-0 inset-x-0 z-50 h-16 bg-background/80 backdrop-blur-lg border-b border-border">
+        <div className="max-w-6xl mx-auto h-full flex items-center justify-between px-6">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <span className="text-lg font-bold">xPerimne</span>
+          </Link>
 
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar
-          conversations={conversations}
-          activeConversationId={activeId}
-          onSelect={setActiveId}
-          onNew={createNewConversation}
-          onDelete={deleteConversation}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-        />
+          <div className="hidden md:flex items-center gap-8">
+            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
+            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+            <Link href="/docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Docs</Link>
+          </div>
 
-        <main className="flex-1 flex flex-col bg-zinc-900/30">
-          <ChatArea
-            messages={currentMessages}
-            isStreaming={isStreaming}
-            streamingContent={streamingContent}
-          />
+          <div className="flex items-center gap-3">
+            <Link href="/login">
+              <Button variant="ghost" size="sm">Sign In</Button>
+            </Link>
+            <Link href="/register">
+              <Button size="sm">Get Started <ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+            </Link>
+          </div>
+        </div>
+      </nav>
 
-          <PromptInput
-            onSend={handleSend}
-            onStop={handleStop}
-            isStreaming={isStreaming}
-            disabled={!puterReady}
-          />
-        </main>
-      </div>
+      {/* Hero Section */}
+      <section className="pt-32 pb-20 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-6">
+            <Sparkles className="w-3.5 h-3.5" />
+            Now with GPT-4o, Claude 4, and Gemini 2.5
+          </div>
+
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight mb-6">
+            One API for{" "}
+            <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+              500+ AI Models
+            </span>
+          </h1>
+
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+            Stop juggling multiple API keys and providers. xPerimne gives you a single endpoint to access
+            every major AI model — with pay-as-you-go pricing and automatic failover.
+          </p>
+
+          <div className="flex items-center justify-center gap-4 mb-12">
+            <Link href="/register">
+              <Button size="lg" className="gap-2 text-base px-8">
+                Start Building <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+            <Link href="/docs">
+              <Button variant="outline" size="lg" className="gap-2 text-base px-8">
+                <Terminal className="w-4 h-4" /> View Docs
+              </Button>
+            </Link>
+          </div>
+
+          {/* Code snippet */}
+          <div className="max-w-xl mx-auto bg-card border border-border rounded-xl overflow-hidden text-left">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-muted/50">
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
+              </div>
+              <span className="text-xs text-muted-foreground font-mono ml-2">quickstart.ts</span>
+            </div>
+            <pre className="p-4 text-sm font-mono overflow-x-auto">
+              <code>
+                <span className="text-secondary">const</span> response = <span className="text-secondary">await</span> <span className="text-accent">fetch</span>(<span className="text-green-400">&quot;https://api.xperimne.com/v1/chat/completions&quot;</span>,{"\n"}
+                {"  "}{"{"}{"\n"}
+                {"    "}headers: {"{"} Authorization: <span className="text-green-400">`Bearer $&#123;API_KEY&#125;`</span> {"}"}{","}{"\n"}
+                {"    "}body: JSON.stringify({"{"}{"\n"}
+                {"      "}model: <span className="text-green-400">&quot;gpt-4o&quot;</span>,{"\n"}
+                {"      "}messages: [{"{"} role: <span className="text-green-400">&quot;user&quot;</span>, content: <span className="text-green-400">&quot;Hello!&quot;</span> {"}"}]{"\n"}
+                {"    "}{"}"}),{"\n"}
+                {"  "}{"}"}{"}"});{"\n"}
+              </code>
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats */}
+      <section className="py-16 border-y border-border bg-muted/30">
+        <div className="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
+          {stats.map((stat) => (
+            <div key={stat.label} className="text-center">
+              <div className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-1">
+                {stat.value}
+              </div>
+              <div className="text-sm text-muted-foreground">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Features */}
+      <section id="features" className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold mb-4">Everything you need</h2>
+            <p className="text-muted-foreground max-w-lg mx-auto">
+              A complete AI gateway built for developers who want simplicity without sacrificing power.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <Card key={feature.title} className="border-border bg-card hover:border-primary/30 transition-colors">
+                  <CardContent className="p-6">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                      <Icon className="w-5 h-5 text-primary" />
+                    </div>
+                    <h3 className="text-base font-semibold mb-2">{feature.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="py-24 px-6 bg-muted/30">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold mb-4">Simple, transparent pricing</h2>
+            <p className="text-muted-foreground max-w-lg mx-auto">
+              Start free, scale as you grow. No hidden fees, no surprises.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {pricingTiers.map((tier) => (
+              <Card
+                key={tier.name}
+                className={`border-border bg-card ${tier.popular ? "border-primary ring-1 ring-primary/20" : ""}`}
+              >
+                <CardContent className="p-6">
+                  {tier.popular && (
+                    <div className="text-xs font-medium text-primary mb-4">Most Popular</div>
+                  )}
+                  <h3 className="text-lg font-semibold mb-1">{tier.name}</h3>
+                  <p className="text-sm text-muted-foreground mb-4">{tier.description}</p>
+                  <div className="mb-6">
+                    <span className="text-3xl font-bold">{tier.price}</span>
+                    {tier.period && <span className="text-muted-foreground text-sm">{tier.period}</span>}
+                  </div>
+                  <ul className="space-y-2.5 mb-6">
+                    {tier.features.map((f) => (
+                      <li key={f} className="flex items-center gap-2 text-sm">
+                        <Check className="w-4 h-4 text-primary shrink-0" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/register" className="block">
+                    <Button
+                      className="w-full"
+                      variant={tier.popular ? "default" : "outline"}
+                    >
+                      {tier.cta}
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-24 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+            <BarChart3 className="w-7 h-7 text-primary" />
+          </div>
+          <h2 className="text-3xl font-bold mb-4">Ready to build?</h2>
+          <p className="text-muted-foreground mb-8 leading-relaxed">
+            Join thousands of developers using xPerimne to ship AI-powered products faster.
+          </p>
+          <Link href="/register">
+            <Button size="lg" className="gap-2 text-base px-8">
+              Create Free Account <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-12 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold">xPerimne</span>
+          </div>
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <Link href="/docs" className="hover:text-foreground transition-colors">Docs</Link>
+            <Link href="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
+            <a href="#" className="hover:text-foreground transition-colors">GitHub</a>
+            <a href="#" className="hover:text-foreground transition-colors">Twitter</a>
+          </div>
+          <p className="text-xs text-muted-foreground">&copy; 2025 xPerimne. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }

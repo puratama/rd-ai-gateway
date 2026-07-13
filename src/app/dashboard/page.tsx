@@ -1,0 +1,351 @@
+"use client";
+
+import { useState, useCallback, useEffect, useRef } from "react";
+import { v4 as uuidv4 } from "uuid";
+import AppShell from "@/components/layout/AppShell";
+import ChatArea from "@/components/ChatArea";
+import PromptInput from "@/components/PromptInput";
+import ModelSelector from "@/components/ModelSelector";
+import { chatStream, getModels } from "@/lib/puter";
+import { recordEvent } from "@/lib/analytics";
+import { cn } from "@/lib/utils";
+import { PanelLeftClose, PanelLeft, Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { Message, Conversation } from "@/types";
+
+const STORAGE_KEY = "ai-gateway-conversations";
+
+function loadConversations(): Conversation[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveConversations(conversations: Conversation[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
+export default function DashboardPage() {
+  const [conversations, setConversations] = useState<Conversation[]>(loadConversations);
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    const initial = loadConversations();
+    return initial.length > 0 ? initial[0].id : null;
+  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingContent, setStreamingContent] = useState("");
+  const [puterReady, setPuterReady] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const messagesRef = useRef<Message[]>([]);
+
+  const activeConversation = conversations.find((c) => c.id === activeId) || null;
+
+  const getCurrentMessages = useCallback((): Message[] => {
+    return activeConversation?.messages || [];
+  }, [activeConversation]);
+
+  useEffect(() => {
+    messagesRef.current = getCurrentMessages();
+  });
+
+  useEffect(() => {
+    if (conversations.length > 0) {
+      saveConversations(conversations);
+    }
+  }, [conversations]);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        const models = await getModels();
+        if (models.length > 0 && !selectedModel) {
+          setSelectedModel(models[0].id);
+        }
+        setPuterReady(true);
+      } catch {
+        // Puter not ready yet
+      }
+    }
+    init();
+  }, []);
+
+  const createNewConversation = useCallback(() => {
+    const id = uuidv4();
+    const now = Date.now();
+    const newConv: Conversation = {
+      id,
+      title: "New conversation",
+      messages: [],
+      model: selectedModel,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setConversations((prev) => [newConv, ...prev]);
+    setActiveId(newConv.id);
+    setStreamingContent("");
+    setIsStreaming(false);
+
+    recordEvent({
+      type: "conversation_created",
+      timestamp: now,
+      model: selectedModel,
+      conversationId: id,
+    });
+  }, [selectedModel]);
+
+  const updateConversation = useCallback(
+    (id: string, updates: Partial<Conversation>) => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c))
+      );
+    },
+    []
+  );
+
+  const deleteConversation = useCallback((id: string) => {
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    setActiveId((prev) => (prev === id ? null : prev));
+
+    recordEvent({
+      type: "conversation_deleted",
+      timestamp: Date.now(),
+      conversationId: id,
+    });
+  }, []);
+
+  const handleSend = useCallback(
+    async (content: string) => {
+      if (!selectedModel || isStreaming) return;
+
+      const currentMessages = messagesRef.current;
+
+      let convId = activeId;
+      if (!convId) {
+        const newConv: Conversation = {
+          id: uuidv4(),
+          title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
+          messages: [],
+          model: selectedModel,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        setConversations((prev) => [newConv, ...prev]);
+        setActiveId(newConv.id);
+        convId = newConv.id;
+      }
+
+      const msgTimestamp = Date.now();
+      const userMessage: Message = {
+        id: uuidv4(),
+        role: "user",
+        content,
+        timestamp: msgTimestamp,
+      };
+
+      recordEvent({
+        type: "message_sent",
+        timestamp: msgTimestamp,
+        model: selectedModel,
+        conversationId: convId,
+        messageLength: content.length,
+      });
+
+      const updatedMessages = [...currentMessages, userMessage];
+      updateConversation(convId, {
+        messages: updatedMessages,
+        title:
+          currentMessages.length === 0
+            ? content.slice(0, 50) + (content.length > 50 ? "..." : "")
+            : undefined,
+      });
+
+      const apiMessages = updatedMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      setIsStreaming(true);
+      setStreamingContent("");
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        let fullContent = "";
+        await chatStream(
+          apiMessages,
+          selectedModel,
+          {
+            onText: (chunk: string) => {
+              fullContent += chunk;
+              setStreamingContent(fullContent);
+            },
+            onDone: () => {},
+            onError: (err: Error) => {
+              throw err;
+            },
+          },
+          controller.signal
+        );
+
+        const assistantMessage: Message = {
+          id: uuidv4(),
+          role: "assistant",
+          content: fullContent,
+          timestamp: Date.now(),
+        };
+
+        const finalMessages = [...updatedMessages, assistantMessage];
+        updateConversation(convId, { messages: finalMessages });
+
+        recordEvent({
+          type: "message_received",
+          timestamp: Date.now(),
+          model: selectedModel,
+          conversationId: convId,
+          messageLength: fullContent.length,
+        });
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          const errorMessage: Message = {
+            id: uuidv4(),
+            role: "assistant",
+            content: "Sorry, something went wrong. Please try again.",
+            timestamp: Date.now(),
+          };
+          updateConversation(convId, {
+            messages: [...updatedMessages, errorMessage],
+          });
+        }
+      } finally {
+        setIsStreaming(false);
+        setStreamingContent("");
+        abortControllerRef.current = null;
+      }
+    },
+    [selectedModel, isStreaming, activeId, updateConversation]
+  );
+
+  const handleStop = useCallback(() => {
+    abortControllerRef.current?.abort();
+    setIsStreaming(false);
+    setStreamingContent("");
+  }, []);
+
+  const currentMessages = getCurrentMessages();
+
+  return (
+    <AppShell variant="user">
+      <div className="h-full flex">
+        {/* Chat sidebar */}
+        <aside
+          className={cn(
+            "h-full bg-card border-r border-border flex flex-col transition-all duration-200 shrink-0",
+            sidebarCollapsed ? "w-0 overflow-hidden" : "w-64"
+          )}
+        >
+          <div className="p-3 flex items-center justify-between border-b border-border">
+            {!sidebarCollapsed && (
+              <>
+                <Button size="sm" className="gap-2" onClick={createNewConversation}>
+                  <Plus className="w-4 h-4" /> New Chat
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setSidebarCollapsed(true)}>
+                  <PanelLeftClose className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+          </div>
+
+          {!sidebarCollapsed && (
+            <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+              {conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={cn(
+                    "group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors",
+                    conv.id === activeId
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                  onClick={() => setActiveId(conv.id)}
+                >
+                  <span className="text-sm truncate flex-1">
+                    {conv.title || "New conversation"}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteConversation(conv.id);
+                    }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </nav>
+          )}
+
+          {sidebarCollapsed && (
+            <div className="p-2 flex flex-col items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => setSidebarCollapsed(false)} className="w-8 h-8">
+                <PanelLeft className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={createNewConversation} className="w-8 h-8">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </aside>
+
+        {/* Chat content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Chat header */}
+          <header className="h-12 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0">
+            <div className="flex items-center gap-3">
+              {sidebarCollapsed && (
+                <Button variant="ghost" size="icon-sm" onClick={() => setSidebarCollapsed(false)}>
+                  <PanelLeft className="w-4 h-4" />
+                </Button>
+              )}
+              <span className="text-sm font-medium truncate">
+                {activeConversation?.title || "New Chat"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ModelSelector selectedModel={selectedModel} onSelect={setSelectedModel} />
+            </div>
+          </header>
+
+          {/* Messages area */}
+          <ChatArea
+            messages={currentMessages}
+            isStreaming={isStreaming}
+            streamingContent={streamingContent}
+          />
+
+          {/* Input */}
+          <PromptInput
+            onSend={handleSend}
+            onStop={handleStop}
+            isStreaming={isStreaming}
+            disabled={!puterReady}
+          />
+        </div>
+      </div>
+    </AppShell>
+  );
+}

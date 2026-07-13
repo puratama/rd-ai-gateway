@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
   LayoutDashboard,
   Key,
   CreditCard,
@@ -17,10 +16,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import AppShell from "@/components/layout/AppShell";
 
 interface AdminStats {
   overview: { totalKeys: number; activeKeys: number; usedKeys: number; totalRequests: number; totalTokens: number; todayTokens: number; todayRequests: number };
@@ -35,7 +34,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeSection, setActiveSection] = useState("overview");
   const [editingPlan, setEditingPlan] = useState<import("@/lib/server-store").MembershipPlan | null>(null);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
@@ -71,309 +70,328 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-background">
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <RefreshCw className="w-5 h-5 animate-spin" />
-          <span className="text-sm">Loading admin dashboard...</span>
+      <AppShell variant="admin">
+        <div className="h-full flex items-center justify-center">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            <span className="text-sm">Loading admin dashboard...</span>
+          </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden">
-      {/* Header */}
-      <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="p-2 hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
-              <LayoutDashboard className="w-4 h-4 text-white" />
-            </div>
-            <h1 className="text-base font-semibold">Admin Dashboard</h1>
+    <AppShell variant="admin">
+      <div className="h-full flex">
+        {/* Admin section sidebar */}
+        <aside className="w-52 border-r border-border bg-card/50 shrink-0 hidden md:flex flex-col p-3 space-y-1">
+          {[
+            { id: "overview", label: "Overview", icon: LayoutDashboard },
+            { id: "plans", label: "Plans", icon: CreditCard },
+            { id: "providers", label: "Providers", icon: Server },
+            { id: "settings", label: "Settings", icon: Settings },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors text-left",
+                  activeSection === item.id
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                {item.label}
+              </button>
+            );
+          })}
+
+          <div className="mt-auto pt-3 border-t border-border">
+            <Button variant="outline" size="sm" className="w-full" onClick={fetchStats}>
+              <RefreshCw className="w-3.5 h-3.5 mr-2" /> Refresh
+            </Button>
           </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={fetchStats}>
-          <RefreshCw className="w-3.5 h-3.5 mr-2" /> Refresh
-        </Button>
-      </header>
+        </aside>
 
-      {/* Tabs */}
-      <div className="flex-1 overflow-hidden p-0">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="mx-6 mt-4 w-fit">
-            <TabsTrigger value="overview" className="gap-1.5">
-              <LayoutDashboard className="w-3.5 h-3.5" /> Overview
-            </TabsTrigger>
-            <TabsTrigger value="plans" className="gap-1.5">
-              <CreditCard className="w-3.5 h-3.5" /> Plans
-            </TabsTrigger>
-            <TabsTrigger value="providers" className="gap-1.5">
-              <Server className="w-3.5 h-3.5" /> Providers
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-1.5">
-              <Settings className="w-3.5 h-3.5" /> Settings
-            </TabsTrigger>
-          </TabsList>
-
-          {error && (
-            <div className="mx-6 mt-4 bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive">
-              {error}
+        {/* Content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
+            <div className="flex items-center gap-3">
+              {/* Mobile section tabs */}
+              <div className="flex md:hidden gap-1">
+                {["overview", "plans", "providers", "settings"].map((section) => (
+                  <button
+                    key={section}
+                    onClick={() => setActiveSection(section)}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors capitalize",
+                      activeSection === section
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {section}
+                  </button>
+                ))}
+              </div>
+              <h2 className="text-base font-semibold capitalize hidden md:block">{activeSection}</h2>
             </div>
-          )}
+            {activeSection === "plans" && (
+              <Button size="sm" onClick={() => { setShowCreatePlan(true); setCreatingPlan(true); }}>
+                <Plus className="w-4 h-4 mr-2" /> New Plan
+              </Button>
+            )}
+          </header>
 
-          {!stats && !error && (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-              <LayoutDashboard className="w-12 h-12 mb-4 opacity-30" />
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">No Data</h3>
-              <p className="text-xs text-muted-foreground">Configure INTERNAL_API_KEY to access admin</p>
-            </div>
-          )}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive">
+                {error}
+              </div>
+            )}
 
-          {stats && (
-            <div className="flex-1 overflow-y-auto p-6">
-              {/* Overview Tab */}
-              <TabsContent value="overview" className="mt-0 space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center gap-2">
-                        <Key className="w-4 h-4 text-muted-foreground" />
-                        <CardTitle className="text-xs font-medium text-muted-foreground">Active Keys</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{stats.overview.activeKeys}</div>
-                      <p className="text-xs text-muted-foreground">{stats.overview.totalKeys} total</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-muted-foreground" />
-                        <CardTitle className="text-xs font-medium text-muted-foreground">Total Requests</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{formatNumber(stats.overview.totalRequests)}</div>
-                      <p className="text-xs text-muted-foreground">{formatNumber(stats.overview.todayRequests)} today</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-muted-foreground" />
-                        <CardTitle className="text-xs font-medium text-muted-foreground">Total Tokens</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{formatNumber(stats.overview.totalTokens)}</div>
-                      <p className="text-xs text-muted-foreground">{formatNumber(stats.overview.todayTokens)} today</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="w-4 h-4 text-muted-foreground" />
-                        <CardTitle className="text-xs font-medium text-muted-foreground">Revenue</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{formatRupiah(stats.revenue.totalRevenue)}</div>
-                      <p className="text-xs text-muted-foreground">{stats.revenue.completedPayments} payments</p>
-                    </CardContent>
-                  </Card>
-                </div>
+            {!stats && !error && (
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                <LayoutDashboard className="w-12 h-12 mb-4 opacity-30" />
+                <h3 className="text-sm font-medium mb-1">No Data</h3>
+                <p className="text-xs">Configure INTERNAL_API_KEY to access admin</p>
+              </div>
+            )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Revenue</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Total Revenue</span><span className="font-semibold">{formatRupiah(stats.revenue.totalRevenue)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="text-amber-500">{formatRupiah(stats.revenue.pendingRevenue)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Completed</span><span className="text-emerald-500">{stats.revenue.completedPayments}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Pending Payments</span><span className="text-amber-500">{stats.revenue.pendingPayments}</span></div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Subscriptions</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span>{stats.subscriptions.total}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Active</span><span className="text-emerald-500">{stats.subscriptions.active}</span></div>
-                      {Object.entries(stats.subscriptions.byPlan).map(([planId, count]) => (
-                        <div key={planId} className="flex justify-between">
-                          <span className="text-muted-foreground capitalize">{planId}</span>
-                          <span>{count}</span>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Daily Usage Chart */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Daily Usage (30 days)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-end gap-1 h-32">
-                      {Object.entries(stats.dailyUsage).map(([date, count]) => {
-                        const maxVal = Math.max(...Object.values(stats.dailyUsage), 1);
-                        const height = (count / maxVal) * 100;
-                        const isToday = date === new Date().toISOString().slice(0, 10);
-                        return (
-                          <div key={date} className="flex-1 flex flex-col items-center gap-0.5 group relative">
-                            <div
-                              className={cn(
-                                "w-full rounded-t transition-all",
-                                isToday ? "bg-primary" : "bg-muted hover:bg-muted-foreground/20"
-                              )}
-                              style={{ height: `${Math.max(height, count > 0 ? 4 : 1)}%` }}
-                            />
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50">
-                              {date}: {formatNumber(count)} tokens
-                            </div>
+            {stats && (
+              <>
+                {activeSection === "overview" && (
+                  <div className="space-y-6 animate-in fade-in duration-200">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center gap-2">
+                            <Key className="w-4 h-4 text-muted-foreground" />
+                            <CardTitle className="text-xs font-medium text-muted-foreground">Active Keys</CardTitle>
                           </div>
-                        );
-                      })}
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{stats.overview.activeKeys}</div>
+                          <p className="text-xs text-muted-foreground">{stats.overview.totalKeys} total</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                            <CardTitle className="text-xs font-medium text-muted-foreground">Total Requests</CardTitle>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{formatNumber(stats.overview.totalRequests)}</div>
+                          <p className="text-xs text-muted-foreground">{formatNumber(stats.overview.todayRequests)} today</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center gap-2">
+                            <Package className="w-4 h-4 text-muted-foreground" />
+                            <CardTitle className="text-xs font-medium text-muted-foreground">Total Tokens</CardTitle>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{formatNumber(stats.overview.totalTokens)}</div>
+                          <p className="text-xs text-muted-foreground">{formatNumber(stats.overview.todayTokens)} today</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="w-4 h-4 text-muted-foreground" />
+                            <CardTitle className="text-xs font-medium text-muted-foreground">Revenue</CardTitle>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{formatRupiah(stats.revenue.totalRevenue)}</div>
+                          <p className="text-xs text-muted-foreground">{stats.revenue.completedPayments} payments</p>
+                        </CardContent>
+                      </Card>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
 
-              {/* Plans Tab */}
-              <TabsContent value="plans" className="mt-0 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold">Membership Plans</h3>
-                  <Button size="sm" onClick={() => { setShowCreatePlan(true); setCreatingPlan(true); }}>
-                    <Plus className="w-4 h-4 mr-2" /> New Plan
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  {stats.plans.map((plan) => (
-                    <Card key={plan.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-semibold">{plan.name}</h3>
-                              {plan.price === 0 ? (
-                                <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-full">Free</span>
-                              ) : (
-                                <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-full">{formatRupiah(plan.price)}/{plan.billingPeriod}</span>
-                              )}
-                              {!plan.isActive && <span className="text-[10px] px-2 py-0.5 bg-destructive/10 text-destructive rounded-full">Inactive</span>}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader><CardTitle className="text-sm">Revenue</CardTitle></CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Total Revenue</span><span className="font-semibold">{formatRupiah(stats.revenue.totalRevenue)}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="text-amber-500">{formatRupiah(stats.revenue.pendingRevenue)}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Completed</span><span className="text-emerald-500">{stats.revenue.completedPayments}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Pending Payments</span><span className="text-amber-500">{stats.revenue.pendingPayments}</span></div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader><CardTitle className="text-sm">Subscriptions</CardTitle></CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span>{stats.subscriptions.total}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Active</span><span className="text-emerald-500">{stats.subscriptions.active}</span></div>
+                          {Object.entries(stats.subscriptions.byPlan).map(([planId, count]) => (
+                            <div key={planId} className="flex justify-between">
+                              <span className="text-muted-foreground capitalize">{planId}</span>
+                              <span>{count}</span>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">{plan.description}</p>
-                          </div>
-                          <Button variant="ghost" size="icon" onClick={() => setEditingPlan(plan)}>
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px]">
-                          <div className="bg-muted/30 rounded-lg p-2"><span className="text-muted-foreground block">Requests/Day</span><span className="font-semibold">{plan.features.maxRequestsPerDay.toLocaleString()}</span></div>
-                          <div className="bg-muted/30 rounded-lg p-2"><span className="text-muted-foreground block">Tokens/Month</span><span className="font-semibold">{formatNumber(plan.features.maxTokensPerMonth)}</span></div>
-                          <div className="bg-muted/30 rounded-lg p-2"><span className="text-muted-foreground block">Models</span><span className="font-semibold">{plan.features.allowedModels.length === 0 ? "All" : plan.features.allowedModels.length}</span></div>
-                          <div className="bg-muted/30 rounded-lg p-2"><span className="text-muted-foreground block">Priority</span><span className="font-semibold capitalize">{plan.features.priority}</span></div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <Card>
+                      <CardHeader><CardTitle className="text-sm">Daily Usage (30 days)</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="flex items-end gap-1 h-32">
+                          {Object.entries(stats.dailyUsage).map(([date, count]) => {
+                            const maxVal = Math.max(...Object.values(stats.dailyUsage), 1);
+                            const height = (count / maxVal) * 100;
+                            const isToday = date === new Date().toISOString().slice(0, 10);
+                            return (
+                              <div key={date} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+                                <div
+                                  className={cn(
+                                    "w-full rounded-t transition-all",
+                                    isToday ? "bg-primary" : "bg-muted hover:bg-muted-foreground/20"
+                                  )}
+                                  style={{ height: `${Math.max(height, count > 0 ? 4 : 1)}%` }}
+                                />
+                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50">
+                                  {date}: {formatNumber(count)} tokens
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
-                </div>
+                  </div>
+                )}
 
-                {/* Edit/Create Plan Dialog */}
-                <Dialog open={editingPlan !== null || showCreatePlan} onOpenChange={(open) => {
-                  if (!open) { setEditingPlan(null); setShowCreatePlan(false); setCreatingPlan(false); }
-                }}>
-                  <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                      <DialogTitle>{creatingPlan ? "Create Plan" : "Edit Plan"}</DialogTitle>
-                    </DialogHeader>
-                    <PlanEditor
-                      plan={creatingPlan ? null : editingPlan}
-                      onSave={async (data) => {
-                        const isNew = creatingPlan || !editingPlan?.id;
-                        const url = "/api/admin/plans";
-                        const method = isNew ? "POST" : "PUT";
-                        await fetch(url, {
-                          method,
-                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${internalKey}` },
-                          body: JSON.stringify(isNew ? data : { id: editingPlan!.id, ...data }),
-                        });
-                        setEditingPlan(null); setShowCreatePlan(false); setCreatingPlan(false); fetchStats();
-                      }}
-                      onClose={() => { setEditingPlan(null); setShowCreatePlan(false); setCreatingPlan(false); }}
-                    />
-                  </DialogContent>
-                </Dialog>
-              </TabsContent>
-
-              {/* Providers Tab */}
-              <TabsContent value="providers" className="mt-0 space-y-4">
-                <h3 className="text-base font-semibold">Provider Usage</h3>
-                {Object.entries(stats.providers).length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-8 text-center">No provider data yet</div>
-                ) : (
-                  Object.entries(stats.providers)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([provider, tokens]) => {
-                      const maxVal = Math.max(...Object.values(stats.providers), 1);
-                      const width = (tokens / maxVal) * 100;
-                      const colors: Record<string, string> = {
-                        puter: "bg-emerald-500",
-                        openai: "bg-blue-500",
-                        deepseek: "bg-cyan-500",
-                        anthropic: "bg-amber-500",
-                      };
-                      return (
-                        <Card key={provider}>
+                {activeSection === "plans" && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    <div className="space-y-3">
+                      {stats.plans.map((plan) => (
+                        <Card key={plan.id}>
                           <CardContent className="p-4">
-                            <div className="flex items-center justify-between mb-2 text-sm">
-                              <span className="capitalize font-medium">{provider}</span>
-                              <span className="text-muted-foreground">{formatNumber(tokens)} tokens</span>
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-sm font-semibold">{plan.name}</h3>
+                                  {plan.price === 0 ? (
+                                    <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-full">Free</span>
+                                  ) : (
+                                    <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full">{formatRupiah(plan.price)}/{plan.billingPeriod}</span>
+                                  )}
+                                  {!plan.isActive && <span className="text-[10px] px-2 py-0.5 bg-destructive/10 text-destructive rounded-full">Inactive</span>}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">{plan.description}</p>
+                              </div>
+                              <Button variant="ghost" size="icon" onClick={() => setEditingPlan(plan)}>
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </Button>
                             </div>
-                            <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-                              <div className={cn("h-full rounded-full transition-all", colors[provider] || "bg-zinc-500")} style={{ width: `${width}%` }} />
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px]">
+                              <div className="bg-muted/30 rounded-lg p-2"><span className="text-muted-foreground block">Requests/Day</span><span className="font-semibold">{plan.features.maxRequestsPerDay.toLocaleString()}</span></div>
+                              <div className="bg-muted/30 rounded-lg p-2"><span className="text-muted-foreground block">Tokens/Month</span><span className="font-semibold">{formatNumber(plan.features.maxTokensPerMonth)}</span></div>
+                              <div className="bg-muted/30 rounded-lg p-2"><span className="text-muted-foreground block">Models</span><span className="font-semibold">{plan.features.allowedModels.length === 0 ? "All" : plan.features.allowedModels.length}</span></div>
+                              <div className="bg-muted/30 rounded-lg p-2"><span className="text-muted-foreground block">Priority</span><span className="font-semibold capitalize">{plan.features.priority}</span></div>
                             </div>
                           </CardContent>
                         </Card>
-                      );
-                    })
-                )}
-              </TabsContent>
+                      ))}
+                    </div>
 
-              {/* Settings Tab */}
-              <TabsContent value="settings" className="mt-0 space-y-4">
-                <h3 className="text-base font-semibold">Configuration</h3>
-                <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <ConfigItem label="INTERNAL_API_KEY" value={internalKey} secret />
-                    <ConfigItem label="PUTER_AUTH_TOKEN" value={process.env.NEXT_PUBLIC_INTERNAL_KEY ? "Configured" : "Not set"} />
-                    <ConfigItem label="OPENAI_API_KEY" value={process.env.OPENAI_API_KEY ? "Configured" : "Not set (optional fallback)"} />
-                    <ConfigItem label="DEEPSEEK_API_KEY" value={process.env.DEEPSEEK_API_KEY ? "Configured" : "Not set (optional fallback)"} />
-                    <ConfigItem label="ANTHROPIC_API_KEY" value={process.env.ANTHROPIC_API_KEY ? "Configured" : "Not set (optional fallback)"} />
-                    <ConfigItem label="MIDTRANS_SERVER_KEY" value={process.env.MIDTRANS_SERVER_KEY ? "Configured" : "Not set (dev mode - free)"} />
-                  </CardContent>
-                </Card>
-                <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                  <p className="text-sm text-amber-500/80">
-                    <strong>Note:</strong> Midtrans belum dikonfigurasi. Untuk development, subscription langsung aktif tanpa payment.
-                    Set MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY di .env.local untuk mengaktifkan payment.
-                  </p>
-                </div>
-              </TabsContent>
-            </div>
-          )}
-        </Tabs>
+                    <Dialog open={editingPlan !== null || showCreatePlan} onOpenChange={(open) => {
+                      if (!open) { setEditingPlan(null); setShowCreatePlan(false); setCreatingPlan(false); }
+                    }}>
+                      <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle>{creatingPlan ? "Create Plan" : "Edit Plan"}</DialogTitle>
+                        </DialogHeader>
+                        <PlanEditor
+                          plan={creatingPlan ? null : editingPlan}
+                          onSave={async (data) => {
+                            const isNew = creatingPlan || !editingPlan?.id;
+                            const url = "/api/admin/plans";
+                            const method = isNew ? "POST" : "PUT";
+                            await fetch(url, {
+                              method,
+                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${internalKey}` },
+                              body: JSON.stringify(isNew ? data : { id: editingPlan!.id, ...data }),
+                            });
+                            setEditingPlan(null); setShowCreatePlan(false); setCreatingPlan(false); fetchStats();
+                          }}
+                          onClose={() => { setEditingPlan(null); setShowCreatePlan(false); setCreatingPlan(false); }}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                )}
+
+                {activeSection === "providers" && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    {Object.entries(stats.providers).length === 0 ? (
+                      <div className="text-sm text-muted-foreground py-8 text-center">No provider data yet</div>
+                    ) : (
+                      Object.entries(stats.providers)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([provider, tokens]) => {
+                          const maxVal = Math.max(...Object.values(stats.providers), 1);
+                          const width = (tokens / maxVal) * 100;
+                          const colors: Record<string, string> = {
+                            puter: "bg-emerald-500",
+                            openai: "bg-blue-500",
+                            deepseek: "bg-cyan-500",
+                            anthropic: "bg-amber-500",
+                          };
+                          return (
+                            <Card key={provider}>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between mb-2 text-sm">
+                                  <span className="capitalize font-medium">{provider}</span>
+                                  <span className="text-muted-foreground">{formatNumber(tokens)} tokens</span>
+                                </div>
+                                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                                  <div className={cn("h-full rounded-full transition-all", colors[provider] || "bg-zinc-500")} style={{ width: `${width}%` }} />
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })
+                    )}
+                  </div>
+                )}
+
+                {activeSection === "settings" && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    <Card>
+                      <CardContent className="p-4 space-y-3">
+                        <ConfigItem label="INTERNAL_API_KEY" value={internalKey} secret />
+                        <ConfigItem label="PUTER_AUTH_TOKEN" value={process.env.NEXT_PUBLIC_INTERNAL_KEY ? "Configured" : "Not set"} />
+                        <ConfigItem label="OPENAI_API_KEY" value={process.env.OPENAI_API_KEY ? "Configured" : "Not set (optional fallback)"} />
+                        <ConfigItem label="DEEPSEEK_API_KEY" value={process.env.DEEPSEEK_API_KEY ? "Configured" : "Not set (optional fallback)"} />
+                        <ConfigItem label="ANTHROPIC_API_KEY" value={process.env.ANTHROPIC_API_KEY ? "Configured" : "Not set (optional fallback)"} />
+                        <ConfigItem label="MIDTRANS_SERVER_KEY" value={process.env.MIDTRANS_SERVER_KEY ? "Configured" : "Not set (dev mode - free)"} />
+                      </CardContent>
+                    </Card>
+                    <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                      <p className="text-sm text-amber-500/80">
+                        <strong>Note:</strong> Midtrans belum dikonfigurasi. Untuk development, subscription langsung aktif tanpa payment.
+                        Set MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY di .env.local untuk mengaktifkan payment.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
