@@ -30,7 +30,7 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
 
-      localStorage.setItem("xperimne-api-key", data.apiKey?.key || "");
+      localStorage.setItem("xperimne-api-key", typeof data.apiKey === "string" ? data.apiKey : data.apiKey?.key || "");
       localStorage.setItem("xperimne-user", JSON.stringify(data.user));
       if (data.user?.role === "superadmin") {
         router.push("/admin");

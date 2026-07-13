@@ -78,7 +78,7 @@ export default function ModelSelector({ selectedModel, onSelect }: ModelSelector
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-sm transition-colors border border-zinc-700"
+        className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-sm transition-colors border border-zinc-700 cursor-pointer"
       >
         <Sparkles className="w-4 h-4 text-emerald-400" />
         <span className="max-w-[200px] truncate">
@@ -103,7 +103,7 @@ export default function ModelSelector({ selectedModel, onSelect }: ModelSelector
             </div>
             <button
               onClick={handleRefresh}
-              className="p-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400"
+              className="p-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
             </button>
@@ -124,7 +124,7 @@ export default function ModelSelector({ selectedModel, onSelect }: ModelSelector
                       setOpen(false);
                       setSearch("");
                     }}
-                    className={`w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors ${
+                    className={`w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
                       model.id === selectedModel
                         ? "bg-emerald-500/10 text-emerald-400"
                         : "text-zinc-300 hover:bg-zinc-800"

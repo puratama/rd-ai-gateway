@@ -78,7 +78,7 @@ function FAQItem({
     <div className="border border-zinc-800 rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-zinc-800/30 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-zinc-800/30 transition-colors cursor-pointer"
       >
         <span className="text-sm font-medium text-zinc-200 pr-4">
           {question}

@@ -47,11 +47,7 @@ export async function createTransaction(
   customerDetails?: { name?: string; email?: string; phone?: string }
 ): Promise<MidtransTransaction> {
   if (!MIDTRANS_SERVER_KEY) {
-    // Return mock for development without Midtrans configured
-    return {
-      token: "mock-token",
-      redirect_url: "#",
-    };
+    throw new Error("MIDTRANS_SERVER_KEY not configured — cannot create payment transaction");
   }
 
   const auth = Buffer.from(MIDTRANS_SERVER_KEY + ":").toString("base64");
@@ -90,7 +86,7 @@ export async function createTransaction(
 
 // Verify webhook notification signature
 export function verifySignature(notification: MidtransNotification): boolean {
-  if (!MIDTRANS_SERVER_KEY) return true; // Skip verification in dev mode
+  if (!MIDTRANS_SERVER_KEY) return false;
 
   const hash = createHash("sha512")
     .update(notification.order_id + notification.status_code + notification.gross_amount + MIDTRANS_SERVER_KEY)
@@ -102,17 +98,7 @@ export function verifySignature(notification: MidtransNotification): boolean {
 // Check transaction status
 export async function getTransactionStatus(orderId: string): Promise<MidtransNotification> {
   if (!MIDTRANS_SERVER_KEY) {
-    return {
-      transaction_id: "mock",
-      order_id: orderId,
-      transaction_status: "settlement",
-      fraud_status: "accept",
-      gross_amount: "0",
-      payment_type: "mock",
-      transaction_time: new Date().toISOString(),
-      status_code: "200",
-      signature_key: "mock",
-    };
+    throw new Error("MIDTRANS_SERVER_KEY not configured — cannot check transaction status");
   }
 
   const auth = Buffer.from(MIDTRANS_SERVER_KEY + ":").toString("base64");

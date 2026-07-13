@@ -8,6 +8,9 @@
     "start": "next start -p 3035",
     "lint": "eslint"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@heyputer/puter.js": "^2.5.4",

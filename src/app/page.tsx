@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Zap,
@@ -39,41 +40,85 @@ const features = [
 ];
 
 const stats = [
-  { value: "500+", label: "AI Models" },
+  { value: "500+", label: "AI Models", dynamic: true },
   { value: "99.9%", label: "Uptime" },
   { value: "<100ms", label: "Latency" },
   { value: "10K+", label: "Developers" },
 ];
 
-const pricingTiers = [
-  {
-    name: "Starter",
-    price: "Free",
-    description: "For trying out the platform",
-    features: ["1,000 tokens/day", "Basic models", "Community support", "1 API key"],
-    cta: "Get Started",
-    popular: false,
-  },
-  {
-    name: "Pro",
-    price: "Rp 99K",
-    period: "/month",
-    description: "For serious developers",
-    features: ["1M tokens/month", "All models", "Priority support", "10 API keys", "Streaming", "Analytics"],
-    cta: "Start Pro",
-    popular: true,
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    description: "For teams and businesses",
-    features: ["Unlimited tokens", "Custom models", "Dedicated support", "Unlimited keys", "SLA", "On-prem option"],
-    cta: "Contact Sales",
-    popular: false,
-  },
+interface PricingTier {
+  name: string;
+  price: string;
+  period?: string;
+  description: string;
+  features: string[];
+  cta: string;
+  popular: boolean;
+}
+
+const FALLBACK_TIERS: PricingTier[] = [
+  { name: "Starter", price: "Free", description: "For trying out the platform", features: ["1,000 tokens/day", "Basic models", "Community support", "1 API key"], cta: "Get Started", popular: false },
+  { name: "Pro", price: "Rp 99K", period: "/month", description: "For serious developers", features: ["1M tokens/month", "All models", "Priority support", "10 API keys", "Streaming", "Analytics"], cta: "Start Pro", popular: true },
+  { name: "Enterprise", price: "Custom", description: "For teams and businesses", features: ["Unlimited tokens", "Custom models", "Dedicated support", "Unlimited keys", "SLA", "On-prem option"], cta: "Contact Sales", popular: false },
 ];
 
+function formatRupiah(n: number) {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
+}
+
+interface PlanRaw {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  billingPeriod: string;
+  features: Record<string, unknown>;
+  isActive: boolean;
+}
+
+function planToTier(p: PlanRaw): PricingTier {
+  const features: string[] = [];
+  const f = p.features;
+  if (f.maxTokensPerMonth) features.push(`${Number(f.maxTokensPerMonth).toLocaleString()} tokens/month`);
+  if (f.maxRequestsPerDay) features.push(`${f.maxRequestsPerDay} requests/day`);
+  if (f.streaming) features.push("Streaming");
+  if (f.imageGeneration) features.push("Image generation");
+  if (f.apiAccess) features.push("API access");
+  if (f.priority && f.priority !== "normal") features.push(`${f.priority} priority`);
+  if (f.allowedModels && Array.isArray(f.allowedModels) && f.allowedModels.length > 0) features.push(`${f.allowedModels.length} models`);
+  else features.push("All models");
+
+  return {
+    name: p.name,
+    price: p.price === 0 ? "Free" : formatRupiah(p.price),
+    period: p.price > 0 ? `/${p.billingPeriod}` : undefined,
+    description: p.description || p.name,
+    features,
+    cta: p.price === 0 ? "Get Started" : "Subscribe",
+    popular: p.name.toLowerCase().includes("pro"),
+  };
+}
+
 export default function LandingPage() {
+  const [pricingTiers, setPricingTiers] = useState<PricingTier[]>(FALLBACK_TIERS);
+  const [modelCount, setModelCount] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/admin/plans", { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.plans && data.plans.length > 0) {
+          const active = data.plans.filter((p: PlanRaw) => p.isActive);
+          if (active.length > 0) setPricingTiers(active.map(planToTier));
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/admin/models", { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (Array.isArray(data)) setModelCount(data.filter((m: { isActive: boolean }) => m.isActive).length); })
+      .catch(() => {});
+  }, []);
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Navigation */}
@@ -170,7 +215,7 @@ export default function LandingPage() {
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-1">
-                {stat.value}
+                {stat.dynamic && modelCount > 0 ? `${modelCount}+` : stat.value}
               </div>
               <div className="text-sm text-muted-foreground">{stat.label}</div>
             </div>

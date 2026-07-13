@@ -2,15 +2,14 @@
 
 import { useState, useEffect, useCallback, startTransition } from "react";
 import {
-  loadAnalytics,
   getTopModels,
   getDailyActivity,
   getTotalMessages,
   getUniqueModelsCount,
   getUsageByProvider,
-  resetAnalytics,
   getSessionDays,
 } from "@/lib/analytics";
+import { fetchAnalyticsFromAPI } from "@/lib/analytics-db";
 import type { AnalyticsData, AnalyticsEvent } from "@/types";
 import Link from "next/link";
 import {
@@ -35,19 +34,16 @@ import { cn } from "@/lib/utils";
 
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    startTransition(() => { setMounted(true); setData(loadAnalytics()); });
+    fetchAnalyticsFromAPI().then((serverData) => {
+      startTransition(() => { setMounted(true); setData(serverData); });
+    });
   }, []);
 
-  const refresh = useCallback(() => { setData(loadAnalytics()); }, []);
-
-  const handleReset = useCallback(() => {
-    const fresh = resetAnalytics();
-    setData(fresh);
-    setShowResetConfirm(false);
+  const refresh = useCallback(() => {
+    fetchAnalyticsFromAPI().then((serverData) => setData(serverData));
   }, []);
 
   if (!mounted || !data) {
@@ -87,34 +83,10 @@ export default function AnalyticsPage() {
             <Button variant="outline" size="sm" onClick={refresh}>
               <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
             </Button>
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setShowResetConfirm(true)}>
-              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Reset
-            </Button>
           </div>
         </header>
 
-        {/* Reset modal */}
-        {showResetConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <Card className="max-w-sm mx-4">
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-destructive/10 rounded-full flex items-center justify-center">
-                    <AlertTriangle className="w-5 h-5 text-destructive" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold">Reset Analytics?</h3>
-                    <p className="text-xs text-muted-foreground">This action cannot be undone</p>
-                  </div>
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="ghost" onClick={() => setShowResetConfirm(false)}>Cancel</Button>
-                  <Button variant="destructive" onClick={handleReset}>Reset All Data</Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">

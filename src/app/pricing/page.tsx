@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   BadgeInfo,
   ChevronDown,
@@ -16,9 +16,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { pricingData, getProviders, getCategories, formatPrice, getMinPrice, getMaxPrice } from "@/lib/pricing";
+import { fetchPricingFromDB } from "@/lib/pricing-db";
+import type { ModelPricing } from "@/types";
+
+function getProviders(models: ModelPricing[]) { return Array.from(new Set(models.map((m) => m.provider))); }
+function getCategories(models: ModelPricing[]) {
+  return [
+    { key: "chat", icon: "💬", label: "Chat" },
+    { key: "reasoning", icon: "🧠", label: "Reasoning" },
+    { key: "coding", icon: "💻", label: "Coding" },
+    { key: "fast", icon: "⚡", label: "Fast" },
+    { key: "image", icon: "🖼️", label: "Image" },
+    { key: "vision", icon: "👁️", label: "Vision" },
+    { key: "open-source", icon: "🌐", label: "Open Source" },
+  ].filter((c) => models.some((m) => m.category === c.key));
+}
+function formatPrice(n: number) { return n === 0 ? "Free" : n.toFixed(2); }
+function getMinPrice(models: ModelPricing[]) { return models.reduce((min, m) => Math.min(min, m.pricing.prompt), Infinity); }
+function getMaxPrice(models: ModelPricing[]) { return models.reduce((max, m) => Math.max(max, m.pricing.prompt), 0); }
 
 export default function PricingPage() {
+  const [pricingData, setPricingData] = useState<ModelPricing[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -28,14 +47,18 @@ export default function PricingPage() {
   const [compareMode, setCompareMode] = useState(false);
   const [compareList, setCompareList] = useState<string[]>([]);
 
-  const providers = getProviders();
-  const categories = getCategories();
+  useEffect(() => {
+    fetchPricingFromDB().then((data) => { setPricingData(data); setLoading(false); });
+  }, []);
+
+  const providers = useMemo(() => getProviders(pricingData), [pricingData]);
+  const categories = useMemo(() => getCategories(pricingData), [pricingData]);
 
   const providerCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     pricingData.forEach((m) => { counts[m.provider] = (counts[m.provider] || 0) + 1; });
     return counts;
-  }, []);
+  }, [pricingData]);
 
   const filteredModels = useMemo(() => {
     let result = [...pricingData];
