@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   Menu,
   X,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const userNavItems: NavItem[] = [
   { href: "/dashboard", label: "Chat", icon: LayoutDashboard },
   { href: "/keys", label: "API Keys", icon: Key },
   { href: "/pricing", label: "Pricing", icon: CreditCard },
+  { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
