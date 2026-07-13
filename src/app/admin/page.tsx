@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Key,
@@ -34,27 +34,26 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeSection, setActiveSection] = useState("overview");
+  const searchParams = useSearchParams();
+  const activeSection = searchParams.get("tab") || "overview";
   const [editingPlan, setEditingPlan] = useState<import("@/lib/server-store").MembershipPlan | null>(null);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
 
-  const internalKey = process.env.NEXT_PUBLIC_INTERNAL_KEY || "demo-key-xperimne";
-
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/stats", {
-        headers: { Authorization: `Bearer ${internalKey}` },
-      });
+      const res = await fetch("/api/admin/stats");
       if (res.ok) {
         const data = await res.json();
         setStats(data);
+      } else if (res.status === 401 || res.status === 403) {
+        setError("Access denied — superadmin role required");
       }
     } catch {
       setError("Failed to load stats");
     }
     setLoading(false);
-  }, [internalKey]);
+  }, []);
 
   // eslint-disable-next-line -- fetch-on-mount setState in effect is standard React pattern
   useEffect(() => { fetchStats(); }, [fetchStats]);
@@ -83,62 +82,10 @@ export default function AdminPage() {
 
   return (
     <AppShell variant="admin">
-      <div className="h-full flex">
-        {/* Admin section sidebar */}
-        <aside className="w-52 border-r border-border bg-card/50 shrink-0 hidden md:flex flex-col p-3 space-y-1">
-          {[
-            { id: "overview", label: "Overview", icon: LayoutDashboard },
-            { id: "plans", label: "Plans", icon: CreditCard },
-            { id: "providers", label: "Providers", icon: Server },
-            { id: "settings", label: "Settings", icon: Settings },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveSection(item.id)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors text-left",
-                  activeSection === item.id
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                {item.label}
-              </button>
-            );
-          })}
-
-          <div className="mt-auto pt-3 border-t border-border">
-            <Button variant="outline" size="sm" className="w-full" onClick={fetchStats}>
-              <RefreshCw className="w-3.5 h-3.5 mr-2" /> Refresh
-            </Button>
-          </div>
-        </aside>
-
-        {/* Content */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="h-full flex flex-col min-w-0 overflow-hidden">
           <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
             <div className="flex items-center gap-3">
-              {/* Mobile section tabs */}
-              <div className="flex md:hidden gap-1">
-                {["overview", "plans", "providers", "settings"].map((section) => (
-                  <button
-                    key={section}
-                    onClick={() => setActiveSection(section)}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors capitalize",
-                      activeSection === section
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    {section}
-                  </button>
-                ))}
-              </div>
-              <h2 className="text-base font-semibold capitalize hidden md:block">{activeSection}</h2>
+              <h2 className="text-base font-semibold capitalize">{activeSection}</h2>
             </div>
             {activeSection === "plans" && (
               <Button size="sm" onClick={() => { setShowCreatePlan(true); setCreatingPlan(true); }}>
@@ -320,7 +267,7 @@ export default function AdminPage() {
                             const method = isNew ? "POST" : "PUT";
                             await fetch(url, {
                               method,
-                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${internalKey}` },
+                              headers: { "Content-Type": "application/json" },
                               body: JSON.stringify(isNew ? data : { id: editingPlan!.id, ...data }),
                             });
                             setEditingPlan(null); setShowCreatePlan(false); setCreatingPlan(false); fetchStats();
@@ -370,7 +317,7 @@ export default function AdminPage() {
                   <div className="space-y-4 animate-in fade-in duration-200">
                     <Card>
                       <CardContent className="p-4 space-y-3">
-                        <ConfigItem label="INTERNAL_API_KEY" value={internalKey} secret />
+                        <ConfigItem label="INTERNAL_API_KEY" value="Configured" secret />
                         <ConfigItem label="PUTER_AUTH_TOKEN" value={process.env.NEXT_PUBLIC_INTERNAL_KEY ? "Configured" : "Not set"} />
                         <ConfigItem label="OPENAI_API_KEY" value={process.env.OPENAI_API_KEY ? "Configured" : "Not set (optional fallback)"} />
                         <ConfigItem label="DEEPSEEK_API_KEY" value={process.env.DEEPSEEK_API_KEY ? "Configured" : "Not set (optional fallback)"} />

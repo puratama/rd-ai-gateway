@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createHash } from "crypto";
+import { createSession } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,8 +26,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
+    await createSession({ sub: user.id, email: user.email, role: user.role });
+
     return NextResponse.json({
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
       apiKey: user.apiKey?.key,
       wallet: user.wallet ? { balance: Number(user.wallet.balance) } : null,
     });

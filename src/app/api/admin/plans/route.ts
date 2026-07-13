@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-function isAdmin(request: NextRequest): boolean {
-  const auth = request.headers.get("authorization")?.replace("Bearer ", "");
-  return auth === process.env.INTERNAL_API_KEY || auth === process.env.NEXT_PUBLIC_INTERNAL_KEY;
-}
-
-// GET /api/admin/plans - List all plans
-export async function GET(request: NextRequest) {
+// GET /api/admin/plans - List all plans (auth handled by middleware)
+export async function GET() {
   try {
-    if (!isAdmin(request)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
     const { loadPlans } = await import("@/lib/server-store");
     const plans = await loadPlans();
     return NextResponse.json({ plans });
@@ -22,9 +14,6 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/plans - Create a new plan
 export async function POST(request: NextRequest) {
   try {
-    if (!isAdmin(request)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
     const { createPlan } = await import("@/lib/server-store");
     const body = await request.json();
     const plan = await createPlan(body);
@@ -37,9 +26,6 @@ export async function POST(request: NextRequest) {
 // PUT /api/admin/plans - Update a plan
 export async function PUT(request: NextRequest) {
   try {
-    if (!isAdmin(request)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
     const { updatePlan } = await import("@/lib/server-store");
     const body = await request.json();
     const { id, ...updates } = body;
@@ -59,9 +45,6 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/admin/plans?id=xxx - Delete a plan
 export async function DELETE(request: NextRequest) {
   try {
-    if (!isAdmin(request)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
     const { deletePlan } = await import("@/lib/server-store");
     const id = request.nextUrl.searchParams.get("id");
     if (!id) {

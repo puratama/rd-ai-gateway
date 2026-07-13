@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateId } from "@/lib/server-store";
+import { createSession } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,8 +43,10 @@ export async function POST(request: NextRequest) {
     // Background: register to Puter (non-blocking)
     registerToPuter(user.id).catch(() => {});
 
+    await createSession({ sub: user.id, email: user.email, role: "user" });
+
     return NextResponse.json({
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, role: "user" },
       apiKey: user.apiKey?.key,
     }, { status: 201 });
   } catch (error: unknown) {

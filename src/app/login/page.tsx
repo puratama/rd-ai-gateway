@@ -32,7 +32,11 @@ export default function LoginPage() {
 
       localStorage.setItem("xperimne-api-key", data.apiKey?.key || "");
       localStorage.setItem("xperimne-user", JSON.stringify(data.user));
-      router.push("/dashboard");
+      if (data.user?.role === "superadmin") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

@@ -17,6 +17,9 @@ model User {
   passwordHash String
   name         String?
 
+  // RBAC
+  role String @default("user") // "user" | "superadmin"
+
   // Puter integration (hidden from user)
   puterUid    String? @unique
   puterStatus String  @default("pending") // pending | active | failed

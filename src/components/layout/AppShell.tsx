@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Key,
@@ -34,9 +34,9 @@ const userNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/plans", label: "Plans", icon: CreditCard },
-  { href: "/admin/providers", label: "Providers", icon: DollarSign },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin?tab=plans", label: "Plans", icon: CreditCard },
+  { href: "/admin?tab=providers", label: "Providers", icon: DollarSign },
+  { href: "/admin?tab=settings", label: "Settings", icon: Settings },
 ];
 
 interface AppShellProps {
@@ -46,6 +46,7 @@ interface AppShellProps {
 
 export default function AppShell({ children, variant = "user" }: AppShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -120,13 +121,17 @@ export default function AppShell({ children, variant = "user" }: AppShellProps) 
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || (item.href !== "/dashboard" && item.href !== "/admin" && pathname.startsWith(item.href));
+            const isQueryAdmin = variant === "admin" && item.href.includes("?");
+            const currentTab = searchParams.get("tab") || "overview";
+            const itemTab = isQueryAdmin ? new URL(item.href, "http://localhost").searchParams.get("tab") || "overview" : null;
+            const active = isQueryAdmin ? (pathname === "/admin" && currentTab === itemTab) : isActive;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  isActive
+                  active
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   collapsed && "justify-center px-2"
