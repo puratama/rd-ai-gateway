@@ -32,6 +32,7 @@ const userNavItems: NavItem[] = [
   { href: "/pricing", label: "Pricing", icon: CreditCard },
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/usage", label: "Usage", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
