@@ -1,130 +1,100 @@
 import { Code, Terminal, Server, Shield, BarChart3, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default function APIPage() {
   return (
     <div>
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-4">
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium mb-4">
         <Code className="w-3 h-3" />
         API Reference
       </div>
-      <h1 className="text-3xl font-bold text-zinc-100 mb-3">API Reference</h1>
-      <p className="text-zinc-400 leading-relaxed mb-2">
-        AI Gateway menyediakan REST API yang <strong className="text-zinc-200">fully compatible dengan OpenAI SDK</strong>.
-        Developer bisa menggunakan library OpenAI favorit mereka &mdash; cukup ganti <code className="text-emerald-400">baseURL</code> dan <code className="text-emerald-400">apiKey</code>.
+      <h1 className="text-3xl font-bold mb-3">API Reference</h1>
+      <p className="text-muted-foreground leading-relaxed mb-2">
+        AI Gateway provides a REST API that is <strong className="text-foreground">fully compatible with the OpenAI SDK</strong>.
+        Just change <code className="text-primary">baseURL</code> and <code className="text-primary">apiKey</code>.
       </p>
-      <p className="text-zinc-500 text-sm mb-10">
-        Base URL: <code className="text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded text-xs">http://localhost:3000/api/v1</code>
-      </p>
-
-      {/* Architecture Overview */}
-      <h2 className="text-xl font-semibold text-zinc-200 mb-4">How It Works</h2>
-      <div className="bg-zinc-800/30 border border-zinc-800 rounded-xl p-5 mb-10">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
-          <div className="text-center p-3">
-            <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <Terminal className="w-5 h-5 text-blue-400" />
-            </div>
-            <div className="text-zinc-300 font-medium">Your App</div>
-            <div className="text-zinc-500">OpenAI SDK / cURL</div>
-          </div>
-          <div className="text-zinc-600 text-2xl">&rarr;</div>
-          <div className="text-center p-3">
-            <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <Server className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div className="text-zinc-300 font-medium">AI Gateway API</div>
-            <div className="text-zinc-500">Validasi API Key + Proxy</div>
-          </div>
-          <div className="text-zinc-600 text-2xl">&rarr;</div>
-          <div className="text-center p-3">
-            <div className="w-10 h-10 bg-violet-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-              <ExternalLink className="w-5 h-5 text-violet-400" />
-            </div>
-            <div className="text-zinc-300 font-medium">Puter API</div>
-            <div className="text-zinc-500">500+ AI Models</div>
-          </div>
-        </div>
-        <div className="mt-4 p-3 bg-zinc-900/50 rounded-lg">
-          <p className="text-[10px] text-zinc-500 text-center">
-            Puter Auth Token tersimpan aman di backend &mdash; tidak pernah bocor ke client
-          </p>
-        </div>
-      </div>
-
-      {/* Authentication */}
-      <h2 className="text-xl font-semibold text-zinc-200 mb-4">Authentication</h2>
-      <p className="text-sm text-zinc-400 mb-4">
-        Semua endpoint (kecuali model listing) membutuhkan API Key yang dikirim via header{" "}
-        <code className="text-zinc-300 bg-zinc-800 px-1.5 py-0.5 rounded text-xs">Authorization: Bearer &lt;your-api-key&gt;</code>.
-        Dapatkan API Key dari halaman{" "}
-        <Link href="/keys" className="text-emerald-400 hover:underline">/keys</Link>.
+      <p className="text-muted-foreground text-sm mb-10">
+        Base URL: <code className="bg-muted px-2 py-0.5 rounded text-xs">http://localhost:3035/api/v1</code>
       </p>
 
-      <div className="bg-zinc-800/30 border border-zinc-800 rounded-xl p-4 mb-10">
-        <div className="flex items-start gap-3">
-          <Shield className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-          <div>
-            <h3 className="text-sm font-semibold text-zinc-200 mb-1">Security Model</h3>
-            <ul className="space-y-1.5 text-xs text-zinc-500">
-              <li className="flex items-start gap-2">
-                <span className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                API Key format: <code className="text-zinc-300">xpgw_&lt;random&gt;</code>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                Keys disimpan terenkripsi di server (JSON file)
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                Setiap request dicatat untuk usage tracking
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                Keys bisa di-revoke kapan saja dari dashboard
-              </li>
-            </ul>
+      {/* Architecture */}
+      <h2 className="text-xl font-semibold mb-4">How It Works</h2>
+      <Card className="mb-10">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+            <div className="text-center p-3">
+              <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center mx-auto mb-2"><Terminal className="w-5 h-5 text-blue-500" /></div>
+              <div className="font-medium">Your App</div>
+              <div className="text-muted-foreground">OpenAI SDK / cURL</div>
+            </div>
+            <div className="text-muted-foreground text-2xl">&rarr;</div>
+            <div className="text-center p-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-2"><Server className="w-5 h-5 text-primary" /></div>
+              <div className="font-medium">AI Gateway API</div>
+              <div className="text-muted-foreground">Quota check + Routing</div>
+            </div>
+            <div className="text-muted-foreground text-2xl">&rarr;</div>
+            <div className="text-center p-3">
+              <div className="w-10 h-10 bg-violet-500/10 rounded-xl flex items-center justify-center mx-auto mb-2"><ExternalLink className="w-5 h-5 text-violet-500" /></div>
+              <div className="font-medium">LLM Providers</div>
+              <div className="text-muted-foreground">500+ AI Models</div>
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+
+      {/* Auth */}
+      <h2 className="text-xl font-semibold mb-4">Authentication</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        All endpoints (except model listing) require an API Key via header{" "}
+        <code className="bg-muted px-1.5 py-0.5 rounded text-xs">Authorization: Bearer &lt;your-api-key&gt;</code>.
+        Get a key from <Link href="/keys" className="text-primary hover:underline">/keys</Link>.
+      </p>
+
+      <Card className="mb-10">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-3">
+            <Shield className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold mb-1">Security Model</h3>
+              <ul className="space-y-1.5 text-xs text-muted-foreground">
+                <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-primary mt-1.5 shrink-0" />API Key format: <code>xpgw_&lt;random&gt;</code></li>
+                <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-primary mt-1.5 shrink-0" />Keys stored in PostgreSQL with per-user isolation</li>
+                <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-primary mt-1.5 shrink-0" />Each request tracked for usage analytics</li>
+                <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-primary mt-1.5 shrink-0" />Keys can be revoked anytime from dashboard</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Endpoints */}
-      <h2 className="text-xl font-semibold text-zinc-200 mb-4">Endpoints</h2>
+      <h2 className="text-xl font-semibold mb-4">Endpoints</h2>
       <div className="space-y-6 mb-10">
 
         {/* POST /chat/completions */}
-        <div className="bg-zinc-800/30 border border-zinc-800 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-zinc-800">
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3 mb-2">
-              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-mono rounded">POST</span>
-              <code className="text-sm text-zinc-200 font-mono">/api/v1/chat/completions</code>
+              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-mono rounded">POST</span>
+              <code className="text-sm font-mono">/api/v1/chat/completions</code>
             </div>
-            <p className="text-xs text-zinc-500">
-              Chat completions endpoint. Fully compatible dengan OpenAI Chat Completion API.
-              Mendukung streaming (SSE) dan non-streaming.
-            </p>
+            <p className="text-xs text-muted-foreground">Chat completions endpoint. Fully compatible with OpenAI Chat Completion API. Supports streaming (SSE) and non-streaming.</p>
           </div>
-          <div className="p-4 space-y-4">
+          <CardContent className="p-4 space-y-4">
             <div>
-              <h4 className="text-xs font-semibold text-zinc-400 mb-2">Headers</h4>
-              <div className="bg-black/30 rounded-lg p-3 space-y-2 text-xs">
-                <div className="flex items-center gap-3">
-                  <span className="text-zinc-500 w-32 shrink-0">Authorization</span>
-                  <span className="text-zinc-300 font-mono">Bearer &lt;api_key&gt;</span>
-                  <span className="text-zinc-600">Required</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-zinc-500 w-32 shrink-0">Content-Type</span>
-                  <span className="text-zinc-300 font-mono">application/json</span>
-                  <span className="text-zinc-600">Required</span>
-                </div>
+              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Headers</h4>
+              <div className="bg-muted rounded-lg p-3 space-y-2 text-xs">
+                <div className="flex items-center gap-3"><span className="text-muted-foreground w-32 shrink-0">Authorization</span><span className="font-mono">Bearer &lt;api_key&gt;</span><span className="text-muted-foreground">Required</span></div>
+                <div className="flex items-center gap-3"><span className="text-muted-foreground w-32 shrink-0">Content-Type</span><span className="font-mono">application/json</span><span className="text-muted-foreground">Required</span></div>
               </div>
             </div>
-
             <div>
-              <h4 className="text-xs font-semibold text-zinc-400 mb-2">Request Body</h4>
-              <div className="bg-black/30 rounded-lg overflow-hidden">
-                <pre className="p-3 text-[10px] text-zinc-300 font-mono overflow-x-auto leading-relaxed">{`{
+              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Request Body</h4>
+              <div className="bg-muted rounded-lg overflow-hidden">
+                <pre className="p-3 text-[10px] font-mono overflow-x-auto leading-relaxed">{`{
   "model": "gpt-4o",
   "messages": [
     { "role": "system", "content": "You are a helpful assistant." },
@@ -135,19 +105,18 @@ export default function APIPage() {
   "max_tokens": 2048
 }`}</pre>
               </div>
-              <div className="mt-2 space-y-1 text-[10px] text-zinc-500">
-                <p><code className="text-zinc-400">model</code> (string, required) &mdash; Model ID dari list models</p>
-                <p><code className="text-zinc-400">messages</code> (array, required) &mdash; Array of message objects</p>
-                <p><code className="text-zinc-400">stream</code> (boolean, optional) &mdash; Enable SSE streaming, default false</p>
-                <p><code className="text-zinc-400">temperature</code> (number, optional) &mdash; Sampling temperature (0-2)</p>
-                <p><code className="text-zinc-400">max_tokens</code> (number, optional) &mdash; Max tokens in response</p>
+              <div className="mt-2 space-y-1 text-[10px] text-muted-foreground">
+                <p><code>model</code> (string, required) &mdash; Model ID from models list</p>
+                <p><code>messages</code> (array, required) &mdash; Array of message objects</p>
+                <p><code>stream</code> (boolean, optional) &mdash; Enable SSE streaming, default false</p>
+                <p><code>temperature</code> (number, optional) &mdash; Sampling temperature (0-2)</p>
+                <p><code>max_tokens</code> (number, optional) &mdash; Max tokens in response</p>
               </div>
             </div>
-
             <div>
-              <h4 className="text-xs font-semibold text-zinc-400 mb-2">Example &mdash; cURL</h4>
-              <div className="bg-black/30 rounded-lg overflow-hidden">
-                <pre className="p-3 text-[10px] text-zinc-300 font-mono overflow-x-auto">{`curl http://localhost:3000/api/v1/chat/completions \\
+              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Example &mdash; cURL</h4>
+              <div className="bg-muted rounded-lg overflow-hidden">
+                <pre className="p-3 text-[10px] font-mono overflow-x-auto">{`curl http://localhost:3035/api/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer xpgw_your-api-key" \\
   -d '{
@@ -157,14 +126,13 @@ export default function APIPage() {
   }'`}</pre>
               </div>
             </div>
-
             <div>
-              <h4 className="text-xs font-semibold text-zinc-400 mb-2">Example &mdash; OpenAI SDK (Node.js)</h4>
-              <div className="bg-black/30 rounded-lg overflow-hidden">
-                <pre className="p-3 text-[10px] text-zinc-300 font-mono overflow-x-auto">{`import OpenAI from "openai";
+              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Example &mdash; OpenAI SDK (Node.js)</h4>
+              <div className="bg-muted rounded-lg overflow-hidden">
+                <pre className="p-3 text-[10px] font-mono overflow-x-auto">{`import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "http://localhost:3000/api/v1",
+  baseURL: "http://localhost:3035/api/v1",
   apiKey: "xpgw_your-api-key",
 });
 
@@ -186,11 +154,10 @@ for await (const chunk of stream) {
 }`}</pre>
               </div>
             </div>
-
             <div>
-              <h4 className="text-xs font-semibold text-zinc-400 mb-2">Response Format</h4>
-              <div className="bg-black/30 rounded-lg overflow-hidden">
-                <pre className="p-3 text-[10px] text-zinc-300 font-mono overflow-x-auto leading-relaxed">{`{
+              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Response Format</h4>
+              <div className="bg-muted rounded-lg overflow-hidden">
+                <pre className="p-3 text-[10px] font-mono overflow-x-auto leading-relaxed">{`{
   "id": "chatcmpl-xxx",
   "object": "chat.completion",
   "created": 1712345678,
@@ -213,29 +180,26 @@ for await (const chunk of stream) {
 }`}</pre>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* GET /models */}
-        <div className="bg-zinc-800/30 border border-zinc-800 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-zinc-800">
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3 mb-2">
-              <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-mono rounded">GET</span>
-              <code className="text-sm text-zinc-200 font-mono">/api/v1/models</code>
+              <span className="px-2 py-0.5 bg-blue-500/10 text-blue-500 text-[10px] font-mono rounded">GET</span>
+              <code className="text-sm font-mono">/api/v1/models</code>
             </div>
-            <p className="text-xs text-zinc-500">
-              List available models dari Puter API. Publik &mdash; tidak perlu API key.
-              Response di-transform ke format OpenAI-compatible.
-            </p>
+            <p className="text-xs text-muted-foreground">List available models. Public &mdash; no API key required. Returns OpenAI-compatible format.</p>
           </div>
-          <div className="p-4 space-y-3">
-            <div className="bg-black/30 rounded-lg p-3">
-              <pre className="text-[10px] text-zinc-300 font-mono overflow-x-auto">{`curl http://localhost:3000/api/v1/models`}</pre>
+          <CardContent className="p-4 space-y-3">
+            <div className="bg-muted rounded-lg p-3">
+              <pre className="text-[10px] font-mono overflow-x-auto">{`curl http://localhost:3035/api/v1/models`}</pre>
             </div>
             <div>
-              <h4 className="text-xs font-semibold text-zinc-400 mb-2">Response</h4>
-              <div className="bg-black/30 rounded-lg overflow-hidden">
-                <pre className="p-3 text-[10px] text-zinc-300 font-mono overflow-x-auto leading-relaxed">{`{
+              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Response</h4>
+              <div className="bg-muted rounded-lg overflow-hidden">
+                <pre className="p-3 text-[10px] font-mono overflow-x-auto leading-relaxed">{`{
   "data": [
     {
       "id": "gpt-4o",
@@ -244,174 +208,100 @@ for await (const chunk of stream) {
       "owned_by": "openai",
       "name": "GPT-4o",
       "context": 128000,
-      "provider": "OpenAI",
-      "modalities": ["text", "image"],
-      "pricing": {
-        "prompt": 2.50,
-        "completion": 10.00
-      }
+      "provider": "OpenAI"
     }
   ]
 }`}</pre>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* GET /usage */}
-        <div className="bg-zinc-800/30 border border-zinc-800 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-zinc-800">
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3 mb-2">
-              <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-mono rounded">GET</span>
-              <code className="text-sm text-zinc-200 font-mono">/api/v1/usage</code>
+              <span className="px-2 py-0.5 bg-blue-500/10 text-blue-500 text-[10px] font-mono rounded">GET</span>
+              <code className="text-sm font-mono">/api/v1/usage</code>
             </div>
-            <p className="text-xs text-zinc-500">
-              View usage statistics untuk API key Anda. Membutuhkan API key atau admin key.
-              Untuk admin, bisa melihat semua keys usage.
-            </p>
+            <p className="text-xs text-muted-foreground">View usage statistics for your API key. Requires API key in header.</p>
           </div>
-          <div className="p-4 space-y-3">
-            <div className="bg-black/30 rounded-lg p-3">
-              <pre className="text-[10px] text-zinc-300 font-mono overflow-x-auto">{`curl http://localhost:3000/api/v1/usage \\
+          <CardContent className="p-4 space-y-3">
+            <div className="bg-muted rounded-lg p-3">
+              <pre className="text-[10px] font-mono overflow-x-auto">{`curl http://localhost:3035/api/v1/usage \\
   -H "Authorization: Bearer xpgw_your-api-key"`}</pre>
             </div>
-            <div>
-              <h4 className="text-xs font-semibold text-zinc-400 mb-2">Response</h4>
-              <div className="bg-black/30 rounded-lg overflow-hidden">
-                <pre className="p-3 text-[10px] text-zinc-300 font-mono overflow-x-auto leading-relaxed">{`{
-  "totalRequests": 42,
-  "totalTokens": 15234,
-  "totalPromptTokens": 8234,
-  "totalCompletionTokens": 7000,
-  "modelBreakdown": {
-    "gpt-4o": 10000,
-    "claude-sonnet-4": 5234
-  },
-  "dailyUsage": {
-    "2026-07-09": 5000,
-    "2026-07-08": 10234
-  },
-  "apiKeyId": "abc123..."
-}`}</pre>
-              </div>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* KEY MANAGEMENT */}
-        <div className="bg-zinc-800/30 border border-zinc-800 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-zinc-800">
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3 mb-2">
               <div className="flex gap-1">
-                <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-mono rounded">POST</span>
-                <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-mono rounded">GET</span>
-                <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-[10px] font-mono rounded">DELETE</span>
+                <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-mono rounded">POST</span>
+                <span className="px-2 py-0.5 bg-blue-500/10 text-blue-500 text-[10px] font-mono rounded">GET</span>
+                <span className="px-2 py-0.5 bg-red-500/10 text-red-500 text-[10px] font-mono rounded">DELETE</span>
               </div>
-              <code className="text-sm text-zinc-200 font-mono">/api/v1/keys</code>
+              <code className="text-sm font-mono">/api/v1/keys</code>
             </div>
-            <p className="text-xs text-zinc-500">
-              API Key management. Membutuhkan admin key (<code className="text-zinc-400">INTERNAL_API_KEY</code>).
-              Untuk manage keys dari UI, buka halaman{" "}
-              <Link href="/keys" className="text-emerald-400 hover:underline">/keys</Link>.
-            </p>
+            <p className="text-xs text-muted-foreground">API Key management. For managing keys from UI, visit <Link href="/keys" className="text-primary hover:underline">/keys</Link>.</p>
           </div>
-          <div className="p-4 space-y-2 text-xs">
-            <div className="flex items-center gap-3">
-              <span className="text-emerald-400 font-mono w-12">POST</span>
-              <span className="text-zinc-300">Create a new API key</span>
-              <span className="text-zinc-500">Body: <code className="text-zinc-400">{`{ "name": "my-key" }`}</code></span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-blue-400 font-mono w-12">GET</span>
-              <span className="text-zinc-300">List all API keys</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-red-400 font-mono w-12">DELETE</span>
-              <span className="text-zinc-300">Revoke or delete a key</span>
-              <span className="text-zinc-500">Query: <code className="text-zinc-400">?id=xxx&amp;action=revoke</code></span>
-            </div>
-          </div>
-        </div>
+          <CardContent className="p-4 space-y-2 text-xs">
+            <div className="flex items-center gap-3"><span className="text-emerald-500 font-mono w-12">POST</span><span>Create a new API key</span><span className="text-muted-foreground">Body: <code>{`{ "name": "my-key" }`}</code></span></div>
+            <div className="flex items-center gap-3"><span className="text-blue-500 font-mono w-12">GET</span><span>List all API keys</span></div>
+            <div className="flex items-center gap-3"><span className="text-red-500 font-mono w-12">DELETE</span><span>Revoke or delete a key</span><span className="text-muted-foreground">Query: <code>?id=xxx</code></span></div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Rate Limits */}
-      <h2 className="text-xl font-semibold text-zinc-200 mb-4">Rate Limits &amp; Constraints</h2>
-      <div className="bg-zinc-800/30 border border-zinc-800 rounded-xl p-5 mb-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          <div className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-            <div>
-              <span className="text-zinc-300">Rate limiting</span>
-              <p className="text-zinc-500">Belum ada rate limiting built-in &mdash; tergantung rate limit dari Puter API</p>
-            </div>
+      <h2 className="text-xl font-semibold mb-4">Limits &amp; Notes</h2>
+      <Card className="mb-10">
+        <CardContent className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div className="flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" /><div><span className="font-medium">Token estimation</span><p className="text-muted-foreground">~4 chars per token (approximate)</p></div></div>
+            <div className="flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" /><div><span className="font-medium">Quota enforcement</span><p className="text-muted-foreground">Checked per request against your plan/package limits</p></div></div>
+            <div className="flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" /><div><span className="font-medium">Streaming timeout</span><p className="text-muted-foreground">Follows browser/HTTP client timeout settings</p></div></div>
+            <div className="flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" /><div><span className="font-medium">Model availability</span><p className="text-muted-foreground">Depends on configured providers; try another model if unavailable</p></div></div>
           </div>
-          <div className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-            <div>
-              <span className="text-zinc-300">Token estimation</span>
-              <p className="text-zinc-500">Estimasi sederhana: 4 karakter &asymp; 1 token (bukan tokenizer sesungguhnya)</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-            <div>
-              <span className="text-zinc-300">Streaming timeout</span>
-              <p className="text-zinc-500">Mengikuti timeout browser/HTTP client (tidak ada timeout khusus di backend)</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-            <div>
-              <span className="text-zinc-300">Model availability</span>
-              <p className="text-zinc-500">Tergantung Puter API &mdash; jika model tidak available, coba model lain</p>
-            </div>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Error Codes */}
-      <h2 className="text-xl font-semibold text-zinc-200 mb-4">Error Codes</h2>
-      <div className="bg-zinc-800/30 border border-zinc-800 rounded-xl overflow-hidden mb-10">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-zinc-800">
-              <th className="text-left px-4 py-3 text-zinc-400 font-medium">Status</th>
-              <th className="text-left px-4 py-3 text-zinc-400 font-medium">Meaning</th>
-              <th className="text-left px-4 py-3 text-zinc-400 font-medium">Solution</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800">
-            <tr className="hover:bg-zinc-800/20">
-              <td className="px-4 py-3 text-red-400 font-mono">400</td>
-              <td className="text-zinc-300">Bad Request</td>
-              <td className="text-zinc-500">Check request body &mdash; messages dan model required</td>
-            </tr>
-            <tr className="hover:bg-zinc-800/20">
-              <td className="px-4 py-3 text-red-400 font-mono">401</td>
-              <td className="text-zinc-300">Unauthorized</td>
-              <td className="text-zinc-500">API Key tidak valid atau sudah di-revoke</td>
-            </tr>
-            <tr className="hover:bg-zinc-800/20">
-              <td className="px-4 py-3 text-red-400 font-mono">500</td>
-              <td className="text-zinc-300">Server Error</td>
-              <td className="text-zinc-500">Puter API error atau konfigurasi server kurang</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <h2 className="text-xl font-semibold mb-4">Error Codes</h2>
+      <Card className="overflow-hidden mb-10">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left px-4 py-3 text-muted-foreground font-medium">Status</th>
+                <th className="text-left px-4 py-3 text-muted-foreground font-medium">Meaning</th>
+                <th className="text-left px-4 py-3 text-muted-foreground font-medium">Solution</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr className="hover:bg-muted/50"><td className="px-4 py-3 text-destructive font-mono">400</td><td>Bad Request</td><td className="text-muted-foreground">Check request body</td></tr>
+              <tr className="hover:bg-muted/50"><td className="px-4 py-3 text-destructive font-mono">401</td><td>Unauthorized</td><td className="text-muted-foreground">API Key invalid or revoked</td></tr>
+              <tr className="hover:bg-muted/50"><td className="px-4 py-3 text-amber-500 font-mono">402</td><td>Out of Quota</td><td className="text-muted-foreground">Purchase a package or upgrade plan</td></tr>
+              <tr className="hover:bg-muted/50"><td className="px-4 py-3 text-destructive font-mono">500</td><td>Server Error</td><td className="text-muted-foreground">Provider error or misconfiguration</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       {/* Note */}
-      <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-        <div className="flex items-start gap-2">
-          <BarChart3 className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-          <p className="text-xs text-zinc-500 leading-relaxed">
-            <strong className="text-zinc-400">Note:</strong> API ini adalah proxy ke{" "}
-            <a href="https://puter.com" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Puter.com</a>.
-            Kualitas, kecepatan, dan availability tergantung pada infrastruktur Puter.
-            Untuk production scale, pertimbangkan untuk menambahkan provider langsung sebagai fallback.
-          </p>
-        </div>
-      </div>
+      <Card className="bg-amber-500/5 border-amber-500/20">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-2">
+            <BarChart3 className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <strong className="text-foreground">Note:</strong> This API routes to multiple backend providers including Puter and self-hosted aggregators.
+              Quality, speed, and availability depend on the specific provider.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
