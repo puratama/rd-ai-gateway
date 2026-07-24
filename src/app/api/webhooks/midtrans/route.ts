@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { mapTransactionStatus, verifySignature } from "@/lib/midtrans";
+import { mapTransactionStatus, verifySignature, initMidtrans } from "@/lib/midtrans";
+import { handlePaidBilling } from "@/lib/billing-fulfillment";
 import type { MidtransNotification } from "@/lib/midtrans";
 
 export async function POST(request: NextRequest) {
   try {
+    // Ensure Midtrans config loaded from DB before signature verification
+    await initMidtrans();
+
     const notification = (await request.json()) as MidtransNotification;
 
     if (!notification?.order_id || !notification?.transaction_status || !notification?.fraud_status) {
@@ -58,79 +62,5 @@ function normalizeBillingStatus(
       return "failed";
     default:
       return status;
-  }
-}
-
-function addBillingPeriod(date: Date, billingPeriod: string): Date {
-  const result = new Date(date);
-  switch (billingPeriod) {
-    case "daily":
-      result.setDate(result.getDate() + 1);
-      break;
-    case "weekly":
-      result.setDate(result.getDate() + 7);
-      break;
-    case "yearly":
-      result.setFullYear(result.getFullYear() + 1);
-      break;
-    default:
-      result.setMonth(result.getMonth() + 1);
-      break;
-  }
-  return result;
-}
-
-async function handlePaidBilling(
-  billing: {
-    id: string;
-    userId: string;
-    type: string;
-    amount: unknown;
-    planId: string | null;
-    description: string | null;
-  }
-) {
-  if (billing.type === "topup") {
-    await prisma.wallet.upsert({
-      where: { userId: billing.userId },
-      update: { balance: { increment: billing.amount as unknown as number } },
-      create: { userId: billing.userId, balance: billing.amount as unknown as number },
-    });
-    return;
-  }
-
-  if (!billing.planId) {
-    return;
-  }
-
-  const plan = await prisma.plan.findUnique({ where: { id: billing.planId } });
-  if (!plan) {
-    return;
-  }
-
-  if (billing.type === "subscription") {
-    await prisma.subscription.create({
-      data: {
-        userId: billing.userId,
-        planId: plan.id,
-        status: "active",
-        endDate: addBillingPeriod(new Date(), plan.billingPeriod),
-      },
-    });
-    return;
-  }
-
-  if (billing.type === "package_purchase") {
-    await prisma.userPackage.create({
-      data: {
-        userId: billing.userId,
-        planId: plan.id,
-        status: "active",
-        tokensTotal: plan.maxTokensPerPeriod,
-        tokensRemaining: plan.maxTokensPerPeriod,
-        expiresAt: addBillingPeriod(new Date(), plan.billingPeriod),
-        billingId: billing.id,
-      },
-    });
   }
 }

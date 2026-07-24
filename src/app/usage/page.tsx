@@ -5,6 +5,7 @@ import { AlertTriangle, BarChart3, Coins, Hash, RefreshCw } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CardGridSkeleton, StatsCardSkeleton } from "@/components/ui/skeleton";
 
 interface ModelUsage {
   model: string;
@@ -85,8 +86,9 @@ export default function UsagePage() {
           )}
 
           {loading && !usage ? (
-            <div className="flex h-64 items-center justify-center gap-3 text-sm text-muted-foreground">
-              <RefreshCw className="h-5 w-5 animate-spin" /> Loading usage...
+            <div className="space-y-3">
+              <CardGridSkeleton count={3} />
+              <StatsCardSkeleton />
             </div>
           ) : usage ? (
             <>

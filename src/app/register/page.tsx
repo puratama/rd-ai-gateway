@@ -42,7 +42,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,color-mix(in_oklch,var(--color-primary)_18%,transparent),transparent_30rem),linear-gradient(180deg,var(--color-background),color-mix(in_oklch,var(--color-background)_78%,var(--color-card)))] flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <Link href="/" className="flex items-center justify-center gap-2.5 mb-8">
           <div className="w-9 h-9 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
@@ -51,7 +51,7 @@ export default function RegisterPage() {
           <span className="text-xl font-bold">xPerimne</span>
         </Link>
 
-        <Card className="border-border bg-card">
+        <Card className="border-border bg-card/95 shadow-2xl shadow-primary/10">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl">Create account</CardTitle>
             <p className="text-sm text-muted-foreground">Start building with 500+ AI models</p>

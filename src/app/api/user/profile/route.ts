@@ -28,15 +28,14 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, email } = body as { name?: string; email?: string };
+    const { name } = body as { name?: string };
 
-    if (!name && !email) {
-      return NextResponse.json({ error: "name or email required" }, { status: 400 });
+    if (!name) {
+      return NextResponse.json({ error: "name required" }, { status: 400 });
     }
 
-    const data: { name?: string; email?: string } = {};
+    const data: { name?: string } = {};
     if (name !== undefined) data.name = name;
-    if (email !== undefined) data.email = email;
 
     const user = await prisma.user.update({
       where: { id: session.sub },

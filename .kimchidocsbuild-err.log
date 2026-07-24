@@ -1,0 +1,27 @@
+▲ Next.js 16.2.10 (Turbopack)
+- Environments: .env.local, .env
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./src/lib/server-store.ts:476:1
+'import', and 'export' cannot be used outside of module code
+  [90m474 |[0m }
+  [90m475 |[0m
+[31m[1m>[0m [90m476 |[0m [36mexport[0m [36masync[0m [36mfunction[0m checkModelAccess(apiKeyId: string, modelId: string): [33mPromise[0m<boolea...
+  [90m    |[0m [31m[1m^^^^^^[0m
+  [90m477 |[0m   [36mconst[0m apiKey = [36mawait[0m prisma.apiKey.findUnique({ where: { id: apiKeyId } });
+  [90m478 |[0m   [36mif[0m (!apiKey) [36mreturn[0m [36mfalse[0m;
+  [90m479 |[0m
+
+Parsing ecmascript source code failed
+
+Import trace:
+  App Route:
+    ./src/lib/server-store.ts
+    ./src/app/api/packages/purchase/route.ts
+
+
+    at <unknown> (./src/lib/server-store.ts:476:1)

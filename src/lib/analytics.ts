@@ -173,7 +173,6 @@ export function recordEvent(event: AnalyticsEvent) {
 }
 
 function calculateStreak(dailyActivity: Record<string, number>): number {
-  const today = getDateKey(Date.now());
   const dates = Object.keys(dailyActivity).sort().reverse();
 
   if (dates.length === 0) return 0;

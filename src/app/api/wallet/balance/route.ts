@@ -1,23 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-export async function GET(request: NextRequest) {
-  try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+async function resolveUser(request: NextRequest) {
+  const token = request.headers.get("authorization")?.replace("Bearer ", "");
+  if (token) {
     const apiKey = await prisma.apiKey.findUnique({
       where: { key: token, isActive: true },
       include: { user: { include: { wallet: true } } },
     });
+    if (apiKey) return apiKey.user;
+  }
+  const session = await getSession();
+  if (session) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.sub },
+      include: { wallet: true },
+    });
+    return user;
+  }
+  return null;
+}
 
-    if (!apiKey) {
-      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+export async function GET(request: NextRequest) {
+  try {
+    const user = await resolveUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const wallet = apiKey.user.wallet;
+    const wallet = user.wallet;
     return NextResponse.json({
       balance: wallet ? Number(wallet.balance) : 0,
       currency: "IDR",

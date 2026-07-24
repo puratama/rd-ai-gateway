@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
       validateServerKey,
     } = await import("@/lib/server-store");
 
-    if (token === process.env.INTERNAL_API_KEY) {
+    const { getInternalKeys } = await import("@/lib/auth");
+    const { internalKey } = getInternalKeys();
+
+    if (token === internalKey) {
       // Admin - can see all usage or specific key
       if (keyId) {
         return NextResponse.json(await getServerUsageSummary(keyId));

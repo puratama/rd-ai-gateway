@@ -2,19 +2,27 @@
 
 import { useMemo, useState, useEffect } from "react";
 import {
-  BadgeInfo,
+  ArrowLeftRight,
+  Check,
   ChevronDown,
   ChevronUp,
   DollarSign,
-  ExternalLink,
+  Gauge,
+  Layers,
   Search,
+  Sparkles,
+  X,
 } from "lucide-react";
-import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { fetchPricingFromDB } from "@/lib/pricing-db";
 import type { ModelPricing } from "@/types";
@@ -35,6 +43,14 @@ function formatPrice(n: number) { return n === 0 ? "Free" : n.toFixed(2); }
 function getMinPrice(models: ModelPricing[]) { return models.reduce((min, m) => Math.min(min, m.pricing.prompt), Infinity); }
 function getMaxPrice(models: ModelPricing[]) { return models.reduce((max, m) => Math.max(max, m.pricing.prompt), 0); }
 
+const speedColor = (speed: string) =>
+  speed === "fast" ? "text-emerald-400" : speed === "balanced" ? "text-amber-400" : speed === "slow" ? "text-rose-400" : "text-muted-foreground";
+const speedBg = (speed: string) =>
+  speed === "fast" ? "bg-emerald-500/10 border-emerald-500/20" : speed === "balanced" ? "bg-amber-500/10 border-amber-500/20" : speed === "slow" ? "bg-rose-500/10 border-rose-500/20" : "bg-muted/20 border-border";
+const speedLabel = (speed: string) =>
+  speed === "fast" ? "⚡ Fast" : speed === "balanced" ? "⚖️ Balanced" : speed === "slow" ? "🐢 Slow" : speed;
+
+
 export default function PricingPage() {
   const [pricingData, setPricingData] = useState<ModelPricing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,9 +59,9 @@ export default function PricingPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState<"name" | "prompt" | "completion" | "context">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [compareMode, setCompareMode] = useState(false);
   const [compareList, setCompareList] = useState<string[]>([]);
+  const [expandedModel, setExpandedModel] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPricingFromDB().then((data) => { setPricingData(data); setLoading(false); });
@@ -79,7 +95,7 @@ export default function PricingPage() {
       return sortOrder === "asc" ? cmp : -cmp;
     });
     return result;
-  }, [search, selectedProvider, selectedCategory, sortBy, sortOrder]);
+  }, [pricingData, search, selectedProvider, selectedCategory, sortBy, sortOrder]);
 
   const toggleCompare = (modelId: string) => {
     setCompareList((prev) => prev.includes(modelId) ? prev.filter((id) => id !== modelId) : prev.length < 4 ? [...prev, modelId] : prev);
@@ -90,187 +106,358 @@ export default function PricingPage() {
     else { setSortBy(field); setSortOrder("asc"); }
   };
 
-  const getCategoryIcon = (cat: string) => categories.find((c) => c.key === cat)?.icon || "❓";
   const getCategoryLabel = (cat: string) => categories.find((c) => c.key === cat)?.label || cat;
+  const getCategoryIcon = (cat: string) => categories.find((c) => c.key === cat)?.icon || "❓";
   const formatContext = (ctx: number) => ctx === 0 ? "-" : ctx >= 1000000 ? `${(ctx / 1000000).toFixed(0)}M` : ctx >= 1000 ? `${(ctx / 1000).toFixed(0)}K` : String(ctx);
-  const speedIcon = (speed: string) => speed === "fast" ? "⚡" : speed === "balanced" ? "⚖️" : speed === "slow" ? "🐢" : "❓";
-  const speedClass = (speed: string) => speed === "fast" ? "text-emerald-500" : speed === "balanced" ? "text-amber-500" : speed === "slow" ? "text-destructive" : "text-muted-foreground";
+
+  const renderPriceBadge = (value: number, label: string) => (
+    <div className="text-center">
+      <p className="text-xs text-muted-foreground/70">{label}</p>
+      <p className="text-sm font-semibold tabular-nums tracking-tight text-foreground">{formatPrice(value)}</p>
+    </div>
+  );
+
+  const SortArrow = ({ field }: { field: typeof sortBy }) =>
+    sortBy === field ? (
+      sortOrder === "asc" ? <ChevronUp className="ml-0.5 h-3 w-3" /> : <ChevronDown className="ml-0.5 h-3 w-3" />
+    ) : null;
 
   return (
     <AppShell variant="user">
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-primary" />
-            <h2 className="text-base font-semibold">Model Pricing</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant={compareMode ? "default" : "outline"} size="sm" onClick={() => setCompareMode(!compareMode)}>
-              <BadgeInfo className="w-3.5 h-3.5 mr-1.5" /> Compare
-            </Button>
-            <Link href="/docs/models" className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-input rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
-              <ExternalLink className="w-3.5 h-3.5" /> Docs
-            </Link>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Info */}
-          <Card>
-            <CardContent className="p-4 flex items-start gap-3">
-              <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
-                <BadgeInfo className="w-4 h-4 text-primary" />
+      <div className="h-full overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+          {/* Hero header */}
+          <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <Sparkles className="h-4 w-4 text-primary" /> Pricing
               </div>
-              <div>
-                <h3 className="text-sm font-semibold mb-1">Transparent model pricing</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Compare model costs, context windows, speed, and quality before choosing a plan or package.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Filters */}
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input className="pl-10" placeholder="Search models by name, ID, or provider..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              <h1 className="text-3xl font-semibold tracking-tight">Transparent AI pricing</h1>
+              <p className="text-sm text-muted-foreground">Compare costs, context windows, speed, and quality across all providers.</p>
             </div>
-            <select value={selectedProvider} onChange={(e) => setSelectedProvider(e.target.value)} className="h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="all">All Providers ({pricingData.length})</option>
-              {providers.map((p) => <option key={p} value={p}>{p} ({providerCounts[p] || 0})</option>)}
-            </select>
-            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="all">All Categories</option>
-              {categories.map((c) => <option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
-            </select>
+            <Button
+              variant={compareMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCompareMode(!compareMode)}
+              className={cn("gap-1.5", compareMode && "shadow-lg shadow-primary/20")}
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+              {compareMode ? "Exit Compare" : "Compare Models"}
+            </Button>
+          </header>
+
+          {/* Stats bar */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              { label: "Total Models", value: pricingData.length, icon: Layers },
+              { label: "Providers", value: providers.length, icon: Layers },
+              { label: "Cheapest Prompt", value: `${formatPrice(getMinPrice(pricingData))}/1M`, icon: DollarSign },
+              { label: "Most Expensive", value: `${formatPrice(getMaxPrice(pricingData))}/1M`, icon: DollarSign },
+            ].map((stat, i) => {
+              const Icon = stat.icon;
+              return (
+                <Card key={stat.label}>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">{stat.label}</p>
+                        <p className={cn("text-sm font-semibold", loading && "animate-pulse text-muted-foreground")}>{stat.value}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
-          {/* Category pills */}
-          <div className="flex gap-2 flex-wrap">
-            <Button variant={selectedCategory === "all" ? "default" : "outline"} size="sm" onClick={() => setSelectedCategory("all")}>All</Button>
-            {categories.map((cat) => (
-              <Button key={cat.key} variant={selectedCategory === cat.key ? "default" : "outline"} size="sm" onClick={() => setSelectedCategory(cat.key)}>
-                {cat.icon} {cat.label}
-              </Button>
-            ))}
+          {/* Search + filters */}
+          <div className="flex flex-col gap-4">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search models by name, ID, or provider..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-10 pl-10"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-xs font-medium text-muted-foreground">Provider</span>
+              <select
+                value={selectedProvider}
+                onChange={(e) => setSelectedProvider(e.target.value)}
+                className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="all">All ({pricingData.length})</option>
+                {providers.map((p) => <option key={p} value={p}>{p} ({providerCounts[p] || 0})</option>)}
+              </select>
+              <div className="mx-2 h-5 w-px bg-border" />
+              <span className="mr-1 text-xs font-medium text-muted-foreground">Category</span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setSelectedCategory("all")}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-all",
+                    selectedCategory === "all"
+                      ? "border-primary/30 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground"
+                  )}
+                >
+                  All
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat.key}
+                    onClick={() => setSelectedCategory(cat.key)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition-all",
+                      selectedCategory === cat.key
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground"
+                    )}
+                  >
+                    {cat.icon} {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Compare bar */}
-          {compareMode && compareList.length > 0 && (
-            <Card className="border-primary/20 bg-primary/5">
-              <CardContent className="p-3 flex items-center justify-between">
-                <span className="text-xs text-primary">{compareList.length} model{compareList.length > 1 ? "s" : ""} selected{compareList.length < 2 ? " — select at least 2 to compare" : ""}</span>
-                {compareList.length >= 2 && <Button size="sm" onClick={() => setExpandedModel("compare")}>Compare Now</Button>}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Compare table */}
-          {expandedModel === "compare" && compareList.length >= 2 && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-sm">Model Comparison</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setExpandedModel(null)}>Close</Button>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Feature</TableHead>
-                      {compareList.map((id) => <TableHead key={id}>{pricingData.find((m) => m.id === id)?.name || id}</TableHead>)}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {["provider", "category", "context", "speed", "quality"].map((key) => (
-                      <TableRow key={key}>
-                        <TableCell className="text-muted-foreground capitalize">{key}</TableCell>
-                        {compareList.map((id) => {
-                          const model = pricingData.find((m) => m.id === id);
-                          const value = !model ? "-" : key === "category" ? getCategoryLabel(model.category) : key === "context" ? formatContext(model.context) : key === "speed" ? `${speedIcon(model.speed)} ${model.speed}` : String(model[key as keyof typeof model] ?? "");
-                          return <TableCell key={id}>{value}</TableCell>;
-                        })}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Sort controls */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-xs text-muted-foreground">Showing {filteredModels.length} of {pricingData.length} models</p>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground">Sort by:</span>
+          {/* Sort bar */}
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              {loading ? "Loading models..." : `Showing ${filteredModels.length} of ${pricingData.length} models`}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">Sort:</span>
               {(["name", "prompt", "completion", "context"] as const).map((field) => (
-                <Button key={field} variant={sortBy === field ? "secondary" : "ghost"} size="sm" onClick={() => toggleSort(field)} className="h-7 text-[10px]">
+                <button
+                  key={field}
+                  onClick={() => toggleSort(field)}
+                  className={cn(
+                    "flex items-center rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all",
+                    sortBy === field
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  )}
+                >
                   {field === "name" ? "Name" : field === "prompt" ? "Prompt $" : field === "completion" ? "Completion $" : "Context"}
-                  {sortBy === field && (sortOrder === "asc" ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />)}
-                </Button>
+                  <SortArrow field={field} />
+                </button>
               ))}
             </div>
           </div>
 
-          {/* Model table */}
-          {filteredModels.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Search className="w-12 h-12 mb-4 opacity-30" />
-              <h3 className="text-sm font-medium mb-1">No Models Found</h3>
-              <p className="text-xs">Try adjusting your filters or search query</p>
-            </div>
-          ) : (
-            <Card className="overflow-hidden">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {compareMode && <TableHead className="w-10" />}
-                      <TableHead>Model</TableHead>
-                      <TableHead>Provider</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead className="text-right">Context</TableHead>
-                      <TableHead className="text-right">Speed</TableHead>
-                      <TableHead className="text-right">Prompt $/1M</TableHead>
-                      <TableHead className="text-right">Completion $/1M</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredModels.map((model) => (
-                      <TableRow key={model.id} className={cn("cursor-pointer", expandedModel === model.id && "bg-muted/50")} onClick={() => setExpandedModel(expandedModel === model.id ? null : model.id)}>
-                        {compareMode && (
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <input type="checkbox" checked={compareList.includes(model.id)} onChange={() => toggleCompare(model.id)} className="w-4 h-4 rounded border-input bg-background accent-primary" />
-                          </TableCell>
-                        )}
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium">{model.name}</span>
-                            {model.quality === "Best" && <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/10 text-amber-500 rounded">BEST</span>}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{model.provider}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{getCategoryIcon(model.category)} {getCategoryLabel(model.category)}</TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground">{formatContext(model.context)}</TableCell>
-                        <TableCell className="text-right"><span className={cn("text-xs", speedClass(model.speed))}>{speedIcon(model.speed)}</span></TableCell>
-                        <TableCell className="text-right text-xs font-mono">{formatPrice(model.pricing.prompt)}</TableCell>
-                        <TableCell className="text-right text-xs font-mono">{formatPrice(model.pricing.completion)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+          {/* Compare bar */}
+          {compareMode && compareList.length > 0 && (
+            <Card className="border-primary/20">
+              <CardContent className="flex items-center justify-between p-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-[11px] font-semibold text-primary">
+                    {compareList.length}
+                  </div>
+                  <span className="text-xs text-primary">
+                    model{compareList.length > 1 ? "s" : ""} selected
+                    {compareList.length < 2 ? " — select at least 2 to compare" : ""}
+                  </span>
+                </div>
+                {compareList.length >= 2 && (
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setCompareList([])} className="h-7 text-xs">
+                      Clear
+                    </Button>
+                    <Button size="sm" onClick={() => setExpandedModel("compare")} className="h-7 gap-1 text-xs">
+                      <ArrowLeftRight className="h-3 w-3" /> Compare Now
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
             </Card>
           )}
 
-          {/* Stats footer */}
-          {!search && selectedProvider === "all" && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Card><CardContent className="p-4 text-center"><span className="text-[10px] text-muted-foreground block">Cheapest Prompt</span><span className="text-sm font-semibold">{formatPrice(getMinPrice(pricingData))}/1M</span></CardContent></Card>
-              <Card><CardContent className="p-4 text-center"><span className="text-[10px] text-muted-foreground block">Most Expensive</span><span className="text-sm font-semibold">{formatPrice(getMaxPrice(pricingData))}/1M</span></CardContent></Card>
-              <Card><CardContent className="p-4 text-center"><span className="text-[10px] text-muted-foreground block">Providers</span><span className="text-sm font-semibold">{providers.length}</span></CardContent></Card>
-              <Card><CardContent className="p-4 text-center"><span className="text-[10px] text-muted-foreground block">Total Models</span><span className="text-sm font-semibold">{pricingData.length}</span></CardContent></Card>
+          {/* Comparison table modal */}
+          <Dialog open={expandedModel === "compare" && compareList.length >= 2} onOpenChange={(open) => { if (!open) setExpandedModel(null); }}>
+            <DialogContent className="sm:max-w-5xl p-0 overflow-hidden border-primary/20">
+              <DialogHeader className="border-b border-border bg-muted/20 px-6 py-4">
+                <DialogTitle className="text-base font-semibold">Model Comparison</DialogTitle>
+              </DialogHeader>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="sticky left-0 bg-card px-4 py-3 text-left text-xs font-medium text-muted-foreground">Feature</th>
+                      {compareList.map((id) => {
+                        const m = pricingData.find((m) => m.id === id);
+                        return (
+                          <th key={id} className="px-4 py-3 text-left text-xs font-semibold">{m?.name || id}</th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { key: "provider", label: "Provider" },
+                      { key: "category", label: "Category", render: (m: ModelPricing) => `${getCategoryIcon(m.category)} ${getCategoryLabel(m.category)}` },
+                      { key: "context", label: "Context Window", render: (m: ModelPricing) => formatContext(m.context) },
+                      { key: "speed", label: "Speed", render: (m: ModelPricing) => speedLabel(m.speed) },
+                      { key: "quality", label: "Quality" },
+                    ].map((row) => (
+                      <tr key={row.key} className="border-b border-border last:border-b-0">
+                        <td className="sticky left-0 bg-card px-4 py-3 text-xs text-muted-foreground">{row.label}</td>
+                        {compareList.map((id) => {
+                          const m = pricingData.find((m) => m.id === id);
+                          if (!m) return <td key={id} className="px-4 py-3 text-xs" />;
+                          const val = row.render ? row.render(m) : String(m[row.key as keyof ModelPricing] ?? "");
+                          return <td key={id} className="px-4 py-3 text-xs">{val}</td>;
+                        })}
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-primary/20 bg-primary/5">
+                      <td className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Prompt $/1M</td>
+                      {compareList.map((id) => {
+                        const m = pricingData.find((m) => m.id === id);
+                        return <td key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.prompt) : "-"}</td>;
+                      })}
+                    </tr>
+                    <tr className="bg-primary/5">
+                      <td className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Completion $/1M</td>
+                      {compareList.map((id) => {
+                        const m = pricingData.find((m) => m.id === id);
+                        return <td key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.completion) : "-"}</td>;
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Model grid */}
+          {loading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="animate-pulse shadow-none">
+                  <CardContent className="p-5">
+                    <div className="mb-3 h-4 w-3/4 rounded bg-muted" />
+                    <div className="mb-2 h-3 w-1/2 rounded bg-muted" />
+                    <div className="mb-4 h-3 w-2/3 rounded bg-muted" />
+                    <div className="flex gap-2">
+                      <div className="h-8 flex-1 rounded-lg bg-muted" />
+                      <div className="h-8 flex-1 rounded-lg bg-muted" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredModels.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <Search className="mb-4 h-12 w-12 opacity-20" />
+              <h3 className="text-sm font-medium">No Models Found</h3>
+              <p className="mt-1 text-xs">Try adjusting your filters or search query</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => { setSearch(""); setSelectedProvider("all"); setSelectedCategory("all"); }}
+              >
+                Reset Filters
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredModels.map((model, idx) => {
+                const isCompared = compareList.includes(model.id);
+                return (
+                  <div
+                    key={model.id}
+                    style={{ animationDelay: `${idx * 30}ms` }}
+                    className="group relative animate-in fade-in slide-in-from-bottom-2 duration-300"
+                  >
+                    <Card className={cn(
+                      "overflow-hidden rounded-2xl border transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 shadow-none",
+                      isCompared
+                        ? "border-2 border-primary"
+                        : "border-border"
+                    )}>
+
+                      <CardContent className="p-5">
+                        {/* Compare checkbox */}
+                        {compareMode && (
+                          <button
+                            onClick={() => toggleCompare(model.id)}
+                            className={cn(
+                              "absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded border transition-all",
+                              isCompared
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border hover:border-primary/50"
+                            )}
+                          >
+                            {isCompared && <Check className="h-3 w-3" />}
+                          </button>
+                        )}
+
+                        {/* Header */}
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="truncate text-sm font-semibold">{model.name}</h3>
+                              {model.quality === "Best" && (
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                                  <Sparkles className="h-2.5 w-2.5" /> BEST
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 text-xs text-muted-foreground">{model.provider}</p>
+                          </div>
+                        </div>
+
+                        {/* Tags row */}
+                        <div className="mb-4 flex flex-wrap gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            {getCategoryIcon(model.category)} {getCategoryLabel(model.category)}
+                          </span>
+                          <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium", speedBg(model.speed), speedColor(model.speed))}>
+                            <Gauge className="h-2.5 w-2.5" /> {speedLabel(model.speed)}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            {formatContext(model.context)} ctx
+                          </span>
+                        </div>
+
+                        {/* Pricing */}
+                        <div className="flex items-center gap-3 rounded-xl bg-muted/20 p-3">
+                          {renderPriceBadge(model.pricing.prompt, "Prompt /1M")}
+                          <div className="h-8 w-px bg-border" />
+                          {renderPriceBadge(model.pricing.completion, "Output /1M")}
+                        </div>
+
+                        {/* Expanded quality info */}
+                        {model.quality && (
+                          <div className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                            <div className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              model.quality === "Best" ? "bg-amber-400" : model.quality === "Excellent" ? "bg-emerald-400" : "bg-blue-400"
+                            )} />
+                            {model.quality} quality tier
+                            {model.available ? (
+                              <span className="ml-auto flex items-center gap-1 text-emerald-400/60">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Available
+                              </span>
+                            ) : (
+                              <span className="ml-auto flex items-center gap-1 text-rose-400/60">
+                                <span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> Unavailable
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

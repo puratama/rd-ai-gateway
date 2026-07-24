@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getAllProviderModels, getProviders } from "@/lib/providers";
 
 const PUTER_MODELS_URL = "https://api.puter.com/puterai/chat/models/details";
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // 1. Fetch models from Puter API (primary source)
     const puterToken = process.env.PUTER_AUTH_TOKEN;
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       .map((p) => ({
         name: p.name,
         label: p.label,
-        configured: !!process.env[p.apiKeyEnv],
+        configured: !!(p.apiKeyEnc || (p.apiKeyEnv && process.env[p.apiKeyEnv])),
         models: p.models,
       }));
 
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
         .map((p) => ({
           name: p.name,
           label: p.label,
-          configured: !!process.env[p.apiKeyEnv],
+          configured: !!(p.apiKeyEnc || (p.apiKeyEnv && process.env[p.apiKeyEnv])),
           models: p.models,
         })),
       fallbackAvailable: true,

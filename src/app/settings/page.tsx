@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { User, Shield, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { User, Shield, Loader2, CheckCircle2, AlertCircle, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Tab = "profile" | "security";
@@ -114,9 +115,11 @@ function ProfileTab() {
           id="settings-email"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          disabled
+          className="bg-muted text-muted-foreground cursor-not-allowed"
           placeholder="you@example.com"
         />
+        <p className="text-[11px] text-muted-foreground">Email cannot be changed.</p>
       </div>
       {feedback && <Feedback type={feedback.type} message={feedback.message} />}
       <Button onClick={handleSave} disabled={saving}>
@@ -227,35 +230,47 @@ export default function SettingsPage() {
 
   return (
     <AppShell variant="user">
-      <div className="h-full overflow-auto">
-        <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
-          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+      <div className="h-full overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+          <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <SettingsIcon className="h-4 w-4 text-primary" /> Settings
+              </div>
+              <h1 className="text-3xl font-semibold tracking-tight">Account settings</h1>
+              <p className="text-sm text-muted-foreground">Manage your profile and security preferences.</p>
+            </div>
+          </header>
 
-          {/* Tab switcher */}
-          <div className="flex gap-1 border-b border-border">
-            {tabs.map((t) => {
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
-                    tab === t.id
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
+          <Card>
+            {/* Tab switcher */}
+            <div className="flex gap-1 border-b border-border px-4">
+              {tabs.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
+                      tab === t.id
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Tab content */}
-          {tab === "profile" && <ProfileTab />}
-          {tab === "security" && <SecurityTab />}
+            {/* Tab content */}
+            <CardContent className="p-6 max-w-2xl">
+              {tab === "profile" && <ProfileTab />}
+              {tab === "security" && <SecurityTab />}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </AppShell>

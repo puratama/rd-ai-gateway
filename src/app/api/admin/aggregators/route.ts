@@ -80,3 +80,20 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
+
+// Delete aggregator
+export async function DELETE(request: NextRequest) {
+  try {
+    const id = request.nextUrl.searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "id required" }, { status: 400 });
+    }
+    await prisma.aggregatorConfig.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

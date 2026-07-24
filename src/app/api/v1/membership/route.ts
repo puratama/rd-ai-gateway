@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         },
         plan,
       });
-    } catch (midtransError: unknown) {
+    } catch {
       return NextResponse.json(
         { error: "Payment gateway unavailable. Please try again later." },
         { status: 502 }

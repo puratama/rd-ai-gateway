@@ -26,27 +26,6 @@ export async function getModels(): Promise<ModelInfo[]> {
     return [];
   } catch (error) {
     console.error("Failed to fetch models:", error);
-    // Fallback to Puter.js client-side if backend not available
-    return getModelsFallback();
-  }
-}
-
-// Fallback: use Puter.js client-side SDK if backend is not configured
-async function getModelsFallback(): Promise<ModelInfo[]> {
-  try {
-    const puter = (await import("@heyputer/puter.js")).default;
-    const models = await puter.ai.listModels();
-    if (Array.isArray(models)) {
-      return models.map((m: Record<string, unknown>) => ({
-        id: String(m.id || m.name || ""),
-        name: String(m.name || m.id || ""),
-        provider: String(m.provider || "unknown"),
-        context: m.context ? Number(m.context) : undefined,
-        description: m.description ? String(m.description) : undefined,
-      }));
-    }
-    return [];
-  } catch {
     return [];
   }
 }
@@ -75,6 +54,46 @@ export interface ChatStreamCallbacks {
   onError: (error: Error) => void;
 }
 
+// Last-resort client-side Puter.js stream (no auth / no billing)
+async function chatStreamFallback(
+  messages: { role: string; content: string }[],
+  model: string,
+  callbacks: ChatStreamCallbacks,
+  signal?: AbortSignal
+): Promise<void> {
+  try {
+    if (signal?.aborted) return;
+    const puter = (await import("@heyputer/puter.js")).default;
+    // puter.ai.chat may return string or async iterable depending on version
+    const result = await puter.ai.chat(messages as never, { model, stream: true } as never) as
+      | string
+      | AsyncIterable<{ text?: string } | string>;
+
+    if (typeof result === "string") {
+      callbacks.onText(result);
+      callbacks.onDone(result);
+      return;
+    }
+
+    let full = "";
+    for await (const chunk of result) {
+      if (signal?.aborted) {
+        callbacks.onDone(full || "[Stopped]");
+        return;
+      }
+      const text = typeof chunk === "string" ? chunk : (chunk?.text ?? "");
+      if (text) {
+        full += text;
+        callbacks.onText(text);
+      }
+    }
+    callbacks.onDone(full);
+  } catch (error: unknown) {
+    if (signal?.aborted) return;
+    callbacks.onError(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
 // Chat dengan streaming via backend API kita
 export async function chatStream(
   messages: { role: string; content: string }[],
@@ -91,24 +110,8 @@ export async function chatStream(
     });
 
     if (!response.ok) {
-      // Fallback: coba internal chat endpoint
-      const fallbackResponse = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages }),
-        signal,
-      });
-
-      if (!fallbackResponse.ok) {
-        // Last resort: use Puter.js client-side
-        await chatStreamFallback(messages, model, callbacks, signal);
-        return;
-      }
-
-      const data = await fallbackResponse.json();
-      const content = data.choices?.[0]?.message?.content || data?.message?.content || "";
-      callbacks.onText(content);
-      callbacks.onDone(content);
+      // Fallback: coba Puter.js client-side
+      await chatStreamFallback(messages, model, callbacks, signal);
       return;
     }
 
@@ -158,39 +161,8 @@ export async function chatStream(
     callbacks.onDone(fullText);
   } catch (error: unknown) {
     if (signal?.aborted) return;
-    // Fallback on error
-    try {
-      await chatStreamFallback(messages, model, callbacks, signal);
-    } catch {
-      callbacks.onError(error instanceof Error ? error : new Error(String(error)));
-    }
+    callbacks.onError(error instanceof Error ? error : new Error(String(error)));
   }
-}
-
-// Fallback: use Puter.js client-side SDK directly
-async function chatStreamFallback(
-  messages: { role: string; content: string }[],
-  model: string,
-  callbacks: ChatStreamCallbacks,
-  signal?: AbortSignal
-): Promise<void> {
-  const puter = (await import("@heyputer/puter.js")).default;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const response = await (puter.ai.chat as any)(messages, { model, stream: true });
-  let fullText = "";
-
-  for await (const part of response) {
-    if (signal?.aborted) {
-      callbacks.onDone(fullText || "[Stopped]");
-      return;
-    }
-    if (part?.type === "text" && part?.text) {
-      fullText += part.text;
-      callbacks.onText(part.text);
-    }
-  }
-
-  callbacks.onDone(fullText);
 }
 
 // Chat non-streaming via backend
@@ -208,19 +180,8 @@ export async function chat(
     if (!response.ok) throw new Error("API request failed");
     const data = await response.json();
     return data.choices?.[0]?.message?.content || data?.message?.content || "";
-  } catch {
-    // Fallback to Puter.js
-    try {
-      const puter = (await import("@heyputer/puter.js")).default;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response = await (puter.ai.chat as any)(messages, { model });
-      if (typeof response === "object" && response !== null) {
-        return String((response as Record<string, unknown>).message || (response as Record<string, unknown>).text || JSON.stringify(response));
-      }
-      return String(response);
-    } catch (error: unknown) {
-      throw new Error(error instanceof Error ? error.message : "Failed to get response");
-    }
+  } catch (error: unknown) {
+    throw new Error(error instanceof Error ? error.message : "Failed to get response");
   }
 }
 

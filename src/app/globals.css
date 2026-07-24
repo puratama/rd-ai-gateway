@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --color-primary: oklch(0.55 0.22 280);
-  --color-primary-foreground: oklch(1 0 0);
-  --color-secondary: oklch(0.55 0.2 270);
-  --color-secondary-foreground: oklch(1 0 0);
-  --color-accent: oklch(0.65 0.22 350);
-  --color-accent-foreground: oklch(1 0 0);
-  --color-background: oklch(0.1 0.01 280);
-  --color-foreground: oklch(0.98 0 0);
-  --color-muted: oklch(0.18 0.01 280);
-  --color-muted-foreground: oklch(0.65 0.02 280);
-  --color-card: oklch(0.14 0.01 280);
-  --color-card-foreground: oklch(0.98 0 0);
-  --color-border: oklch(0.22 0.01 280);
-  --color-input: oklch(0.22 0.01 280);
-  --color-ring: oklch(0.55 0.22 280);
-  --color-destructive: oklch(0.55 0.22 25);
-  --color-destructive-foreground: oklch(0.98 0 0);
-  --color-popover: oklch(0.14 0.01 280);
-  --color-popover-foreground: oklch(0.98 0 0);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --color-primary: oklch(0.68 0.16 235);
+  --color-primary-foreground: oklch(0.13 0.04 250);
+  --color-secondary: oklch(0.62 0.17 260);
+  --color-secondary-foreground: oklch(0.98 0.01 240);
+  --color-accent: oklch(0.74 0.15 195);
+  --color-accent-foreground: oklch(0.12 0.04 230);
+  --color-background: oklch(0.19 0.055 252);
+  --color-foreground: oklch(0.96 0.015 240);
+  --color-muted: oklch(0.29 0.055 250);
+  --color-muted-foreground: oklch(0.76 0.045 245);
+  --color-card: oklch(0.245 0.06 247);
+  --color-card-foreground: oklch(0.97 0.015 240);
+  --color-border: oklch(0.39 0.065 246);
+  --color-input: oklch(0.33 0.06 246);
+  --color-ring: oklch(0.72 0.15 220);
+  --color-destructive: oklch(0.64 0.22 24);
+  --color-destructive-foreground: oklch(0.98 0.01 20);
+  --color-popover: oklch(0.265 0.062 247);
+  --color-popover-foreground: oklch(0.97 0.015 240);
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
@@ -49,6 +49,13 @@
 /* Prevent layout shift from scrollbar */
 html {
   scrollbar-gutter: stable;
+}
+
+/* Interactive elements */
+button,
+[role="button"],
+a {
+  cursor: pointer;
 }
 
 /* Smooth transitions for theme changes */

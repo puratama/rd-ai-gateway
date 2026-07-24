@@ -34,14 +34,15 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      const { createTransaction } = await import("@/lib/midtrans");
+      const { createTransaction } = await import("@/lib/payment-gateway");
       const transaction = await createTransaction(orderId, plan.price);
 
       return NextResponse.json({
         billing: billingRecord,
         transaction: {
           token: transaction.token,
-          redirectUrl: transaction.redirect_url,
+          redirectUrl: transaction.redirectUrl,
+          provider: transaction.provider,
         },
         plan,
       });

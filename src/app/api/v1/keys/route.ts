@@ -6,8 +6,8 @@ export async function GET(request: NextRequest) {
     const token = authHeader?.replace("Bearer ", "");
 
     // Only master admin key can list all keys
-    const internalKey = process.env.INTERNAL_API_KEY || "";
-    const publicKey = process.env.NEXT_PUBLIC_INTERNAL_KEY || "";
+    const { getInternalKeys } = await import("@/lib/auth");
+    const { internalKey, publicKey } = getInternalKeys();
     if (token !== internalKey && token !== publicKey) {
       // Regular user can only see their own key info
       if (token) {
@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.replace("Bearer ", "");
 
-    const internalKey = process.env.INTERNAL_API_KEY || "";
-    const publicKey = process.env.NEXT_PUBLIC_INTERNAL_KEY || "";
+    const { getInternalKeys } = await import("@/lib/auth");
+    const { internalKey, publicKey } = getInternalKeys();
     if (token !== internalKey && token !== publicKey) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -77,8 +77,8 @@ export async function DELETE(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.replace("Bearer ", "");
 
-    const internalKey = process.env.INTERNAL_API_KEY || "";
-    const publicKey = process.env.NEXT_PUBLIC_INTERNAL_KEY || "";
+    const { getInternalKeys } = await import("@/lib/auth");
+    const { internalKey, publicKey } = getInternalKeys();
     if (token !== internalKey && token !== publicKey) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

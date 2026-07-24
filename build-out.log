@@ -1,0 +1,25 @@
+▲ Next.js 16.2.10 (Turbopack)
+- Environments: .env.local, .env
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 7.2s
+  Running TypeScript ...
+  Finished TypeScript in 7.8s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/49) ...
+⨯ useSearchParams() should be wrapped in a suspense boundary at page "/admin/users". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+    at S (D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\.next\server\chunks\ssr\node_modules_next_1iemwhs._.js:2:2692)
+    at r (D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\.next\server\chunks\ssr\node_modules_next_1iemwhs._.js:4:6760)
+    at D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\.next\server\chunks\ssr\_1zq-525._.js:1:7532
+    at an (D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.prod.js:2:84267)
+    at ai (D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.prod.js:2:86086)
+    at al (D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.prod.js:2:107860)
+    at as (D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.prod.js:2:105275)
+    at aa (D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.prod.js:2:84619)
+    at ai (D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.prod.js:2:86135)
+    at al (D:\RIZKY\Develop\VIBECODE\xperimne-puter-ai-gateway\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.prod.js:2:107860)
+Error occurred prerendering page "/admin/users". Read more: https://nextjs.org/docs/messages/prerender-error
+Export encountered an error on /admin/users/page: /admin/users, exiting the build.
+⨯ Next.js build worker exited with code: 1 and signal: null
+EXITCODE:1

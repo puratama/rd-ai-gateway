@@ -1,18 +1,44 @@
-import { createHash } from "crypto";
-
 // Midtrans Payment Gateway Helper
 // Docs: https://docs.midtrans.com/
+// All config (server key, environment) loaded from PaymentGatewayConfig DB table.
+// Configure via Admin > Settings > Payment Gateway
 
-const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
-const IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === "true";
+import { createHash } from "crypto";
+import { getPaymentConfig } from "./payment-config";
 
-const BASE_URL = IS_PRODUCTION
-  ? "https://app.midtrans.com/snap/v1"
-  : "https://app.sandbox.midtrans.com/snap/v1";
+let _cachedServerKey: string | null = null;
+let _cachedIsProduction: boolean | null = null;
 
-const API_URL = IS_PRODUCTION
-  ? "https://api.midtrans.com/v2"
-  : "https://api.sandbox.midtrans.com/v2";
+async function loadConfig(): Promise<void> {
+  const config = await getPaymentConfig("midtrans");
+  _cachedServerKey = config?.serverKey || null;
+  _cachedIsProduction = config?.environment === "production" || null;
+}
+
+function getServerKey(): string {
+  if (_cachedServerKey === null) {
+    // Config not loaded yet; trigger lazy load but can't await here.
+    // Will throw on first call if not loaded. Caller should ensure config is available.
+    throw new Error("MIDTRANS_SERVER_KEY not configured — set via Admin > Settings > Payment Gateway");
+  }
+  return _cachedServerKey;
+}
+
+function getBaseUrl(): string {
+  const isProd = _cachedIsProduction ?? false;
+  return isProd
+    ? "https://app.midtrans.com/snap/v1"
+    : "https://app.sandbox.midtrans.com/snap/v1";
+}
+
+function getApiUrl(): string {
+  const isProd = _cachedIsProduction ?? false;
+  return isProd
+    ? "https://api.midtrans.com/v2"
+    : "https://api.sandbox.midtrans.com/v2";
+}
+
+//// Public API ////
 
 export interface MidtransTransaction {
   token: string;
@@ -40,17 +66,28 @@ export interface MidtransNotification {
   signature_key: string;
 }
 
+/**
+ * Initialize Midtrans config at startup.
+ * Call this once before using Midtrans functions — otherwise lazy-load on first API call.
+ */
+export async function initMidtrans(): Promise<void> {
+  await loadConfig();
+  if (!_cachedServerKey) {
+    console.warn("[midtrans] No active Midtrans config in DB. Transactions will fail.");
+  }
+}
+
 // Create Snap transaction
 export async function createTransaction(
   orderId: string,
   amount: number,
   customerDetails?: { name?: string; email?: string; phone?: string }
 ): Promise<MidtransTransaction> {
-  if (!MIDTRANS_SERVER_KEY) {
-    throw new Error("MIDTRANS_SERVER_KEY not configured — cannot create payment transaction");
-  }
+  await loadConfig(); // ensure fresh config
+  const serverKey = getServerKey();
+  const baseUrl = getBaseUrl();
 
-  const auth = Buffer.from(MIDTRANS_SERVER_KEY + ":").toString("base64");
+  const auth = Buffer.from(serverKey + ":").toString("base64");
 
   const body: Record<string, unknown> = {
     transaction_details: {
@@ -66,7 +103,7 @@ export async function createTransaction(
     body.customer_details = customerDetails;
   }
 
-  const response = await fetch(`${BASE_URL}/transactions`, {
+  const response = await fetch(`${baseUrl}/transactions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -86,10 +123,11 @@ export async function createTransaction(
 
 // Verify webhook notification signature
 export function verifySignature(notification: MidtransNotification): boolean {
-  if (!MIDTRANS_SERVER_KEY) return false;
+  const serverKey = _cachedServerKey;
+  if (!serverKey) return false;
 
   const hash = createHash("sha512")
-    .update(notification.order_id + notification.status_code + notification.gross_amount + MIDTRANS_SERVER_KEY)
+    .update(notification.order_id + notification.status_code + notification.gross_amount + serverKey)
     .digest("hex");
 
   return hash === notification.signature_key;
@@ -97,13 +135,13 @@ export function verifySignature(notification: MidtransNotification): boolean {
 
 // Check transaction status
 export async function getTransactionStatus(orderId: string): Promise<MidtransNotification> {
-  if (!MIDTRANS_SERVER_KEY) {
-    throw new Error("MIDTRANS_SERVER_KEY not configured — cannot check transaction status");
-  }
+  await loadConfig();
+  const serverKey = getServerKey();
+  const apiUrl = getApiUrl();
 
-  const auth = Buffer.from(MIDTRANS_SERVER_KEY + ":").toString("base64");
+  const auth = Buffer.from(serverKey + ":").toString("base64");
 
-  const response = await fetch(`${API_URL}/${orderId}/status`, {
+  const response = await fetch(`${apiUrl}/${orderId}/status`, {
     headers: {
       Authorization: `Basic ${auth}`,
       Accept: "application/json",

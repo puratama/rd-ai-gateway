@@ -2,114 +2,137 @@
 
 import { useState, useEffect, useCallback, startTransition } from "react";
 import {
-  Key,
-  Plus,
-  Copy,
-  Check,
-  Trash2,
-  Eye,
-  EyeOff,
-  AlertTriangle,
-  RefreshCw,
-  Info,
-  ExternalLink,
+  Key, Plus, Copy, Check, Trash2, Eye, EyeOff, AlertTriangle, RefreshCw,
+  Sparkles, Terminal, Clock, Activity, ChevronDown, Globe, Edit3,
 } from "lucide-react";
-import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 interface ApiKeyItem {
   id: string;
   key: string;
   name: string;
-  createdAt: number;
-  lastUsed: number | null;
+  createdAt: string;
+  lastUsed: string | null;
   isActive: boolean;
   usageCount: number;
   totalTokens: number;
 }
 
-interface UsageStats {
-  totalRequests: number;
-  totalTokens: number;
-  activeKeys: number;
-}
+const fmtT = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : n.toLocaleString();
+const fmtDate = (ts: string) => new Date(ts).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export default function KeysPage() {
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
-  const [newlyCreated, setNewlyCreated] = useState<ApiKeyItem | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showKeyId, setShowKeyId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [stats, setStats] = useState<UsageStats | null>(null);
+  const [showKey, setShowKey] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [baseUrl, setBaseUrl] = useState("");
 
-  const internalKey = process.env.NEXT_PUBLIC_INTERNAL_KEY || "demo-key-xperimne";
+  useEffect(() => { setBaseUrl(window.location.origin); }, []);
 
   const fetchKeys = useCallback(async () => {
     startTransition(() => setLoading(true));
     try {
-      const res = await fetch("/api/v1/keys", { headers: { Authorization: `Bearer ${internalKey}` } });
+      const res = await fetch("/api/user/keys");
       if (res.ok) {
         const data = await res.json();
-        if (data.keys?.length > 0) { setKeys(data.keys); setLoading(false); return; }
+        setKeys(data.keys || []);
       }
-    } catch {}
-    try {
-      const { loadApiKeys } = await import("@/lib/api-keys");
-      setKeys(loadApiKeys());
-    } catch {}
+    } catch {
+      setError("Failed to load API keys");
+    }
     setLoading(false);
-  }, [internalKey]);
+  }, []);
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await fetch("/api/v1/usage", { headers: { Authorization: `Bearer ${internalKey}` } });
-      if (res.ok) { setStats(await res.json()); return; }
-    } catch {}
-    try {
-      const { loadUsageRecords, loadApiKeys } = await import("@/lib/api-keys");
-      const records = loadUsageRecords();
-      const allKeys = loadApiKeys();
-      setStats({
-        totalRequests: records.length,
-        totalTokens: records.reduce((sum: number, r: Record<string, unknown>) => sum + ((r.totalTokens as number) || 0), 0),
-        activeKeys: allKeys.filter((k) => k.isActive).length,
-      });
-    } catch {}
-  }, [internalKey]);
-
-  // eslint-disable-next-line -- fetch-on-mount
   useEffect(() => { fetchKeys(); }, [fetchKeys]);
-  useEffect(() => { if (keys.length > 0) fetchStats(); }, [keys.length, fetchStats]);
 
   const handleCreate = useCallback(async () => {
     if (!newKeyName.trim()) return;
     try {
-      const res = await fetch("/api/v1/keys", {
+      const res = await fetch("/api/user/keys", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${internalKey}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newKeyName.trim() }),
       });
-      if (res.ok) { setNewlyCreated((await res.json()).key); }
-      else { const { createApiKey } = await import("@/lib/api-keys"); setNewlyCreated(createApiKey(newKeyName.trim())); }
-      setNewKeyName(""); setShowCreate(false); fetchKeys();
-    } catch { setError("Failed to create API key"); }
-  }, [newKeyName, fetchKeys, internalKey]);
+      if (res.ok) {
+        await fetchKeys();
+      } else {
+        setError("Failed to create key");
+      }
+    } catch {
+      setError("Failed to create API key");
+    }
+    setNewKeyName("");
+    setShowCreate(false);
+  }, [newKeyName, fetchKeys]);
 
-  const handleRevoke = useCallback(async (id: string) => {
+  const handleRegenerate = useCallback(async (id: string, name: string) => {
     try {
-      await fetch(`/api/v1/keys?id=${id}&action=revoke`, { method: "DELETE", headers: { Authorization: `Bearer ${internalKey}` } });
-      const { revokeApiKey } = await import("@/lib/api-keys"); revokeApiKey(id);
-      setConfirmDelete(null); fetchKeys();
-    } catch { setError("Failed to revoke API key"); }
-  }, [fetchKeys, internalKey]);
+      const res = await fetch("/api/user/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerateId: id, name }),
+      });
+      if (res.ok) {
+        await fetchKeys();
+      } else {
+        setError("Failed to regenerate key");
+      }
+    } catch {
+      setError("Failed to regenerate API key");
+    }
+  }, [fetchKeys]);
+
+  const handleUpdate = useCallback(async (id: string, data: Record<string, unknown>) => {
+    try {
+      const res = await fetch("/api/user/keys", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...data }),
+      });
+      if (res.ok) {
+        await fetchKeys();
+      } else {
+        setError("Failed to update key");
+      }
+    } catch {
+      setError("Failed to update API key");
+    }
+    setEditingId(null);
+  }, [fetchKeys]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/user/keys?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setConfirmDelete(null);
+        await fetchKeys();
+      } else {
+        setError("Failed to delete key");
+      }
+    } catch {
+      setError("Failed to delete API key");
+    }
+  }, [fetchKeys]);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -117,24 +140,24 @@ export default function KeysPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const fmt = (ts: number) => new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  const fmtT = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocaleString();
-
   return (
     <AppShell variant="user">
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-2">
-            <Key className="w-4 h-4 text-primary" />
-            <h2 className="text-base font-semibold">API Keys</h2>
-          </div>
-          <Button size="sm" onClick={() => { setShowCreate(true); setNewlyCreated(null); }}>
-            <Plus className="w-4 h-4 mr-1.5" /> New Key
-          </Button>
-        </header>
+      <div className="h-full overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+          {/* Header */}
+          <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <Key className="h-4 w-4 text-primary" /> API Keys
+              </div>
+              <h1 className="text-3xl font-semibold tracking-tight">API Keys</h1>
+              <p className="text-sm text-muted-foreground">Manage your personal API keys for the AI Gateway.</p>
+            </div>
+            <Button size="sm" onClick={() => { setShowCreate(true); setNewKeyName(""); }} className="cursor-pointer">
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> New Key
+            </Button>
+          </header>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && (
             <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive flex items-center justify-between">
               {error}
@@ -142,207 +165,212 @@ export default function KeysPage() {
             </div>
           )}
 
-          {/* Info */}
+          {/* Base URL */}
           <Card>
-            <CardContent className="p-4 flex items-start gap-3">
-              <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium mb-1">API Keys</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Generate API keys to access the AI Gateway programmatically. Compatible with OpenAI SDK — change the base URL. Each key tracks usage automatically.
-                </p>
+            <CardContent className="p-5">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <Globe className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">Base URL</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Use this base URL with any OpenAI-compatible SDK:</p>
+                  <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted/30 p-3">
+                    <code className="flex-1 font-mono text-xs text-primary" suppressHydrationWarning>{baseUrl}/api/v1</code>
+                    <Button variant="ghost" size="icon-sm" onClick={() => copyToClipboard(`${baseUrl}/api/v1`, "baseurl")}>
+                      {copiedId === "baseurl" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Stats */}
-          {stats && (
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Active Keys", value: stats.activeKeys, icon: Key },
-                { label: "Total Requests", value: fmtT(stats.totalRequests), icon: RefreshCw },
-                { label: "Total Tokens", value: fmtT(stats.totalTokens), icon: Info },
-              ].map((s) => {
-                const Icon = s.icon;
-                return (
-                  <Card key={s.label}>
-                    <CardContent className="p-3 text-center">
-                      <Icon className="w-4 h-4 text-muted-foreground mx-auto mb-1.5" />
-                      <span className="text-[10px] text-muted-foreground block">{s.label}</span>
-                      <span className="text-sm font-semibold">{s.value}</span>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Create Form */}
-          {showCreate && (
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="text-sm font-semibold">Create New API Key</h3>
-                <div className="flex gap-2">
-                  <Input
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder="e.g., Production, Dev, Personal..."
-                    onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                    autoFocus
-                    className="flex-1"
-                  />
-                  <Button onClick={handleCreate} disabled={!newKeyName.trim()}>Create</Button>
-                  <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Newly Created */}
-          {newlyCreated && (
-            <Card className="border-emerald-500/20">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center gap-2 text-emerald-500">
-                  <Check className="w-4 h-4" />
-                  <span className="text-sm font-semibold">Key Created Successfully!</span>
-                </div>
-                <p className="text-xs text-muted-foreground">Copy this key now. You won&apos;t be able to see it again!</p>
-                <div className="flex items-center gap-2 bg-muted rounded-lg p-3">
-                  <code className="flex-1 text-xs font-mono break-all text-emerald-400">{newlyCreated.key}</code>
-                  <Button variant="ghost" size="icon-sm" onClick={() => copyToClipboard(newlyCreated.key, newlyCreated.id)}>
-                    {copiedId === newlyCreated.id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  </Button>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setNewlyCreated(null)}>Done</Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Key List */}
+          {/* Keys Table */}
           {loading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <RefreshCw className="w-5 h-5 animate-spin mr-2" />
-              <span className="text-sm">Loading keys...</span>
-            </div>
+            <TableSkeleton rows={5} cols={6} />
           ) : keys.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <Key className="w-12 h-12 mb-4 text-muted-foreground/30" />
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">No API Keys Yet</h3>
-              <p className="text-xs text-muted-foreground mb-4">Create your first API key to start using the gateway</p>
-              <Button variant="outline" onClick={() => { setShowCreate(true); setNewlyCreated(null); }}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" /> Create API Key
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30">
+                <Key className="h-8 w-8 text-muted-foreground/30" />
+              </div>
+              <h3 className="text-sm font-medium text-muted-foreground">No API Keys Yet</h3>
+              <p className="mt-1 text-xs text-muted-foreground/60">Create your first API key to start using the gateway</p>
+              <Button size="sm" onClick={() => { setShowCreate(true); setNewKeyName(""); }} className="mt-5">
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Create API Key
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {keys.map((apiKey) => (
-                <Card key={apiKey.id} className={cn(!apiKey.isActive && "opacity-50 border-destructive/20")}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="text-sm font-semibold">{apiKey.name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={cn("text-[10px] px-2 py-0.5 rounded-full", apiKey.isActive ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive")}>
-                            {apiKey.isActive ? "Active" : "Revoked"}
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-left text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Name</th>
+                      <th className="px-4 py-3 font-medium">Key</th>
+                      <th className="px-4 py-3 text-center font-medium">Status</th>
+                      <th className="px-4 py-3 text-right font-medium">Usage</th>
+                      <th className="px-4 py-3 text-right font-medium">Tokens</th>
+                      <th className="px-4 py-3 font-medium">Last Used</th>
+                      <th className="w-28 px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {keys.map((key) => (
+                      <tr key={key.id} className="hover:bg-muted/40">
+                        <td className="px-4 py-3">
+                          {editingId === key.id ? (
+                            <Input
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleUpdate(key.id, { name: editName });
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                              className="h-8 text-xs"
+                              autoFocus
+                            />
+                          ) : (
+                            <span className="font-medium">{key.name}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <code className="font-mono text-xs text-muted-foreground">
+                              {showKey === key.id ? key.key : `${key.key.slice(0, 12)}...`}
+                            </code>
+                            <Button variant="ghost" size="icon-xs" onClick={() => setShowKey(showKey === key.id ? null : key.id)}>
+                              {showKey === key.id ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            </Button>
+                            <Button variant="ghost" size="icon-xs" onClick={() => copyToClipboard(key.key, key.id)}>
+                              {copiedId === key.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={cn(
+                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                            key.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground"
+                          )}>
+                            <span className={cn("h-1.5 w-1.5 rounded-full", key.isActive ? "bg-emerald-400" : "bg-muted-foreground")} />
+                            {key.isActive ? "Active" : "Inactive"}
                           </span>
-                          <span className="text-[10px] text-muted-foreground">Created {fmt(apiKey.createdAt)}</span>
-                        </div>
-                      </div>
-                      {apiKey.isActive && (
-                        <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(apiKey.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-xs">{fmtT(key.usageCount)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-xs">{fmtT(key.totalTokens)}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{key.lastUsed ? fmtDate(key.lastUsed) : "\u2014"}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1 justify-end">
+                            {editingId === key.id ? (
+                              <>
+                                <Button variant="ghost" size="icon-xs" onClick={() => handleUpdate(key.id, { name: editName })}>
+                                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                </Button>
+                                <Button variant="ghost" size="icon-xs" onClick={() => setEditingId(null)}>
+                                  <AlertTriangle className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button variant="ghost" size="icon-xs"
+                                  onClick={() => { setEditingId(key.id); setEditName(key.name); }}
+                                  title="Edit name">
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon-xs"
+                                  onClick={() => handleRegenerate(key.id, key.name)}
+                                  title="Regenerate">
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon-xs"
+                                  className="text-muted-foreground/50 hover:text-destructive"
+                                  onClick={() => setConfirmDelete(key.id)}
+                                  title="Delete">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
-                    {/* Key display */}
-                    <div className="flex items-center gap-2 bg-muted rounded-lg p-2.5 mb-3">
-                      <code className="flex-1 text-xs font-mono truncate">
-                        {showKeyId === apiKey.id ? apiKey.key : `${apiKey.key.slice(0, 12)}${"•".repeat(Math.min(apiKey.key.length - 12, 20))}`}
-                      </code>
-                      <Button variant="ghost" size="icon-sm" onClick={() => setShowKeyId(showKeyId === apiKey.id ? null : apiKey.id)}>
-                        {showKeyId === apiKey.id ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </Button>
-                      <Button variant="ghost" size="icon-sm" onClick={() => copyToClipboard(apiKey.key, apiKey.id)}>
-                        {copiedId === apiKey.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      </Button>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { label: "Requests", value: apiKey.usageCount },
-                        { label: "Tokens", value: fmtT(apiKey.totalTokens) },
-                        { label: "Last Used", value: apiKey.lastUsed ? fmt(apiKey.lastUsed) : "Never" },
-                      ].map((s) => (
-                        <div key={s.label} className="bg-muted/50 rounded-lg p-2 text-center">
-                          <span className="text-[10px] text-muted-foreground block">{s.label}</span>
-                          <span className="text-xs font-semibold">{s.value}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Code snippet */}
-                    <details className="mt-3">
-                      <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors">How to use this key</summary>
-                      <pre className="mt-2 bg-muted rounded-lg p-3 text-[10px] text-muted-foreground font-mono overflow-x-auto">
+          {/* Quick-config code snippet */}
+          {keys.some((k) => k.isActive) && (
+            <details className="group rounded-xl border border-border bg-card p-4">
+              <summary className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                <Terminal className="h-3.5 w-3.5" /> Quick Start &mdash; Copy &amp; Paste
+                <ChevronDown className="ml-auto h-3 w-3 transition-transform group-open:rotate-180" />
+              </summary>
+              <pre className="mt-4 overflow-x-auto rounded-xl bg-muted/30 p-4 font-mono text-[10px] leading-relaxed text-muted-foreground" suppressHydrationWarning>
 {`import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "${typeof window !== "undefined" ? window.location.origin : "https://your-domain.com"}/api/v1",
-  apiKey: "${apiKey.key.slice(0, 12)}...",
+  baseURL: "${baseUrl}/api/v1",
+  apiKey: "${keys.find((k) => k.isActive)?.key.slice(0, 12) || "xpgw_"}...",
 });
 
 const response = await client.chat.completions.create({
   model: "gpt-4o",
   messages: [{ role: "user", content: "Hello!" }],
 });`}
-                      </pre>
-                    </details>
-                  </CardContent>
-
-                  {/* Confirm Delete */}
-                  {confirmDelete === apiKey.id && (
-                    <div className="border-t border-border p-3 bg-destructive/5 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-destructive" />
-                        <span className="text-xs text-destructive">Revoke this key?</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="xs" onClick={() => setConfirmDelete(null)}>Cancel</Button>
-                        <Button variant="destructive" size="xs" onClick={() => handleRevoke(apiKey.id)}>Revoke</Button>
-                      </div>
-                    </div>
-                  )}
-                </Card>
-              ))}
-            </div>
+              </pre>
+            </details>
           )}
-
-          {/* API Reference */}
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="text-sm font-semibold mb-3">API Reference</h3>
-              <div className="space-y-2">
-                {[
-                  { method: "POST", path: "/api/v1/chat/completions", desc: "Chat completions (OpenAI-compatible)" },
-                  { method: "GET", path: "/api/v1/models", desc: "List available models" },
-                  { method: "GET", path: "/api/v1/usage", desc: "View usage statistics" },
-                ].map((ep) => (
-                  <div key={ep.path} className="flex items-center gap-2 text-xs">
-                    <span className={cn("font-mono", ep.method === "POST" ? "text-emerald-500" : "text-blue-500")}>{ep.method}</span>
-                    <span className="font-mono">{ep.path}</span>
-                    <span className="text-muted-foreground">— {ep.desc}</span>
-                  </div>
-                ))}
-              </div>
-              <Link href="/docs" className="inline-flex items-center gap-1 mt-3 text-[10px] text-primary hover:underline">
-                <ExternalLink className="w-3 h-3" /> View full documentation
-              </Link>
-            </CardContent>
-          </Card>
         </div>
       </div>
+
+      {/* Create Dialog */}
+      <Dialog open={showCreate} onOpenChange={(o) => { if (!o) setShowCreate(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <Plus className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <DialogTitle>Create API Key</DialogTitle>
+            </div>
+            <DialogDescription>Create a new personal API key.</DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="mb-1.5 block text-xs font-medium">Key Name</label>
+            <Input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)}
+              placeholder="e.g., Production Key" onKeyDown={(e) => e.key === "Enter" && handleCreate()} autoFocus />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={!newKeyName.trim()}>
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!confirmDelete} onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-destructive/10">
+                <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+              </div>
+              <DialogTitle>Delete API Key</DialogTitle>
+            </div>
+            <DialogDescription>This permanently deletes this key. Services using it will stop working.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => { if (confirmDelete) handleDelete(confirmDelete); }}>
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

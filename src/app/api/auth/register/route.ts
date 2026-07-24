@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { generateId } from "@/lib/server-store";
-import { createSession } from "@/lib/auth";
+import { hashPassword } from "@/lib/password";
+import { sendEmail, buildVerifyHtml, getVerifyUrl } from "@/lib/email";
+import { randomBytes } from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,77 +13,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "email and password required" }, { status: 400 });
     }
 
-    // Check existing
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return NextResponse.json({ error: "Email already registered" }, { status: 409 });
     }
 
-    // Hash password (simple bcrypt-free for now — use bcryptjs in production)
     const passwordHash = await hashPassword(password);
+    const verifyToken = randomBytes(24).toString("hex");
+    const verifyExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Create user + wallet + API key
-    const apiKeyValue = `xpgw_${generateId()}${generateId().slice(0, 16)}`;
     const user = await prisma.user.create({
       data: {
         email,
         passwordHash,
         name: name || null,
-        puterStatus: "pending",
         wallet: { create: { balance: 0 } },
-        apiKey: {
-          create: {
-            key: apiKeyValue,
-            name: `${name || email}'s Key`,
-          },
-        },
+        verifyToken,
+        verifyExpiresAt,
       },
-      include: { apiKey: true, wallet: true },
+      select: { id: true, email: true },
     });
 
-    // Background: register to Puter (non-blocking)
-    registerToPuter(user.id).catch(() => {});
-
-    await createSession({ sub: user.id, email: user.email, role: "user" });
+    // Send verification email
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Verifikasi Email - xperimne.ai",
+        html: buildVerifyHtml(getVerifyUrl(verifyToken)),
+      });
+    } catch {
+      // Non-fatal — user can re-register
+    }
 
     return NextResponse.json({
-      user: { id: user.id, email: user.email, name: user.name, role: "user" },
-      apiKey: user.apiKey?.key,
+      user: { id: user.id, email: user.email, name, role: "user" },
+      message: "Akun dibuat. Cek email untuk verifikasi.",
     }, { status: 201 });
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
-  }
-}
-
-async function hashPassword(password: string): Promise<string> {
-  const { createHash } = await import("crypto");
-  return createHash("sha256").update(password + process.env.AUTH_SALT || "xperimne-salt").digest("hex");
-}
-
-async function registerToPuter(userId: string) {
-  try {
-    const puterToken = process.env.PUTER_AUTH_TOKEN;
-    if (!puterToken) return;
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { puterStatus: "registering" },
-    });
-
-    // Puter doesn't have a public user registration API via token.
-    // App-level Puter auth is handled transparently in puter.ts using PUTER_AUTH_TOKEN.
-    // Mark as ready since the app token covers all user requests.
-    await prisma.user.update({
-      where: { id: userId },
-      data: { puterStatus: "ready" },
-    });
-  } catch {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { puterStatus: "failed" },
-    }).catch(() => {});
   }
 }

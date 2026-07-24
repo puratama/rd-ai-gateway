@@ -30,9 +30,10 @@ export default function ModelSelector({ selectedModel, onSelect }: ModelSelector
     setLoading(false);
   }
 
-  // eslint-disable-next-line -- loadModels calls setState, fetch-on-mount pattern
   useEffect(() => {
-    loadModels();
+    void loadModels();
+    // ponytail: mount-only model bootstrap; re-run via explicit refresh button
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

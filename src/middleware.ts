@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-
-const SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || process.env.AUTH_SALT || "xperimne-secret-fallback"
-);
-const COOKIE_NAME = "xpgw_session";
+import { SECRET, COOKIE_NAME } from "@/lib/auth-config";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

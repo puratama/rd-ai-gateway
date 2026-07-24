@@ -4,31 +4,41 @@ export interface ProviderConfig {
   name: string;
   label: string;
   baseUrl: string;
-  apiKeyEnv: string;
+  apiKeyEnc?: string; // DB-stored API key for aggregators
+  apiKeyEnv?: string; // env var name for static providers
   models: string[];
   modelPrefixes: string[];
   priority: number;
 }
 
-// Load aggregator config from DB (async)
-async function getAggregatorProvider(): Promise<ProviderConfig | null> {
+// Load aggregator configs from DB (async) — returns all active aggregators in chain order
+async function getAggregatorProviders(): Promise<ProviderConfig[]> {
   try {
-    const { getAggregatorConfig } = await import("./server-store");
-    const config = await getAggregatorConfig();
-    if (!config || !config.isActive) return null;
-    const apiKey = process.env.AGGREGATOR_API_KEY || "";
-    if (!apiKey) return null;
-    return {
-      name: config.name.toLowerCase().replace(/\s+/g, "-"),
-      label: config.name,
-      baseUrl: config.baseUrl,
-      apiKeyEnv: "AGGREGATOR_API_KEY",
-      models: [],
-      modelPrefixes: [],
-      priority: -1,
-    };
+    const { prisma } = await import("./db");
+    const configs = await prisma.aggregatorConfig.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "asc" },
+    });
+    // Filter: only include aggregators with an API key stored in DB
+    const active = configs.filter((c) => c.apiKeyEnc);
+    if (active.length === 0) return [];
+
+    let priority = -1;
+    return active.map<ProviderConfig>((config) => {
+      const slug = config.name.toLowerCase().replace(/\s+/g, "-");
+      const p = priority--;
+      return {
+        name: slug,
+        label: config.name,
+        baseUrl: config.baseUrl,
+        apiKeyEnc: config.apiKeyEnc, // store actual key for router use
+        models: [],
+        modelPrefixes: [],
+        priority: p,
+      };
+    });
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -46,50 +56,20 @@ export function getProviders(): ProviderConfig[] {
     priority: 0,
   });
 
-  if (process.env.OPENAI_API_KEY) {
-    providers.push({
-      name: "openai",
-      label: "OpenAI",
-      baseUrl: "[REDACTED-URL]",
-      apiKeyEnv: "OPENAI_API_KEY",
-      models: ["gpt-4o", "gpt-4o-mini", "gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-mini", "o3", "o3-mini", "gpt-5"],
-      modelPrefixes: ["gpt-", "o1", "o3", "dall-e", "tts-", "whisper-"],
-      priority: 1,
-    });
-  }
-
-  if (process.env.DEEPSEEK_API_KEY) {
-    providers.push({
-      name: "deepseek",
-      label: "DeepSeek",
-      baseUrl: "[REDACTED-URL]",
-      apiKeyEnv: "DEEPSEEK_API_KEY",
-      models: ["deepseek-chat", "deepseek-reasoner", "deepseek-v4-pro"],
-      modelPrefixes: ["deepseek-"],
-      priority: 2,
-    });
-  }
-
-  if (process.env.ANTHROPIC_API_KEY) {
-    providers.push({
-      name: "anthropic",
-      label: "Anthropic",
-      baseUrl: "[REDACTED-URL]",
-      apiKeyEnv: "ANTHROPIC_API_KEY",
-      models: ["claude-sonnet-4", "claude-haiku-3.5", "claude-opus-4", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
-      modelPrefixes: ["claude-"],
-      priority: 3,
-    });
-  }
+  // Static providers (OpenAI, DeepSeek, Anthropic) removed.
+  // Configurable via Admin > Settings > Aggregator.
+  // Add as custom aggregator entries with baseUrl + API key in DB.
 
   return providers;
 }
 
-// Async — includes DB aggregator at highest priority
+// Async — includes all active DB aggregators at highest priority (chained)
 export async function getProvidersAsync(): Promise<ProviderConfig[]> {
   const providers = getProviders();
-  const aggregator = await getAggregatorProvider();
-  if (aggregator) providers.unshift(aggregator);
+  const aggregators = await getAggregatorProviders();
+  for (let i = aggregators.length - 1; i >= 0; i--) {
+    providers.unshift(aggregators[i]);
+  }
   return providers;
 }
 
@@ -121,13 +101,20 @@ export async function findProvidersForModelAsync(modelId: string): Promise<Provi
 
 // Get API key for a provider
 export function getProviderApiKey(provider: ProviderConfig): string | null {
-  return process.env[provider.apiKeyEnv] || null;
+  // Aggregator: use DB-stored key
+  if (provider.apiKeyEnc) return provider.apiKeyEnc;
+  // Static provider: use env var
+  if (provider.apiKeyEnv) return process.env[provider.apiKeyEnv] || null;
+  // Puter: no key needed
+  return null;
 }
 
 // Check if provider is configured (has API key)
 export function isProviderConfigured(provider: ProviderConfig): boolean {
   if (provider.name === "puter") return true;
-  return !!process.env[provider.apiKeyEnv];
+  if (provider.apiKeyEnc) return true;
+  if (provider.apiKeyEnv) return !!process.env[provider.apiKeyEnv];
+  return false;
 }
 
 // Get all models across all providers (for model listing)

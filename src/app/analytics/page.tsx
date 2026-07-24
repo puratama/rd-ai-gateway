@@ -24,12 +24,12 @@ import {
   Layers,
   RefreshCw,
   Trash2,
-  AlertTriangle,
   Hash,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatsCardSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export default function AnalyticsPage() {
@@ -49,10 +49,31 @@ export default function AnalyticsPage() {
   if (!mounted || !data) {
     return (
       <AppShell variant="user">
-        <div className="h-full flex items-center justify-center">
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <RefreshCw className="w-5 h-5 animate-spin" />
-            <span className="text-sm">Loading analytics...</span>
+        <div className="h-full flex flex-col">
+          <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+            </div>
+            <div className="h-8 w-20 bg-muted rounded animate-pulse" />
+          </header>
+          <div className="mx-auto flex-1 w-full max-w-6xl overflow-y-auto p-6 space-y-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-3">
+                  <div className="h-7 w-7 bg-muted rounded-lg animate-pulse" />
+                  <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                  <div className="h-7 w-20 bg-muted rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-4">
+                  <div className="h-4 w-28 bg-muted rounded animate-pulse" />
+                  <div className="h-32 bg-muted/50 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </AppShell>
@@ -89,7 +110,7 @@ export default function AnalyticsPage() {
 
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="mx-auto flex-1 w-full max-w-6xl overflow-y-auto p-6 space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card><CardContent className="p-4">

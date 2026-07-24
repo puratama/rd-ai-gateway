@@ -1,373 +1,240 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { v4 as uuidv4 } from "uuid";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  BarChart3,
+  Bot,
+  Check,
+  Copy,
+  CreditCard,
+  Key,
+  Loader2,
+  MessageSquare,
+  Rocket,
+  Settings,
+  Terminal,
+  Wallet,
+} from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
-import ChatArea from "@/components/ChatArea";
-import PromptInput from "@/components/PromptInput";
-import ModelSelector from "@/components/ModelSelector";
-import { chatStream, getModels } from "@/lib/puter";
-import { recordEvent } from "@/lib/analytics";
-import { cn } from "@/lib/utils";
-import { PanelLeftClose, PanelLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Message, Conversation } from "@/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardGridSkeleton, StatsCardSkeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+
+type UsageData = {
+  totalTokens: number;
+  totalCost: number;
+  totalRequests: number;
+  byDay: Array<{ date: string; tokens: number; cost: number; requests: number }>;
+};
+
+type UserData = {
+  name?: string;
+  email?: string;
+};
 
 function getApiKey(): string {
   if (typeof window === "undefined") return "";
   return localStorage.getItem("xperimne-api-key") || "";
 }
 
-function normalizeConv(raw: { id: string; title: string; model: string; messages: unknown; createdAt: string | number; updatedAt: string | number }): Conversation {
-  return {
-    id: raw.id,
-    title: raw.title,
-    model: raw.model,
-    messages: Array.isArray(raw.messages) ? (raw.messages as Message[]) : [],
-    createdAt: typeof raw.createdAt === "string" ? new Date(raw.createdAt).getTime() : raw.createdAt,
-    updatedAt: typeof raw.updatedAt === "string" ? new Date(raw.updatedAt).getTime() : raw.updatedAt,
-  };
+function getStoredUser(): UserData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(localStorage.getItem("xperimne-user") || "null") as UserData | null;
+  } catch {
+    return null;
+  }
 }
 
-async function apiFetch(path: string, init?: RequestInit) {
-  const key = getApiKey();
-  if (!key) return null;
-  const res = await fetch(path, {
-    ...init,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, ...(init?.headers || {}) },
-  });
-  if (!res.ok) return null;
-  return res.json();
+function formatNumber(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString("id-ID");
+}
+
+function formatRupiah(n: number) {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
 }
 
 export default function DashboardPage() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
-  const [puterReady, setPuterReady] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const messagesRef = useRef<Message[]>([]);
-  const suppressSave = useRef(true);
+  const [usage, setUsage] = useState<UsageData | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [baseUrl, setBaseUrl] = useState("");
 
   useEffect(() => {
-    apiFetch("/api/conversations").then((data) => {
-      if (Array.isArray(data)) {
-        const convs = data.map(normalizeConv);
-        setConversations(convs);
-        if (convs.length > 0) setActiveId(convs[0].id);
-      }
-      suppressSave.current = false;
-    });
+    setBaseUrl(window.location.origin);
   }, []);
-
-  const activeConversation = conversations.find((c) => c.id === activeId) || null;
-
-  const getCurrentMessages = useCallback((): Message[] => {
-    return activeConversation?.messages || [];
-  }, [activeConversation]);
 
   useEffect(() => {
-    messagesRef.current = getCurrentMessages();
-  });
+    const key = getApiKey();
+    const stored = getStoredUser();
+    setApiKey(key);
+    setUser(stored);
+    if (!key) { setLoading(false); return; }
 
-  useEffect(() => {
-    async function init() {
-      try {
-        const models = await getModels();
-        if (models.length > 0 && !selectedModel) {
-          setSelectedModel(models[0].id);
-        }
-        setPuterReady(true);
-      } catch {
-        // Puter not ready yet
-      }
-    }
-    init();
+    fetch("/api/user/usage", { headers: { Authorization: `Bearer ${key}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setUsage(data))
+      .finally(() => setLoading(false));
   }, []);
 
-  const createNewConversation = useCallback(() => {
-    const id = uuidv4();
-    const now = Date.now();
-    const newConv: Conversation = {
-      id,
-      title: "New conversation",
-      messages: [],
-      model: selectedModel,
-      createdAt: now,
-      updatedAt: now,
-    };
-    setConversations((prev) => [newConv, ...prev]);
-    setActiveId(newConv.id);
-    setStreamingContent("");
-    setIsStreaming(false);
+  const dailyMax = useMemo(() => Math.max(...(usage?.byDay.map((d) => d.tokens) || [1]), 1), [usage]);
 
-    apiFetch("/api/conversations", {
-      method: "POST",
-      body: JSON.stringify({ id, title: newConv.title, model: selectedModel, messages: [] }),
-    });
+  function copy(text: string, id: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 1800);
+  }
 
-    recordEvent({
-      type: "conversation_created",
-      timestamp: now,
-      model: selectedModel,
-      conversationId: id,
-    });
-  }, [selectedModel]);
-
-  const updateConversation = useCallback(
-    (id: string, updates: Partial<Conversation>) => {
-      setConversations((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c))
-      );
-
-      const body: Record<string, unknown> = {};
-      if (updates.title !== undefined) body.title = updates.title;
-      if (updates.messages !== undefined) body.messages = updates.messages;
-      if (updates.model !== undefined) body.model = updates.model;
-      if (Object.keys(body).length > 0) {
-        apiFetch(`/api/conversations/${id}`, { method: "PUT", body: JSON.stringify(body) });
-      }
-    },
-    []
-  );
-
-  const deleteConversation = useCallback((id: string) => {
-    setConversations((prev) => prev.filter((c) => c.id !== id));
-    setActiveId((prev) => (prev === id ? null : prev));
-
-    apiFetch(`/api/conversations/${id}`, { method: "DELETE" });
-
-    recordEvent({
-      type: "conversation_deleted",
-      timestamp: Date.now(),
-      conversationId: id,
-    });
-  }, []);
-
-  const handleSend = useCallback(
-    async (content: string) => {
-      if (!selectedModel || isStreaming) return;
-
-      const currentMessages = messagesRef.current;
-
-      let convId = activeId;
-      if (!convId) {
-        const newConv: Conversation = {
-          id: uuidv4(),
-          title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
-          messages: [],
-          model: selectedModel,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        setConversations((prev) => [newConv, ...prev]);
-        setActiveId(newConv.id);
-        convId = newConv.id;
-      }
-
-      const msgTimestamp = Date.now();
-      const userMessage: Message = {
-        id: uuidv4(),
-        role: "user",
-        content,
-        timestamp: msgTimestamp,
-      };
-
-      recordEvent({
-        type: "message_sent",
-        timestamp: msgTimestamp,
-        model: selectedModel,
-        conversationId: convId,
-        messageLength: content.length,
-      });
-
-      const updatedMessages = [...currentMessages, userMessage];
-      updateConversation(convId, {
-        messages: updatedMessages,
-        title:
-          currentMessages.length === 0
-            ? content.slice(0, 50) + (content.length > 50 ? "..." : "")
-            : undefined,
-      });
-
-      const apiMessages = updatedMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      setIsStreaming(true);
-      setStreamingContent("");
-
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      try {
-        let fullContent = "";
-        await chatStream(
-          apiMessages,
-          selectedModel,
-          {
-            onText: (chunk: string) => {
-              fullContent += chunk;
-              setStreamingContent(fullContent);
-            },
-            onDone: () => {},
-            onError: (err: Error) => {
-              throw err;
-            },
-          },
-          controller.signal
-        );
-
-        const assistantMessage: Message = {
-          id: uuidv4(),
-          role: "assistant",
-          content: fullContent,
-          timestamp: Date.now(),
-        };
-
-        const finalMessages = [...updatedMessages, assistantMessage];
-        updateConversation(convId, { messages: finalMessages });
-
-        recordEvent({
-          type: "message_received",
-          timestamp: Date.now(),
-          model: selectedModel,
-          conversationId: convId,
-          messageLength: fullContent.length,
-        });
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          const errorMessage: Message = {
-            id: uuidv4(),
-            role: "assistant",
-            content: "Sorry, something went wrong. Please try again.",
-            timestamp: Date.now(),
-          };
-          updateConversation(convId, {
-            messages: [...updatedMessages, errorMessage],
-          });
-        }
-      } finally {
-        setIsStreaming(false);
-        setStreamingContent("");
-        abortControllerRef.current = null;
-      }
-    },
-    [selectedModel, isStreaming, activeId, updateConversation]
-  );
-
-  const handleStop = useCallback(() => {
-    abortControllerRef.current?.abort();
-    setIsStreaming(false);
-    setStreamingContent("");
-  }, []);
-
-  const currentMessages = getCurrentMessages();
+  const displayName = user?.name || user?.email || "Builder";
+  const maskedKey = apiKey ? `${apiKey.slice(0, 10)}••••${apiKey.slice(-6)}` : "Belum ada API key";
 
   return (
     <AppShell variant="user">
-      <div className="h-full flex">
-        {/* Chat sidebar */}
-        <aside
-          className={cn(
-            "h-full bg-card border-r border-border flex flex-col transition-all duration-200 shrink-0",
-            sidebarCollapsed ? "w-0 overflow-hidden" : "w-64"
-          )}
-        >
-          <div className="p-3 flex items-center justify-between border-b border-border">
-            {!sidebarCollapsed && (
-              <>
-                <Button size="sm" className="gap-2" onClick={createNewConversation}>
-                  <Plus className="w-4 h-4" /> New Chat
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => setSidebarCollapsed(true)}>
-                  <PanelLeftClose className="w-4 h-4" />
-                </Button>
-              </>
-            )}
-          </div>
-
-          {!sidebarCollapsed && (
-            <nav className="flex-1 overflow-y-auto p-2 space-y-1">
-              {conversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  className={cn(
-                    "group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors",
-                    conv.id === activeId
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                  onClick={() => setActiveId(conv.id)}
-                >
-                  <span className="text-sm truncate flex-1">
-                    {conv.title || "New conversation"}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteConversation(conv.id);
-                    }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+      <div className="h-full overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,.18),transparent_32rem),radial-gradient(circle_at_bottom_right,rgba(244,63,94,.12),transparent_28rem)]">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4 md:p-8">
+          <section className="overflow-hidden rounded-3xl border border-border/80 bg-card/80 shadow-2xl shadow-black/20 backdrop-blur">
+            <div className="grid gap-6 p-6 md:grid-cols-[1.2fr_.8fr] md:p-8">
+              <div className="space-y-5">
+                <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                  <Rocket className="h-3.5 w-3.5" /> Dashboard Hub
                 </div>
-              ))}
-            </nav>
-          )}
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight md:text-5xl">Selamat datang, {displayName}</h1>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+                    Mulai dari sini: salin Base URL, cek API key, buka chat, atau pantau usage. Semua jalur utama ada dalam satu layar.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Link href="/chat">
+                    <Button size="lg" className="w-full gap-2 sm:w-auto">
+                      <MessageSquare className="h-4 w-4" /> Buka Chat
+                    </Button>
+                  </Link>
+                  <Link href="/keys">
+                    <Button size="lg" variant="outline" className="w-full gap-2 sm:w-auto">
+                      <Key className="h-4 w-4" /> Kelola API Key
+                    </Button>
+                  </Link>
+                </div>
+              </div>
 
-          {sidebarCollapsed && (
-            <div className="p-2 flex flex-col items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => setSidebarCollapsed(false)} className="w-8 h-8">
-                <PanelLeft className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={createNewConversation} className="w-8 h-8">
-                <Plus className="w-4 h-4" />
-              </Button>
+              <Card className="border-primary/20 bg-background/70">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Terminal className="h-4 w-4 text-primary" /> Quick config
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {[
+                    { label: "Base URL", value: `${baseUrl}/api/v1`, id: "base" },
+                    { label: "API Key", value: apiKey || "Generate key dari halaman API Keys", id: "key", masked: maskedKey },
+                  ].map((item) => (
+                    <div key={item.id} className="rounded-2xl border border-border bg-muted/30 p-3">
+                      <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                        <span>{item.label}</span>
+                        <Button variant="ghost" size="xs" onClick={() => copy(item.value, item.id)} disabled={!apiKey && item.id === "key"}>
+                          {copied === item.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copied === item.id ? "Disalin" : "Salin"}
+                        </Button>
+                      </div>
+                      <code className="break-all text-xs text-foreground/90">{item.masked || item.value}</code>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </aside>
+          </section>
 
-        {/* Chat content */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Chat header */}
-          <header className="h-12 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0">
-            <div className="flex items-center gap-3">
-              {sidebarCollapsed && (
-                <Button variant="ghost" size="icon-sm" onClick={() => setSidebarCollapsed(false)}>
-                  <PanelLeft className="w-4 h-4" />
-                </Button>
-              )}
-              <span className="text-sm font-medium truncate">
-                {activeConversation?.title || "New Chat"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <ModelSelector selectedModel={selectedModel} onSelect={setSelectedModel} />
-            </div>
-          </header>
+          <section className="grid gap-4 md:grid-cols-4">
+            {loading ? (
+              <div className="md:col-span-4">
+                <CardGridSkeleton count={4} />
+              </div>
+            ) : (
+              [
+                { label: "Total Request", value: formatNumber(usage?.totalRequests || 0), icon: BarChart3 },
+                { label: "Total Token", value: formatNumber(usage?.totalTokens || 0), icon: Bot },
+                { label: "Total Biaya", value: formatRupiah(usage?.totalCost || 0), icon: Wallet },
+                { label: "API Key", value: apiKey ? "Aktif" : "Belum ada", icon: Key },
+              ].map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <Card key={stat.label} className="bg-card/75 backdrop-blur">
+                    <CardContent className="p-5">
+                      <Icon className="mb-4 h-5 w-5 text-primary" />
+                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+                      <p className="mt-1 text-2xl font-bold">{stat.value}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </section>
 
-          {/* Messages area */}
-          <ChatArea
-            messages={currentMessages}
-            isStreaming={isStreaming}
-            streamingContent={streamingContent}
-          />
+          <section className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
+            <Card className="bg-card/75 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="text-base">Langkah selanjutnya</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  { href: "/keys", title: "Generate API key", desc: "Buat key untuk app, server, atau IDE kamu.", icon: Key },
+                  { href: "/pricing", title: "Pilih model dan harga", desc: "Bandingkan model, konteks, speed, dan biaya.", icon: CreditCard },
+                  { href: "/settings", title: "Atur akun", desc: "Ubah profil dan preferensi aplikasi.", icon: Settings },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.href} href={item.href} className="group flex items-center gap-4 rounded-2xl border border-border bg-muted/20 p-4 transition hover:border-primary/40 hover:bg-primary/5">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">{item.desc}</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
+                    </Link>
+                  );
+                })}
+              </CardContent>
+            </Card>
 
-          {/* Input */}
-          <PromptInput
-            onSend={handleSend}
-            onStop={handleStop}
-            isStreaming={isStreaming}
-            disabled={!puterReady}
-          />
+            <Card className="bg-card/75 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="text-base">Usage 30 hari</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {usage?.byDay.length ? (
+                  <div className="flex h-64 items-end gap-1 rounded-2xl border border-border bg-background/50 p-4">
+                    {usage.byDay.map((day) => (
+                      <div key={day.date} className="group relative flex h-full flex-1 items-end">
+                        <div
+                          className={cn("w-full rounded-t bg-primary/70 transition group-hover:bg-primary", day.tokens === 0 && "bg-muted")}
+                          style={{ height: `${Math.max((day.tokens / dailyMax) * 100, day.tokens > 0 ? 6 : 2)}%` }}
+                        />
+                        <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-popover px-2 py-1 text-[10px] shadow-xl group-hover:block">
+                          {day.date}: {formatNumber(day.tokens)} token
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border text-center text-muted-foreground">
+                    <BarChart3 className="mb-3 h-10 w-10 opacity-40" />
+                    <p className="text-sm font-medium">Belum ada usage</p>
+                    <p className="mt-1 text-xs">Coba chat atau panggil API pertama kamu.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </section>
         </div>
       </div>
     </AppShell>

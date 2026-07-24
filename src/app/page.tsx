@@ -10,8 +10,6 @@ import {
   ArrowRight,
   Check,
   Sparkles,
-  Terminal,
-  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -102,27 +100,32 @@ function planToTier(p: PlanRaw): PricingTier {
 export default function LandingPage() {
   const [pricingTiers, setPricingTiers] = useState<PricingTier[]>(FALLBACK_TIERS);
   const [modelCount, setModelCount] = useState(0);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/plans", { credentials: "include" })
+    fetch("/api/plans")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.plans && data.plans.length > 0) {
-          const active = data.plans.filter((p: PlanRaw) => p.isActive);
-          if (active.length > 0) setPricingTiers(active.map(planToTier));
+          setPricingTiers(data.plans.map(planToTier));
         }
       })
       .catch(() => {});
 
-    fetch("/api/admin/models", { credentials: "include" })
+    fetch("/api/models")
       .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (Array.isArray(data)) setModelCount(data.filter((m: { isActive: boolean }) => m.isActive).length); })
+      .then((data) => { if (Array.isArray(data)) setModelCount(data.length); })
       .catch(() => {});
+
+    fetch("/api/auth/session")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => setIsAuthenticated(Boolean(data?.authenticated)))
+      .catch(() => setIsAuthenticated(false));
   }, []);
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,color-mix(in_oklch,var(--color-primary)_18%,transparent),transparent_32rem),linear-gradient(180deg,var(--color-background),color-mix(in_oklch,var(--color-background)_82%,var(--color-card)))] text-foreground">
       {/* Navigation */}
-      <nav className="fixed top-0 inset-x-0 z-50 h-16 bg-background/80 backdrop-blur-lg border-b border-border">
+      <nav className="fixed top-0 inset-x-0 z-50 h-16 bg-card/85 backdrop-blur-lg border-b border-border shadow-lg shadow-primary/5">
         <div className="max-w-6xl mx-auto h-full flex items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
@@ -136,16 +139,23 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
             <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-            <Link href="/docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Docs</Link>
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href="/login">
-              <Button variant="ghost" size="sm">Sign In</Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm">Get Started <ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
-            </Link>
+            {isAuthenticated ? (
+              <Link href="/dashboard">
+                <Button size="sm">Dashboard <ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost" size="sm">Sign In</Button>
+                </Link>
+                <Link href="/register">
+                  <Button size="sm">Get Started <ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -171,20 +181,20 @@ export default function LandingPage() {
           </p>
 
           <div className="flex items-center justify-center gap-4 mb-12">
-            <Link href="/register">
+            <Link href={isAuthenticated ? "/dashboard" : "/register"}>
               <Button size="lg" className="gap-2 text-base px-8">
-                Start Building <ArrowRight className="w-4 h-4" />
+                {isAuthenticated ? "Go to Dashboard" : "Start Building"} <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
-            <Link href="/docs">
+            <a href="#pricing">
               <Button variant="outline" size="lg" className="gap-2 text-base px-8">
-                <Terminal className="w-4 h-4" /> View Docs
+                View Pricing
               </Button>
-            </Link>
+            </a>
           </div>
 
           {/* Code snippet */}
-          <div className="max-w-xl mx-auto bg-card border border-border rounded-xl overflow-hidden text-left">
+          <div className="max-w-xl mx-auto bg-card/95 border border-border rounded-xl overflow-hidden text-left shadow-2xl shadow-primary/10">
             <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-muted/50">
               <div className="flex gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
@@ -210,7 +220,7 @@ export default function LandingPage() {
       </section>
 
       {/* Stats */}
-      <section className="py-16 border-y border-border bg-muted/30">
+      <section className="py-16 border-y border-border bg-muted/45">
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
@@ -237,7 +247,7 @@ export default function LandingPage() {
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
-                <Card key={feature.title} className="border-border bg-card hover:border-primary/30 transition-colors">
+                <Card key={feature.title} className="border-border bg-card/95 shadow-lg shadow-primary/5 hover:border-primary/40 transition-colors">
                   <CardContent className="p-6">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
                       <Icon className="w-5 h-5 text-primary" />
@@ -253,7 +263,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="py-24 px-6 bg-muted/30">
+      <section id="pricing" className="py-24 px-6 bg-muted/45">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold mb-4">Simple, transparent pricing</h2>
@@ -301,42 +311,54 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-24 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-            <BarChart3 className="w-7 h-7 text-primary" />
-          </div>
-          <h2 className="text-3xl font-bold mb-4">Ready to build?</h2>
-          <p className="text-muted-foreground mb-8 leading-relaxed">
-            Join thousands of developers using xPerimne to ship AI-powered products faster.
-          </p>
-          <Link href="/register">
-            <Button size="lg" className="gap-2 text-base px-8">
-              Create Free Account <ArrowRight className="w-4 h-4" />
-            </Button>
-          </Link>
-        </div>
-      </section>
-
       {/* Footer */}
-      <footer className="border-t border-border py-12 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+      <footer className="relative overflow-hidden border-t border-border bg-[radial-gradient(circle_at_18%_0%,color-mix(in_oklch,var(--color-primary)_20%,transparent),transparent_28rem),linear-gradient(180deg,color-mix(in_oklch,var(--color-card)_62%,transparent),var(--color-background))] px-6">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+        <div className="mx-auto grid max-w-6xl gap-10 py-14 md:grid-cols-[1.2fr_.8fr_.8fr]">
+          <div className="space-y-5">
+            <Link href="/" className="inline-flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20">
+                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span className="text-lg font-semibold tracking-tight">xPerimne</span>
+            </Link>
+            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+              One gateway for model routing, wallet usage, and API access — built for teams that ship AI products without provider sprawl.
+            </p>
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_14px_var(--color-accent)]" />
+              API gateway online
             </div>
-            <span className="text-sm font-semibold">xPerimne</span>
           </div>
-          <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <Link href="/docs" className="hover:text-foreground transition-colors">Docs</Link>
-            <Link href="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-            <a href="#" className="hover:text-foreground transition-colors">GitHub</a>
-            <a href="#" className="hover:text-foreground transition-colors">Twitter</a>
+
+          <div>
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Platform</h3>
+            <div className="grid gap-3 text-sm">
+              <Link href="/pricing" className="text-muted-foreground transition hover:text-foreground">Pricing</Link>
+              <Link href="/login" className="text-muted-foreground transition hover:text-foreground">Sign in</Link>
+              <Link href="/register" className="text-muted-foreground transition hover:text-foreground">Create account</Link>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">&copy; 2025 xPerimne. All rights reserved.</p>
+
+          <div>
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Connect</h3>
+            <div className="grid gap-3 text-sm">
+              <a href="#" className="text-muted-foreground transition hover:text-foreground">GitHub</a>
+              <a href="#" className="text-muted-foreground transition hover:text-foreground">Twitter</a>
+              <a href="mailto:hello@xperimne.com" className="text-muted-foreground transition hover:text-foreground">hello@xperimne.com</a>
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 border-t border-border/70 py-5 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
+          <p>&copy; 2025 xPerimne. All rights reserved.</p>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <span>Jakarta / UTC+7</span>
+            <span>99.9% target uptime</span>
+            <span>No provider lock-in</span>
+          </div>
         </div>
       </footer>
     </div>

@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
 import { getSession } from "@/lib/auth";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/db";
-
-function hashPassword(password: string): string {
-  return createHash("sha256")
-    .update(password + (process.env.AUTH_SALT || "xperimne-salt"))
-    .digest("hex");
-}
 
 export async function PUT(request: NextRequest) {
   const session = await getSession();
@@ -38,13 +32,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (user.passwordHash !== hashPassword(currentPassword)) {
+    const { valid } = await verifyPassword(currentPassword, user.passwordHash);
+    if (!valid) {
       return NextResponse.json({ error: "Current password is incorrect" }, { status: 401 });
     }
 
+    const newHash = await hashPassword(newPassword);
     await prisma.user.update({
       where: { id: session.sub },
-      data: { passwordHash: hashPassword(newPassword) },
+      data: { passwordHash: newHash },
     });
 
     return NextResponse.json({ success: true });

@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "xPerimne AI Gateway - Unified Access to 500+ AI Models",
+  title: "xPerimne AI Gateway - Premium AI Models. One API.",
   description:
-    "Access hundreds of AI models through one unified interface. Pay-as-you-go, no API keys needed.",
+    "OpenAI-compatible gateway for developers. Access premium AI models, manage API keys, and track usage from one dashboard.",
 };
 
 export default function RootLayout({
@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} h-full antialiased dark`}
+      className={`${jakarta.variable} h-full antialiased dark`}
       suppressHydrationWarning
     >
       <body className="h-full bg-background text-foreground font-sans">

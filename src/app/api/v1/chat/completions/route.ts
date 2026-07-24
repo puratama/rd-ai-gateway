@@ -68,16 +68,37 @@ export async function POST(request: NextRequest) {
       if (activePackage) {
         // Store for deduction after completion
         (request as unknown as Record<string, unknown>)._quotaPackageId = activePackage.id;
+        const pkgPlan = await prisma.plan.findUnique({ where: { id: activePackage.planId }, select: { backend: true } }).catch(() => null);
+        (request as unknown as Record<string, unknown>)._userPlanBackend = pkgPlan?.backend || "aggregator";
+      } else {
+        // No active package — check for active subscription
+        const activeSub = await prisma.subscription.findFirst({
+          where: {
+            userId: userId!,
+            status: "active",
+            endDate: { gt: new Date() },
+          },
+          select: { id: true, plan: { select: { backend: true } } },
+        });
+        if (activeSub) {
+          (request as unknown as Record<string, unknown>)._quotaSubscriptionId = activeSub.id;
+          (request as unknown as Record<string, unknown>)._userPlanBackend = activeSub.plan?.backend || "puter";
+        } else {
+          // Free tier — use Puter
+          (request as unknown as Record<string, unknown>)._userPlanBackend = "puter";
+        }
       }
     }
 
-    // 4. Route request through provider chain with auto-fallback
+    // 4. Route request through provider chain with auto-fallback + retry + load balancing
     const result = await routeRequest({
       model,
       messages,
       stream,
       temperature,
       max_tokens,
+      preferProvider: (request as unknown as Record<string, unknown>)._userPlanBackend as string | undefined,
+      userId: userId || undefined,
     });
 
     if (!result.success || !result.data) {
@@ -155,7 +176,7 @@ export async function POST(request: NextRequest) {
               const completionTokens = estimateTokens(fullText);
               await updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
               await addServerUsageRecord({
-                userId: apiKeyId,
+                userId: userId ?? apiKeyId,
                 model,
                 provider: result.provider,
                 source: "api",
@@ -190,6 +211,18 @@ export async function POST(request: NextRequest) {
                     .then(({ notifyUsageAlert }) => notifyUsageAlert(userId, percent))
                     .catch(() => {});
                 }
+              }
+
+              // Increment subscription tokensUsed if active
+              const subId = (request as unknown as Record<string, unknown>)._quotaSubscriptionId;
+              if (typeof subId === "string") {
+                const { prisma } = await import("@/lib/db");
+                await prisma.subscription.update({
+                  where: { id: subId },
+                  data: {
+                    tokensUsed: { increment: promptTokens + completionTokens },
+                  },
+                }).catch(() => null);
               }
             } catch {
               // Non-critical
@@ -229,7 +262,7 @@ export async function POST(request: NextRequest) {
           estimateTokens(data.choices?.[0]?.message?.content || "");
         await updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
         await addServerUsageRecord({
-          userId: apiKeyId,
+          userId: userId ?? apiKeyId,
           model,
           provider: result.provider,
           source: "api",
@@ -262,6 +295,18 @@ export async function POST(request: NextRequest) {
               .then(({ notifyUsageAlert }) => notifyUsageAlert(userId, percent))
               .catch(() => {});
           }
+        }
+
+        // Increment subscription tokensUsed if active
+        const subId = (request as unknown as Record<string, unknown>)._quotaSubscriptionId;
+        if (typeof subId === "string") {
+          const { prisma } = await import("@/lib/db");
+          await prisma.subscription.update({
+            where: { id: subId },
+            data: {
+              tokensUsed: { increment: promptTokens + completionTokens },
+            },
+          }).catch(() => null);
         }
       } catch {
         // Non-critical

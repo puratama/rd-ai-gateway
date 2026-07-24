@@ -20,12 +20,16 @@ model User {
   // RBAC
   role String @default("user") // "user" | "superadmin"
 
-  // Puter integration (hidden from user)
-  puterUid    String? @unique
-  puterStatus String  @default("pending") // pending | active | failed
+  // Account status: active | suspended | banned
+  status String @default("active")
+
+  // Email verification
+  emailVerified   DateTime?
+  verifyToken     String?   @unique
+  verifyExpiresAt DateTime?
 
   // Relations
-  apiKey         ApiKey?
+  apiKeys        ApiKey[]
   wallet         Wallet?
   subscriptions  Subscription[]
   packages       UserPackage[]
@@ -61,7 +65,7 @@ model ApiKey {
   id     String  @id @default(cuid())
   key    String  @unique
   name   String
-  userId String  @unique
+  userId String
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   isActive    Boolean   @default(true)
@@ -70,6 +74,8 @@ model ApiKey {
   lastUsed    DateTime?
 
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // ====== Wallet ======
@@ -245,6 +251,21 @@ model AggregatorConfig {
   baseUrl   String
   apiKeyEnc String // encrypted
   isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ====== Payment Gateway Config ======
+
+model PaymentGatewayConfig {
+  id           String  @id @default(cuid())
+  provider     String  @default("midtrans") // "midtrans" | "xendit"
+  name         String
+  serverKeyEnc String
+  clientKeyEnc String
+  environment  String  @default("sandbox") // sandbox | production
+  isActive     Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
