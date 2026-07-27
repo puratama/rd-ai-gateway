@@ -8,6 +8,9 @@ import {
   RefreshCw,
   Box,
   AlertTriangle,
+  Download,
+  Check,
+  Search,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
@@ -23,6 +26,13 @@ import {
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+
+interface AggregatorModel {
+  modelId: string;
+  name: string;
+  provider: string;
+  alreadyRegistered: boolean;
+}
 
 interface AppModelItem {
   id: string;
@@ -62,6 +72,12 @@ function AdminModelsPageContent() {
   const [showCreate, setShowCreate] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [showSync, setShowSync] = useState(false);
+  const [aggregatorModels, setAggregatorModels] = useState<AggregatorModel[]>([]);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncSelected, setSyncSelected] = useState<Set<string>>(new Set());
+  const [syncImporting, setSyncImporting] = useState(false);
+  const [syncFilter, setSyncFilter] = useState("");
 
   const fetchModels = useCallback(async () => {
     setLoading(true);
@@ -92,6 +108,64 @@ function AdminModelsPageContent() {
     }
   };
 
+  const fetchAggregatorModels = useCallback(async () => {
+    setSyncLoading(true);
+    setAggregatorModels([]);
+    setSyncSelected(new Set());
+    try {
+      const res = await fetch("/api/admin/models?aggregator=true");
+      if (res.ok) {
+        const data = await res.json();
+        setAggregatorModels(data);
+      } else {
+        setError("Failed to fetch models from aggregator");
+      }
+    } catch {
+      setError("Aggregator unreachable");
+    }
+    setSyncLoading(false);
+  }, []);
+
+  const importSelectedModels = async () => {
+    if (syncSelected.size === 0) return;
+    setSyncImporting(true);
+    const selected = aggregatorModels.filter((m) => syncSelected.has(m.modelId));
+    let imported = 0;
+    let failed = 0;
+    for (const m of selected) {
+      try {
+        const res = await fetch("/api/admin/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            modelId: m.modelId,
+            name: m.name,
+            provider: m.provider,
+            source: "aggregator",
+            category: "chat",
+            contextWindow: 4096,
+            markupPercent: 20,
+            isActive: true,
+          }),
+        });
+        if (res.ok) imported++;
+        else failed++;
+      } catch {
+        failed++;
+      }
+    }
+    setSyncImporting(false);
+    setShowSync(false);
+    setError(`${imported} model${imported !== 1 ? "s" : ""} imported${failed ? `, ${failed} failed` : ""}.`);
+    fetchModels();
+  };
+
+  const filteredAggregatorModels = aggregatorModels.filter((m) => {
+    if (!syncFilter) return true;
+    const q = syncFilter.toLowerCase();
+    return m.modelId.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
+  });
+
   return (
     <AppShell variant="admin">
       <div className="h-full overflow-auto p-6 space-y-6">
@@ -102,15 +176,27 @@ function AdminModelsPageContent() {
               Manage AI models, pricing, and availability.
             </p>
           </div>
-          <Button
-            size="sm"
-            onClick={() => {
-              setShowCreate(true);
-              setEditing(null);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" /> Add Model
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowSync(true);
+                fetchAggregatorModels();
+              }}
+            >
+              <Download className="w-4 h-4 mr-2" /> Sync from Aggregator
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setShowCreate(true);
+                setEditing(null);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Add Model
+            </Button>
+          </div>
         </div>
 
         {error && (
@@ -276,6 +362,132 @@ function AdminModelsPageContent() {
           </DialogContent>
         </Dialog>
 
+        {/* Sync from Aggregator Dialog */}
+        <Dialog
+          open={showSync}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowSync(false);
+              setSyncSelected(new Set());
+              setSyncFilter("");
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Sync Models from Aggregator</DialogTitle>
+              <DialogDescription>
+                Pilih model dari aggregator aktif. Model yang sudah terdaftar ditandai.
+             </DialogDescription>
+           </DialogHeader>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={syncFilter}
+                onChange={(e) => setSyncFilter(e.target.value)}
+                placeholder="Cari model..."
+                className="pl-9"
+              />
+           </div>
+
+            {syncLoading ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                Loading models from aggregator...
+             </div>
+            ) : filteredAggregatorModels.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                {aggregatorModels.length === 0
+                  ? "No models found. Cek konfigurasi aggregator di Settings."
+                  : "No matches."}
+             </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto border border-border rounded-lg">
+                <div className="divide-y divide-border">
+                  {filteredAggregatorModels.slice(0, 200).map((m) => {
+                    const selected = syncSelected.has(m.modelId);
+                    return (
+                      <button
+                        key={m.modelId}
+                        type="button"
+                        disabled={m.alreadyRegistered}
+                        onClick={() => {
+                          const next = new Set(syncSelected);
+                          if (selected) next.delete(m.modelId);
+                          else next.add(m.modelId);
+                          setSyncSelected(next);
+                        }}
+                        className={cn(
+                          "w-full px-4 py-2.5 flex items-center gap-3 text-left text-sm transition-colors",
+                          m.alreadyRegistered
+                            ? "opacity-50 cursor-not-allowed bg-muted/30"
+                            : selected
+                            ? "bg-primary/10 hover:bg-primary/15"
+                            : "hover:bg-muted/50"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0",
+                            selected
+                              ? "bg-primary border-primary"
+                              : "border-input",
+                            m.alreadyRegistered &&
+                              "border-emerald-500 bg-emerald-500/10"
+                          )}
+                        >
+                          {(selected || m.alreadyRegistered) && (
+                            <Check className="h-3 w-3 text-primary-foreground" />
+                          )}
+                       </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{m.name}</div>
+                          <div className="text-xs text-muted-foreground font-mono truncate">
+                            {m.modelId}
+                         </div>
+                       </div>
+                        <div className="text-xs text-muted-foreground capitalize shrink-0">
+                          {m.provider}
+                       </div>
+                        {m.alreadyRegistered && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded shrink-0">
+                            Registered
+                         </span>
+                        )}
+                     </button>
+                    );
+                  })}
+                  {filteredAggregatorModels.length > 200 && (
+                    <div className="px-4 py-2 text-xs text-muted-foreground text-center">
+                      Showing 200 of {filteredAggregatorModels.length}. Refine
+                      search to see more.
+                   </div>
+                  )}
+               </div>
+             </div>
+            )}
+
+            <DialogFooter className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                {syncSelected.size} selected
+             </span>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowSync(false)}>
+                  Cancel
+               </Button>
+                <Button
+                  onClick={importSelectedModels}
+                  disabled={syncImporting || syncSelected.size === 0}
+                >
+                  {syncImporting
+                    ? "Importing..."
+                    : `Import ${syncSelected.size || ""}`.trim()}
+               </Button>
+             </div>
+           </DialogFooter>
+         </DialogContent>
+       </Dialog>
+
         {/* Model Delete Confirmation */}
         <Dialog
           open={!!deletingId}
@@ -396,7 +608,6 @@ function ModelForm({
               onChange={(e) => update("provider", e.target.value)}
               className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="puter">Puter</option>
               <option value="openai">OpenAI</option>
               <option value="deepseek">DeepSeek</option>
               <option value="anthropic">Anthropic</option>
@@ -415,7 +626,6 @@ function ModelForm({
               onChange={(e) => update("source", e.target.value)}
               className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="puter">Puter</option>
               <option value="aggregator">Aggregator</option>
             </select>
           </div>
