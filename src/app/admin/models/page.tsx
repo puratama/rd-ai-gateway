@@ -60,6 +60,34 @@ interface ModelForm {
   isActive: boolean;
 }
 
+function ToggleSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        checked ? "bg-emerald-500" : "bg-input"
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform",
+          checked ? "translate-x-4" : "translate-x-0.5"
+        )}
+      />
+    </button>
+  );
+}
+
 function AdminModelsPageContent() {
   const [models, setModels] = useState<AppModelItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -239,7 +267,7 @@ function AdminModelsPageContent() {
             }
           }}
         >
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-xl">
             <DialogHeader>
               <DialogTitle>{editing ? "Edit Model" : "Add Model"}</DialogTitle>
               <DialogDescription>
@@ -361,6 +389,7 @@ function ModelForm({
   const [aggregatorModels, setAggregatorModels] = useState<AggregatorModel[]>([]);
   const [loadingAggregators, setLoadingAggregators] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [modelError, setModelError] = useState("");
 
   useEffect(() => {
     if (isEdit) return;
@@ -377,17 +406,32 @@ function ModelForm({
   useEffect(() => {
     if (!selectedAggregatorId) {
       setAggregatorModels([]);
+      setModelError("");
       return;
     }
     setLoadingModels(true);
     setAggregatorModels([]);
+    setModelError("");
     fetch(`/api/admin/aggregators/models?id=${selectedAggregatorId}`)
-      .then((r) => (r.ok ? r.json() : { models: [] }))
+      .then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+          throw new Error(err.error || `HTTP ${r.status}`);
+        }
+        return r.json();
+      })
       .then((data: { models: AggregatorModel[] }) => {
-        setAggregatorModels(data.models || []);
+        const list = data.models || [];
+        setAggregatorModels(list);
+        if (list.length === 0) {
+          setModelError("Aggregator tidak mengembalikan model apapun.");
+        }
         setLoadingModels(false);
       })
-      .catch(() => setLoadingModels(false));
+      .catch((err: Error) => {
+        setModelError(`Gagal ambil model: ${err.message}`);
+        setLoadingModels(false);
+      });
   }, [selectedAggregatorId]);
 
   const update = (key: keyof ModelForm, value: string | number | boolean | null) =>
@@ -400,16 +444,22 @@ function ModelForm({
   };
 
   const selectedAggregator = aggregators.find((a) => a.id === selectedAggregatorId);
+  const availableModels = aggregatorModels.filter((m) => !m.alreadyConfigured);
+  const registeredModelIds = aggregatorModels.filter((m) => m.alreadyConfigured);
 
   return (
     <>
-      <div className="space-y-4">
-        {!isEdit ? (
+      <div className="space-y-5">
+        {/* ── Source Selection (Add mode only) ── */}
+        {!isEdit && (
           <>
+            <p className="text-sm text-muted-foreground">
+              Pilih provider (aggregator) lalu model yang akan ditambahkan.
+           </p>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-muted-foreground block mb-1.5">
-                  Provider (Aggregator)
+                <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
+                  Provider
                </label>
                 <select
                   value={selectedAggregatorId}
@@ -426,7 +476,7 @@ function ModelForm({
                   className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">
-                    {loadingAggregators ? "Loading..." : "Pilih aggregator"}
+                    {loadingAggregators ? "Memuat..." : "Pilih aggregator"}
                  </option>
                   {aggregators.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -435,14 +485,14 @@ function ModelForm({
                   ))}
                </select>
                 {aggregators.length === 0 && !loadingAggregators && (
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Belum ada aggregator. Tambahkan di Settings → Aggregator.
+                  <p className="text-[11px] text-amber-500 mt-1">
+                    Belum ada aggregator aktif. Tambahkan di Settings → Aggregator.
                  </p>
                 )}
              </div>
               <div>
-                <label className="text-xs text-muted-foreground block mb-1.5">
-                  Model (dari provider)
+                <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
+                  Model ID
                </label>
                 <select
                   value={form.modelId}
@@ -455,8 +505,7 @@ function ModelForm({
                       provider: selectedAggregator
                         ? selectedAggregator.name.toLowerCase()
                         : prev.provider,
-                      source: "aggregator",
-                      name: prev.name || m?.name || id,
+                      name: prev.name || m?.name || id.split("/").pop() || id,
                     }));
                   }}
                   disabled={!selectedAggregatorId || loadingModels}
@@ -466,72 +515,82 @@ function ModelForm({
                     {!selectedAggregatorId
                       ? "Pilih provider dulu"
                       : loadingModels
-                      ? "Loading models..."
+                      ? "Memuat model..."
+                      : availableModels.length === 0
+                      ? "Tidak ada model tersedia"
                       : "Pilih model"}
                  </option>
-                  {aggregatorModels.map((m) => (
+                  {availableModels.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.id}
-                      {m.alreadyConfigured ? " (sudah terdaftar)" : ""}
                    </option>
                   ))}
+                  {registeredModelIds.length > 0 && (
+                    <optgroup label="Sudah terdaftar">
+                      {registeredModelIds.map((m) => (
+                        <option key={m.id} value={m.id} disabled>
+                          {m.id} ✓
+                       </option>
+                      ))}
+                   </optgroup>
+                  )}
                </select>
+                {modelError && (
+                  <p className="text-[11px] text-destructive mt-1">{modelError}</p>
+                )}
              </div>
            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1.5">
-                  Display Name
-               </label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => update("name", e.target.value)}
-                  placeholder="Nama tampilan model"
-                />
-             </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1.5">
-                  Source
-               </label>
-                <Input value="aggregator" disabled />
-             </div>
-           </div>
+
+            <hr className="border-border" />
           </>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
+        )}
+
+        {/* ── Edit mode — read-only info ── */}
+        {isEdit && (
+          <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="text-xs text-muted-foreground block mb-1.5">
+              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
                 Model ID
              </label>
-              <Input value={form.modelId} disabled />
+              <div className="h-9 flex items-center text-sm font-mono bg-muted/30 rounded-md px-3 truncate">
+                {form.modelId}
+             </div>
            </div>
             <div>
-              <label className="text-xs text-muted-foreground block mb-1.5">
-                Display Name
-             </label>
-              <Input
-                value={form.name}
-                onChange={(e) => update("name", e.target.value)}
-              />
-           </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1.5">
+              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
                 Provider
              </label>
-              <Input value={form.provider} disabled />
+              <div className="h-9 flex items-center text-sm capitalize bg-muted/30 rounded-md px-3">
+                {form.provider}
+             </div>
            </div>
             <div>
-              <label className="text-xs text-muted-foreground block mb-1.5">
+              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
                 Source
              </label>
-              <Input value={form.source} disabled />
+              <div className="h-9 flex items-center text-sm bg-muted/30 rounded-md px-3">
+                {form.source}
+             </div>
            </div>
          </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* ── Display Name ── */}
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
+            Display Name
+         </label>
+          <Input
+            value={form.name}
+            onChange={(e) => update("name", e.target.value)}
+            placeholder={isEdit ? form.modelId : "Nama tampilan model"}
+          />
+       </div>
+
+        {/* ── Category & Context ── */}
+        <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
+            <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
               Category
            </label>
             <select
@@ -547,7 +606,7 @@ function ModelForm({
            </select>
          </div>
           <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
+            <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
               Context Window
            </label>
             <Input
@@ -558,44 +617,8 @@ function ModelForm({
               }
             />
          </div>
-       </div>
-        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Cost/1K Prompt (USD)
-           </label>
-            <Input
-              type="number"
-              step="0.0001"
-              value={form.costPer1kPrompt ?? ""}
-              onChange={(e) =>
-                update(
-                  "costPer1kPrompt",
-                  e.target.value ? parseFloat(e.target.value) : null
-                )
-              }
-            />
-         </div>
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Cost/1K Completion (USD)
-           </label>
-            <Input
-              type="number"
-              step="0.0001"
-              value={form.costPer1kCompletion ?? ""}
-              onChange={(e) =>
-                update(
-                  "costPer1kCompletion",
-                  e.target.value ? parseFloat(e.target.value) : null
-                )
-              }
-            />
-         </div>
-       </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
+            <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
               Markup %
            </label>
             <Input
@@ -606,22 +629,100 @@ function ModelForm({
               }
             />
          </div>
+       </div>
+
+        {/* ── Pricing ── */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-muted-foreground font-medium">
+              Cost (USD)
+           </span>
+            <span className="text-[10px] text-muted-foreground/60">per 1K tokens</span>
+         </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] text-muted-foreground block mb-1">
+                Prompt
+             </label>
+              <Input
+                type="number"
+                step="0.0001"
+                value={form.costPer1kPrompt ?? ""}
+                onChange={(e) =>
+                  update(
+                    "costPer1kPrompt",
+                    e.target.value ? parseFloat(e.target.value) : null
+                  )
+                }
+              />
+           </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground block mb-1">
+                Completion
+             </label>
+              <Input
+                type="number"
+                step="0.0001"
+                value={form.costPer1kCompletion ?? ""}
+                onChange={(e) =>
+                  update(
+                    "costPer1kCompletion",
+                    e.target.value ? parseFloat(e.target.value) : null
+                  )
+                }
+              />
+           </div>
+         </div>
+       </div>
+
+        {/* ── Sell Price (IDR) & Status ── */}
+        <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Active
+            <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
+              Sell/1K Prompt (IDR)
            </label>
-            <select
-              value={form.isActive ? "yes" : "no"}
-              onChange={(e) => update("isActive", e.target.value === "yes")}
-              className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-           </select>
+            <Input
+              type="number"
+              value={form.sellPricePer1kPrompt ?? ""}
+              onChange={(e) =>
+                update(
+                  "sellPricePer1kPrompt",
+                  e.target.value ? parseFloat(e.target.value) : null
+                )
+              }
+            />
+         </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
+              Sell/1K Completion (IDR)
+           </label>
+            <Input
+              type="number"
+              value={form.sellPricePer1kCompletion ?? ""}
+              onChange={(e) =>
+                update(
+                  "sellPricePer1kCompletion",
+                  e.target.value ? parseFloat(e.target.value) : null
+                )
+              }
+            />
+         </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
+              Status
+           </label>
+            <div className="h-9 flex items-center gap-3">
+              <ToggleSwitch
+                checked={form.isActive}
+                onChange={(v) => update("isActive", v)}
+              />
+              <span className="text-sm">{form.isActive ? "Active" : "Inactive"}</span>
+           </div>
          </div>
        </div>
      </div>
-      <DialogFooter>
+
+      <DialogFooter className="mt-6">
         <Button variant="outline" onClick={onClose}>
           Cancel
        </Button>

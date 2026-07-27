@@ -1,114 +1,229 @@
-import { NextResponse } from "next/server";
-import { getAllProviderModels, getProviders } from "@/lib/providers";
-
-const PUTER_MODELS_URL = "https://api.puter.com/puterai/chat/models/details";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // 0. Resolve user & plan from Authorization header or session
+  const { userId, plan } = await resolveUserPlan(request);
+
+  // 1. Fetch active AppModels (IDs we allow)
+  const { prisma } = await import("@/lib/db");
+  const activeAppModels = await prisma.appModel.findMany({
+    where: { isActive: true },
+    select: { modelId: true },
+  });
+  const allowedModelIds = new Set(activeAppModels.map((m: { modelId: string }) => m.modelId));
+
+  // 2. Primary: aggregator models → filter to only allowed ones
+  let models = await fetchAggregatorModels();
+  if (models.length > 0 && allowedModelIds.size > 0) {
+    models = models.filter((m: Record<string, unknown>) => allowedModelIds.has(String(m.id)));
+  }
+
+  // 3. Fallback: AppModel-derived (if aggregator fails or no allowed intersection)
+  if (models.length === 0 && allowedModelIds.size > 0) {
+    models = await fetchAppModels();
+  }
+
+  // 4. Final fallback: hardcoded list (no AppModels registered at all)
+  if (models.length === 0) {
+    models = getFallbackModels() as unknown as Record<string, unknown>[];
+  }
+
+  // 5. Filter by plan's allowedModels & allowedProviders
+  const filtered = plan ? filterByPlan(models, plan) : models;
+
+  return NextResponse.json({ data: filtered, fallbackAvailable: true });
+}
+
+// ─── Resolve user & plan ────────────────────────────────────────────
+
+interface PlanInfo {
+  allowedModels: string[];
+  allowedProviders: string[];
+}
+
+async function resolveUserPlan(
+  request: NextRequest
+): Promise<{ userId?: string; plan?: PlanInfo }> {
   try {
-    // 1. Fetch models from Puter API (primary source)
-    const puterToken = process.env.PUTER_AUTH_TOKEN;
-    let puterModels: Array<Record<string, unknown>> = [];
+    const { prisma } = await import("@/lib/db");
 
-    if (puterToken && puterToken !== "your-puter-auth-token-here") {
-      try {
-        const response = await fetch(PUTER_MODELS_URL, {
-          headers: { Authorization: `Bearer ${puterToken}` },
-          signal: AbortSignal.timeout(5000),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.models && Array.isArray(data.models)) {
-            puterModels = data.models as Array<Record<string, unknown>>;
-          }
-        }
-      } catch (e) {
-        console.error("[models] Failed to fetch from Puter:", e);
+    // Try API key first
+    const authHeader = request.headers.get("authorization");
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const apiKey = await prisma.apiKey.findUnique({
+        where: { key: token, isActive: true },
+        select: { userId: true },
+      });
+      if (apiKey) {
+        const plan = await getUserPlan(prisma, apiKey.userId);
+        return { userId: apiKey.userId, plan };
       }
     }
 
-    // 2. Get all direct provider models
-    const directModels = getAllProviderModels();
-
-    // 3. Get configured providers info
-    const configuredProviders = getProviders()
-      .filter((p) => p.name !== "puter")
-      .map((p) => ({
-        name: p.name,
-        label: p.label,
-        configured: !!(p.apiKeyEnc || (p.apiKeyEnv && process.env[p.apiKeyEnv])),
-        models: p.models,
-      }));
-
-    // 4. Transform Puter models to OpenAI-compatible format
-    const transformed = puterModels.map((m: Record<string, unknown>) => ({
-      id: String(m.id || m.puterId || ""),
-      object: "model" as const,
-      created: m.release_date
-        ? new Date(m.release_date as string).getTime() / 1000
-        : Math.floor(Date.now() / 1000),
-      owned_by: String(m.provider || "puter"),
-      name: String(m.name || m.id || ""),
-      context: m.context || undefined,
-      max_tokens: m.max_tokens || undefined,
-      provider: String(m.provider || "unknown"),
-      modalities: m.modalities || [],
-      open_weights: m.open_weights || false,
-      tool_call: m.tool_call || false,
-      pricing: m.costs
-        ? {
-            prompt: (m.costs as Record<string, number>).prompt_cost_per_million
-              ? (m.costs as Record<string, number>).prompt_cost_per_million / 100
-              : 0,
-            completion: (m.costs as Record<string, number>).completion_cost_per_million
-              ? (m.costs as Record<string, number>).completion_cost_per_million / 100
-              : 0,
-          }
-        : undefined,
-    }));
-
-    // 5. Add direct provider models that might not be in Puter's list
-    for (const dm of directModels) {
-      if (!transformed.some((t: { id: string }) => t.id === dm.id)) {
-        transformed.push({
-          id: dm.id,
-          object: "model",
-          created: Math.floor(Date.now() / 1000),
-          owned_by: dm.provider,
-          name: dm.id,
-          context: dm.context,
-          provider: dm.provider,
-        } as (typeof transformed)[number]);
-      }
+    // Fallback: session (chat page)
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (session?.sub) {
+      const plan = await getUserPlan(prisma, session.sub);
+      return { userId: session.sub, plan };
     }
+  } catch {
+    // ignore
+  }
 
-    // Mark models that have fallback providers
-    const result = {
-      data: transformed,
-      providers: configuredProviders,
-      fallbackAvailable: configuredProviders.filter((p) => p.configured).length > 0,
+  return {};
+}
+
+async function getUserPlan(
+  prisma: unknown,
+  userId: string
+): Promise<PlanInfo | undefined> {
+  try {
+    const p = prisma as {
+      subscription: {
+        findFirst: (args: unknown) => Promise<{
+          plan?: { allowedModels: string[]; allowedProviders: string[] };
+        } | null>;
+      };
+      userPackage: {
+        findFirst: (args: unknown) => Promise<{
+          plan?: { allowedModels: string[]; allowedProviders: string[] };
+        } | null>;
+      };
     };
 
-    return NextResponse.json(result);
-  } catch (error: unknown) {
-    console.error("[models] Error:", error instanceof Error ? error.message : error);
-
-    // Return fallback model list on error
-    const fallbackModels = getFallbackModels();
-    return NextResponse.json({
-      data: fallbackModels,
-      providers: getProviders()
-        .filter((p) => p.name !== "puter")
-        .map((p) => ({
-          name: p.name,
-          label: p.label,
-          configured: !!(p.apiKeyEnc || (p.apiKeyEnv && process.env[p.apiKeyEnv])),
-          models: p.models,
-        })),
-      fallbackAvailable: true,
+    // Active subscription
+    const sub = await p.subscription.findFirst({
+      where: { userId, status: "active", endDate: { gt: new Date() } },
+      select: { plan: { select: { allowedModels: true, allowedProviders: true } } },
     });
+    if (sub?.plan) {
+      return {
+        allowedModels: sub.plan.allowedModels ?? [],
+        allowedProviders: sub.plan.allowedProviders ?? [],
+      };
+    }
+
+    // Active package
+    const pkg = await p.userPackage.findFirst({
+      where: { userId, status: "active", expiresAt: { gt: new Date() } },
+      select: { plan: { select: { allowedModels: true, allowedProviders: true } } },
+    });
+    if (pkg?.plan) {
+      return {
+        allowedModels: pkg.plan.allowedModels ?? [],
+        allowedProviders: pkg.plan.allowedProviders ?? [],
+      };
+    }
+
+    // Free tier — get "free" plan
+    const freePlan = await p.subscription.findFirst({
+      where: { userId, status: "active", planId: "free" },
+      select: { plan: { select: { allowedModels: true, allowedProviders: true } } },
+    });
+    if (freePlan?.plan) {
+      return {
+        allowedModels: freePlan.plan.allowedModels ?? [],
+        allowedProviders: freePlan.plan.allowedProviders ?? [],
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
+
+// ─── Filtering ───────────────────────────────────────────────────────
+
+function filterByPlan(
+  models: Record<string, unknown>[],
+  plan: PlanInfo
+): Record<string, unknown>[] {
+  return models.filter((m) => {
+    const modelId = String(m.id || "").toLowerCase();
+    const provider = String(m.provider || m.owned_by || "").toLowerCase();
+
+    // allowedModels: empty = all allowed; non-empty = only listed
+    if (
+      plan.allowedModels.length > 0 &&
+      !plan.allowedModels.some((a) => modelId.includes(a.toLowerCase()))
+    ) {
+      return false;
+    }
+
+    // allowedProviders: empty = all providers; non-empty = only listed
+    if (
+      plan.allowedProviders.length > 0 &&
+      !plan.allowedProviders.some((a) => provider.includes(a.toLowerCase()))
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+// ─── Data sources ────────────────────────────────────────────────────
+
+async function fetchAppModels(): Promise<Record<string, unknown>[]> {
+  try {
+    const { prisma } = await import("@/lib/db");
+    const appModels = await prisma.appModel.findMany({
+      where: { isActive: true },
+      orderBy: [{ provider: "asc" }, { name: "asc" }],
+    }) as unknown as Record<string, unknown>[];
+
+    if (appModels.length === 0) return [];
+
+    return appModels.map((m) => ({
+      id: String(m.modelId || m.id || ""),
+      object: "model" as const,
+      created: Math.floor(
+        m.createdAt ? new Date(m.createdAt as string).getTime() / 1000 : Date.now() / 1000
+      ),
+      owned_by: String(m.provider || ""),
+      name: String(m.name || m.modelId || ""),
+      context: m.contextWindow || undefined,
+      provider: String(m.provider || "unknown"),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchAggregatorModels(): Promise<Record<string, unknown>[]> {
+  try {
+    const { prisma } = await import("@/lib/db");
+    const all = await prisma.aggregatorConfig.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const agg = all.find((a: Record<string, unknown>) => a.apiKeyEnc);
+    if (!agg?.baseUrl || !agg.apiKeyEnc) return [];
+
+    const res = await fetch(`${agg.baseUrl}/models`, {
+      headers: { Authorization: `Bearer ${agg.apiKeyEnc}` },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return [];
+
+    const body = await res.json();
+    const list = body?.data || body?.models || [];
+    if (!Array.isArray(list)) return [];
+
+    return list.map((m: Record<string, unknown>) => ({
+      id: String(m.id || ""),
+      object: "model" as const,
+      created: m.created ? Number(m.created) : Math.floor(Date.now() / 1000),
+      owned_by: String(m.owned_by || m.provider || agg.name || ""),
+      name: String(m.id || ""),
+      provider: String(m.owned_by || m.provider || agg.name || "unknown"),
+    }));
+  } catch {
+    return [];
   }
 }
 
