@@ -1,17 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect, useCallback } from "react";
-import {
-  Plus,
-  Edit3,
-  Trash2,
-  RefreshCw,
-  Box,
-  AlertTriangle,
-  Download,
-  Check,
-  Search,
-} from "lucide-react";
+import { Plus, Edit3, Trash2, Box, AlertTriangle } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,11 +17,16 @@ import {
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-interface AggregatorModel {
-  modelId: string;
+interface AggregatorItem {
+  id: string;
   name: string;
-  provider: string;
-  alreadyRegistered: boolean;
+}
+
+interface AggregatorModel {
+  id: string;
+  name?: string;
+  provider?: string;
+  alreadyConfigured?: boolean;
 }
 
 interface AppModelItem {
@@ -72,12 +67,6 @@ function AdminModelsPageContent() {
   const [showCreate, setShowCreate] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [showSync, setShowSync] = useState(false);
-  const [aggregatorModels, setAggregatorModels] = useState<AggregatorModel[]>([]);
-  const [syncLoading, setSyncLoading] = useState(false);
-  const [syncSelected, setSyncSelected] = useState<Set<string>>(new Set());
-  const [syncImporting, setSyncImporting] = useState(false);
-  const [syncFilter, setSyncFilter] = useState("");
 
   const fetchModels = useCallback(async () => {
     setLoading(true);
@@ -108,64 +97,6 @@ function AdminModelsPageContent() {
     }
   };
 
-  const fetchAggregatorModels = useCallback(async () => {
-    setSyncLoading(true);
-    setAggregatorModels([]);
-    setSyncSelected(new Set());
-    try {
-      const res = await fetch("/api/admin/models?aggregator=true");
-      if (res.ok) {
-        const data = await res.json();
-        setAggregatorModels(data);
-      } else {
-        setError("Failed to fetch models from aggregator");
-      }
-    } catch {
-      setError("Aggregator unreachable");
-    }
-    setSyncLoading(false);
-  }, []);
-
-  const importSelectedModels = async () => {
-    if (syncSelected.size === 0) return;
-    setSyncImporting(true);
-    const selected = aggregatorModels.filter((m) => syncSelected.has(m.modelId));
-    let imported = 0;
-    let failed = 0;
-    for (const m of selected) {
-      try {
-        const res = await fetch("/api/admin/models", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            modelId: m.modelId,
-            name: m.name,
-            provider: m.provider,
-            source: "aggregator",
-            category: "chat",
-            contextWindow: 4096,
-            markupPercent: 20,
-            isActive: true,
-          }),
-        });
-        if (res.ok) imported++;
-        else failed++;
-      } catch {
-        failed++;
-      }
-    }
-    setSyncImporting(false);
-    setShowSync(false);
-    setError(`${imported} model${imported !== 1 ? "s" : ""} imported${failed ? `, ${failed} failed` : ""}.`);
-    fetchModels();
-  };
-
-  const filteredAggregatorModels = aggregatorModels.filter((m) => {
-    if (!syncFilter) return true;
-    const q = syncFilter.toLowerCase();
-    return m.modelId.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
-  });
-
   return (
     <AppShell variant="admin">
       <div className="h-full overflow-auto p-6 space-y-6">
@@ -174,35 +105,23 @@ function AdminModelsPageContent() {
             <h1 className="text-2xl font-semibold">Models</h1>
             <p className="text-sm text-muted-foreground">
               Manage AI models, pricing, and availability.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowSync(true);
-                fetchAggregatorModels();
-              }}
-            >
-              <Download className="w-4 h-4 mr-2" /> Sync from Aggregator
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setShowCreate(true);
-                setEditing(null);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" /> Add Model
-            </Button>
-          </div>
-        </div>
+           </p>
+         </div>
+          <Button
+            size="sm"
+            onClick={() => {
+              setShowCreate(true);
+              setEditing(null);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Add Model
+         </Button>
+       </div>
 
         {error && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             {error}
-          </div>
+         </div>
         )}
 
         {loading ? (
@@ -210,8 +129,8 @@ function AdminModelsPageContent() {
         ) : models.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Box className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No models configured.</p>
-          </div>
+            <p className="text-sm">No models configured</p>
+         </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
@@ -223,19 +142,19 @@ function AdminModelsPageContent() {
                     <th className="px-4 py-3 font-medium">Category</th>
                     <th className="px-4 py-3 text-right font-medium">
                       Cost/1K Prompt
-                    </th>
+                   </th>
                     <th className="px-4 py-3 text-right font-medium">
                       Cost/1K Completion
-                    </th>
+                   </th>
                     <th className="px-4 py-3 text-right font-medium">
                       Markup %
-                    </th>
+                   </th>
                     <th className="px-4 py-3 text-center font-medium">
                       Active
-                    </th>
+                   </th>
                     <th className="px-4 py-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
+                 </tr>
+               </thead>
                 <tbody className="divide-y divide-border">
                   {models.map((m) => (
                     <tr key={m.id} className="hover:bg-muted/40">
@@ -243,23 +162,23 @@ function AdminModelsPageContent() {
                         <div className="font-medium">{m.name}</div>
                         <div className="text-xs text-muted-foreground font-mono">
                           {m.modelId}
-                        </div>
-                      </td>
+                       </div>
+                     </td>
                       <td className="px-4 py-3 capitalize">{m.provider}</td>
                       <td className="px-4 py-3 capitalize">{m.category}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                         {m.costPer1kPrompt != null
                           ? `$${m.costPer1kPrompt.toFixed(4)}`
                           : "—"}
-                      </td>
+                     </td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                         {m.costPer1kCompletion != null
                           ? `$${m.costPer1kCompletion.toFixed(4)}`
                           : "—"}
-                      </td>
+                     </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {m.markupPercent}%
-                      </td>
+                     </td>
                       <td className="px-4 py-3 text-center">
                         <span
                           className={cn(
@@ -278,8 +197,8 @@ function AdminModelsPageContent() {
                             )}
                           />
                           {m.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </td>
+                       </span>
+                     </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
                           <Button
@@ -291,7 +210,7 @@ function AdminModelsPageContent() {
                             }}
                           >
                             <Edit3 className="h-3.5 w-3.5" />
-                          </Button>
+                         </Button>
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -299,15 +218,15 @@ function AdminModelsPageContent() {
                             onClick={() => setDeletingId(m.id)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                         </Button>
+                       </div>
+                     </td>
+                   </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+               </tbody>
+             </table>
+           </div>
+         </div>
         )}
 
         {/* Model Create/Edit Dialog */}
@@ -322,15 +241,13 @@ function AdminModelsPageContent() {
         >
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>
-                {editing ? "Edit Model" : "Add Model"}
-              </DialogTitle>
+              <DialogTitle>{editing ? "Edit Model" : "Add Model"}</DialogTitle>
               <DialogDescription>
                 {editing
                   ? "Update model pricing and settings."
-                  : "Register a new AI model in the gateway."}
-              </DialogDescription>
-            </DialogHeader>
+                  : "Pilih provider lalu model dari aggregator yang sudah dikonfigurasi."}
+             </DialogDescription>
+           </DialogHeader>
             <ModelForm
               model={editing}
               onSave={async (data) => {
@@ -359,132 +276,6 @@ function AdminModelsPageContent() {
                 setEditing(null);
               }}
             />
-          </DialogContent>
-        </Dialog>
-
-        {/* Sync from Aggregator Dialog */}
-        <Dialog
-          open={showSync}
-          onOpenChange={(open) => {
-            if (!open) {
-              setShowSync(false);
-              setSyncSelected(new Set());
-              setSyncFilter("");
-            }
-          }}
-        >
-          <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Sync Models from Aggregator</DialogTitle>
-              <DialogDescription>
-                Pilih model dari aggregator aktif. Model yang sudah terdaftar ditandai.
-             </DialogDescription>
-           </DialogHeader>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={syncFilter}
-                onChange={(e) => setSyncFilter(e.target.value)}
-                placeholder="Cari model..."
-                className="pl-9"
-              />
-           </div>
-
-            {syncLoading ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                Loading models from aggregator...
-             </div>
-            ) : filteredAggregatorModels.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                {aggregatorModels.length === 0
-                  ? "No models found. Cek konfigurasi aggregator di Settings."
-                  : "No matches."}
-             </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto border border-border rounded-lg">
-                <div className="divide-y divide-border">
-                  {filteredAggregatorModels.slice(0, 200).map((m) => {
-                    const selected = syncSelected.has(m.modelId);
-                    return (
-                      <button
-                        key={m.modelId}
-                        type="button"
-                        disabled={m.alreadyRegistered}
-                        onClick={() => {
-                          const next = new Set(syncSelected);
-                          if (selected) next.delete(m.modelId);
-                          else next.add(m.modelId);
-                          setSyncSelected(next);
-                        }}
-                        className={cn(
-                          "w-full px-4 py-2.5 flex items-center gap-3 text-left text-sm transition-colors",
-                          m.alreadyRegistered
-                            ? "opacity-50 cursor-not-allowed bg-muted/30"
-                            : selected
-                            ? "bg-primary/10 hover:bg-primary/15"
-                            : "hover:bg-muted/50"
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0",
-                            selected
-                              ? "bg-primary border-primary"
-                              : "border-input",
-                            m.alreadyRegistered &&
-                              "border-emerald-500 bg-emerald-500/10"
-                          )}
-                        >
-                          {(selected || m.alreadyRegistered) && (
-                            <Check className="h-3 w-3 text-primary-foreground" />
-                          )}
-                       </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{m.name}</div>
-                          <div className="text-xs text-muted-foreground font-mono truncate">
-                            {m.modelId}
-                         </div>
-                       </div>
-                        <div className="text-xs text-muted-foreground capitalize shrink-0">
-                          {m.provider}
-                       </div>
-                        {m.alreadyRegistered && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded shrink-0">
-                            Registered
-                         </span>
-                        )}
-                     </button>
-                    );
-                  })}
-                  {filteredAggregatorModels.length > 200 && (
-                    <div className="px-4 py-2 text-xs text-muted-foreground text-center">
-                      Showing 200 of {filteredAggregatorModels.length}. Refine
-                      search to see more.
-                   </div>
-                  )}
-               </div>
-             </div>
-            )}
-
-            <DialogFooter className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                {syncSelected.size} selected
-             </span>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setShowSync(false)}>
-                  Cancel
-               </Button>
-                <Button
-                  onClick={importSelectedModels}
-                  disabled={syncImporting || syncSelected.size === 0}
-                >
-                  {syncImporting
-                    ? "Importing..."
-                    : `Import ${syncSelected.size || ""}`.trim()}
-               </Button>
-             </div>
-           </DialogFooter>
          </DialogContent>
        </Dialog>
 
@@ -500,24 +291,24 @@ function AdminModelsPageContent() {
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-destructive/10">
                   <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                </div>
+               </div>
                 <DialogTitle>Delete Model</DialogTitle>
-              </div>
+             </div>
               <DialogDescription>
                 This will permanently remove this model from the gateway.
                 Existing API requests using this model will fail.
-              </DialogDescription>
-            </DialogHeader>
+             </DialogDescription>
+           </DialogHeader>
             <DialogFooter>
               <DialogClose render={<Button variant="outline">Cancel</Button>} />
               <Button variant="destructive" onClick={handleDeleteModel}>
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </AppShell>
+             </Button>
+           </DialogFooter>
+         </DialogContent>
+       </Dialog>
+     </div>
+   </AppShell>
   );
 }
 
@@ -530,6 +321,7 @@ function ModelForm({
   onSave: (data: Record<string, unknown>) => void;
   onClose: () => void;
 }) {
+  const isEdit = !!model;
   const [form, setForm] = useState<ModelForm>(
     model
       ? {
@@ -550,7 +342,7 @@ function ModelForm({
           modelId: "",
           name: "",
           provider: "",
-          source: "puter",
+          source: "aggregator",
           category: "chat",
           contextWindow: 4096,
           costPer1kPrompt: null,
@@ -563,6 +355,41 @@ function ModelForm({
   );
   const [saving, setSaving] = useState(false);
 
+  // Aggregator integration (only when creating new model)
+  const [aggregators, setAggregators] = useState<AggregatorItem[]>([]);
+  const [selectedAggregatorId, setSelectedAggregatorId] = useState<string>("");
+  const [aggregatorModels, setAggregatorModels] = useState<AggregatorModel[]>([]);
+  const [loadingAggregators, setLoadingAggregators] = useState(false);
+  const [loadingModels, setLoadingModels] = useState(false);
+
+  useEffect(() => {
+    if (isEdit) return;
+    setLoadingAggregators(true);
+    fetch("/api/admin/aggregators")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: AggregatorItem[]) => {
+        setAggregators(Array.isArray(data) ? data : []);
+        setLoadingAggregators(false);
+      })
+      .catch(() => setLoadingAggregators(false));
+  }, [isEdit]);
+
+  useEffect(() => {
+    if (!selectedAggregatorId) {
+      setAggregatorModels([]);
+      return;
+    }
+    setLoadingModels(true);
+    setAggregatorModels([]);
+    fetch(`/api/admin/aggregators/models?id=${selectedAggregatorId}`)
+      .then((r) => (r.ok ? r.json() : { models: [] }))
+      .then((data: { models: AggregatorModel[] }) => {
+        setAggregatorModels(data.models || []);
+        setLoadingModels(false);
+      })
+      .catch(() => setLoadingModels(false));
+  }, [selectedAggregatorId]);
+
   const update = (key: keyof ModelForm, value: string | number | boolean | null) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -572,69 +399,141 @@ function ModelForm({
     setSaving(false);
   };
 
+  const selectedAggregator = aggregators.find((a) => a.id === selectedAggregatorId);
+
   return (
     <>
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Model ID
-            </label>
-            <Input
-              value={form.modelId}
-              onChange={(e) => update("modelId", e.target.value)}
-              placeholder="e.g. gpt-4o"
-              disabled={!!model}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Name
-            </label>
-            <Input
-              value={form.name}
-              onChange={(e) => update("name", e.target.value)}
-              placeholder="e.g. GPT-4o"
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Provider
-            </label>
-            <select
-              value={form.provider}
-              onChange={(e) => update("provider", e.target.value)}
-              className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="openai">OpenAI</option>
-              <option value="deepseek">DeepSeek</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="google">Google</option>
-              <option value="meta">Meta</option>
-              <option value="mistral">Mistral</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Source
-            </label>
-            <select
-              value={form.source}
-              onChange={(e) => update("source", e.target.value)}
-              className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="aggregator">Aggregator</option>
-            </select>
-          </div>
-        </div>
+        {!isEdit ? (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1.5">
+                  Provider (Aggregator)
+               </label>
+                <select
+                  value={selectedAggregatorId}
+                  onChange={(e) => {
+                    setSelectedAggregatorId(e.target.value);
+                    setForm((prev) => ({
+                      ...prev,
+                      modelId: "",
+                      name: "",
+                      provider: "",
+                    }));
+                  }}
+                  disabled={loadingAggregators}
+                  className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">
+                    {loadingAggregators ? "Loading..." : "Pilih aggregator"}
+                 </option>
+                  {aggregators.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                   </option>
+                  ))}
+               </select>
+                {aggregators.length === 0 && !loadingAggregators && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Belum ada aggregator. Tambahkan di Settings → Aggregator.
+                 </p>
+                )}
+             </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1.5">
+                  Model (dari provider)
+               </label>
+                <select
+                  value={form.modelId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const m = aggregatorModels.find((x) => x.id === id);
+                    setForm((prev) => ({
+                      ...prev,
+                      modelId: id,
+                      provider: selectedAggregator
+                        ? selectedAggregator.name.toLowerCase()
+                        : prev.provider,
+                      source: "aggregator",
+                      name: prev.name || m?.name || id,
+                    }));
+                  }}
+                  disabled={!selectedAggregatorId || loadingModels}
+                  className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">
+                    {!selectedAggregatorId
+                      ? "Pilih provider dulu"
+                      : loadingModels
+                      ? "Loading models..."
+                      : "Pilih model"}
+                 </option>
+                  {aggregatorModels.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.id}
+                      {m.alreadyConfigured ? " (sudah terdaftar)" : ""}
+                   </option>
+                  ))}
+               </select>
+             </div>
+           </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1.5">
+                  Display Name
+               </label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => update("name", e.target.value)}
+                  placeholder="Nama tampilan model"
+                />
+             </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1.5">
+                  Source
+               </label>
+                <Input value="aggregator" disabled />
+             </div>
+           </div>
+          </>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5">
+                Model ID
+             </label>
+              <Input value={form.modelId} disabled />
+           </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5">
+                Display Name
+             </label>
+              <Input
+                value={form.name}
+                onChange={(e) => update("name", e.target.value)}
+              />
+           </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5">
+                Provider
+             </label>
+              <Input value={form.provider} disabled />
+           </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5">
+                Source
+             </label>
+              <Input value={form.source} disabled />
+           </div>
+         </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-muted-foreground block mb-1.5">
               Category
-            </label>
+           </label>
             <select
               value={form.category}
               onChange={(e) => update("category", e.target.value)}
@@ -645,12 +544,12 @@ function ModelForm({
               <option value="coding">Coding</option>
               <option value="fast">Fast</option>
               <option value="image">Image</option>
-            </select>
-          </div>
+           </select>
+         </div>
           <div>
             <label className="text-xs text-muted-foreground block mb-1.5">
               Context Window
-            </label>
+           </label>
             <Input
               type="number"
               value={form.contextWindow}
@@ -658,13 +557,13 @@ function ModelForm({
                 update("contextWindow", parseInt(e.target.value) || 0)
               }
             />
-          </div>
-        </div>
+         </div>
+       </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-muted-foreground block mb-1.5">
               Cost/1K Prompt (USD)
-            </label>
+           </label>
             <Input
               type="number"
               step="0.0001"
@@ -676,11 +575,11 @@ function ModelForm({
                 )
               }
             />
-          </div>
+         </div>
           <div>
             <label className="text-xs text-muted-foreground block mb-1.5">
               Cost/1K Completion (USD)
-            </label>
+           </label>
             <Input
               type="number"
               step="0.0001"
@@ -692,13 +591,13 @@ function ModelForm({
                 )
               }
             />
-          </div>
-        </div>
+         </div>
+       </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-muted-foreground block mb-1.5">
               Markup %
-            </label>
+           </label>
             <Input
               type="number"
               value={form.markupPercent}
@@ -706,11 +605,11 @@ function ModelForm({
                 update("markupPercent", parseFloat(e.target.value) || 0)
               }
             />
-          </div>
+         </div>
           <div>
             <label className="text-xs text-muted-foreground block mb-1.5">
               Active
-            </label>
+           </label>
             <select
               value={form.isActive ? "yes" : "no"}
               onChange={(e) => update("isActive", e.target.value === "yes")}
@@ -718,18 +617,18 @@ function ModelForm({
             >
               <option value="yes">Yes</option>
               <option value="no">No</option>
-            </select>
-          </div>
-        </div>
-      </div>
+           </select>
+         </div>
+       </div>
+     </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>
           Cancel
-        </Button>
+       </Button>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : model ? "Update" : "Create"}
-        </Button>
-      </DialogFooter>
+       </Button>
+     </DialogFooter>
     </>
   );
 }
@@ -740,12 +639,12 @@ export default function AdminModelsPage() {
       fallback={
         <AppShell variant="admin">
           <div className="flex h-full items-center justify-center">
-            <span className="text-sm text-muted-foreground">Loading...</span>
-          </div>
-        </AppShell>
+            <span className="text-sm text-muted-foreground">Loading</span>
+         </div>
+       </AppShell>
       }
     >
       <AdminModelsPageContent />
-    </Suspense>
+   </Suspense>
   );
 }
