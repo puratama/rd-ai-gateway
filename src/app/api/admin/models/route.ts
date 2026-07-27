@@ -1,38 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-// List all models, or fetch available models from active aggregator if ?aggregator=true
-export async function GET(request: NextRequest) {
+// List all models
+export async function GET() {
   try {
-    if (request.nextUrl.searchParams.get("aggregator") === "true") {
-      const all = await prisma.aggregatorConfig.findMany({ where: { isActive: true } });
-      const agg = all.find((a: any) => a.apiKeyEnc);
-      if (!agg?.baseUrl || !agg.apiKeyEnc) return NextResponse.json([]);
-
-      const res = await fetch(`${agg.baseUrl}/models`, {
-        headers: { Authorization: `Bearer ${agg.apiKeyEnc}` },
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!res.ok) return NextResponse.json([]);
-
-      const body = await res.json();
-      const list = body?.data || body?.models || [];
-      if (!Array.isArray(list)) return NextResponse.json([]);
-
-      const registered = await prisma.appModel.findMany({ select: { modelId: true } });
-      const registeredSet = new Set(registered.map((r) => r.modelId));
-
-      return NextResponse.json(list.map((m: any) => {
-        const modelId = String(m.id || "");
-        return {
-          modelId,
-          name: modelId.split("/").pop() || modelId,
-          provider: String(m.owned_by || m.provider || agg.name || "unknown").toLowerCase(),
-          alreadyRegistered: registeredSet.has(modelId),
-        };
-      }));
-    }
-
     const models = await prisma.appModel.findMany({ orderBy: { name: "asc" } });
     return NextResponse.json(models.map((m) => ({
       id: m.id,
