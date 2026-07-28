@@ -6,31 +6,40 @@ export async function GET(request: NextRequest) {
   // 0. Resolve user & plan from Authorization header or session
   const { userId, plan } = await resolveUserPlan(request);
 
-  // 1. Fetch active AppModels (IDs we allow)
+  // 1. Fetch active AppModels (IDs + display names)
   const { prisma } = await import("@/lib/db");
   const activeAppModels = await prisma.appModel.findMany({
     where: { isActive: true },
-    select: { modelId: true },
+    select: { modelId: true, name: true },
   });
-  const allowedModelIds = new Set(activeAppModels.map((m: { modelId: string }) => m.modelId));
 
-  // 2. Primary: aggregator models → filter to only allowed ones
-  let models = await fetchAggregatorModels();
-  if (models.length > 0 && allowedModelIds.size > 0) {
-    models = models.filter((m: Record<string, unknown>) => allowedModelIds.has(String(m.id)));
+  // Map modelId → displayName for merging into aggregator response
+  const modelMap = new Map(
+    activeAppModels.map((m: { modelId: string; name: string }) => [m.modelId, m.name])
+  );
+
+  // If no active models configured, return empty
+  if (modelMap.size === 0) {
+    return NextResponse.json({ data: [], fallbackAvailable: false });
   }
 
-  // 3. Fallback: AppModel-derived (if aggregator fails or no allowed intersection)
-  if (models.length === 0 && allowedModelIds.size > 0) {
+  // 2. Primary: aggregator models → filter + merge display name from AppModel
+  let models = await fetchAggregatorModels();
+  if (models.length > 0) {
+    models = models
+      .filter((m: Record<string, unknown>) => modelMap.has(String(m.id)))
+      .map((m: Record<string, unknown>) => ({
+        ...m,
+        name: modelMap.get(String(m.id)) || m.name,
+      }));
+  }
+
+  // 3. Fallback: AppModel-derived (if aggregator fails or no intersection)
+  if (models.length === 0) {
     models = await fetchAppModels();
   }
 
-  // 4. Final fallback: hardcoded list (no AppModels registered at all)
-  if (models.length === 0) {
-    models = getFallbackModels() as unknown as Record<string, unknown>[];
-  }
-
-  // 5. Filter by plan's allowedModels & allowedProviders
+  // 4. Filter by plan's allowedModels & allowedProviders
   const filtered = plan ? filterByPlan(models, plan) : models;
 
   return NextResponse.json({ data: filtered, fallbackAvailable: true });
@@ -219,30 +228,12 @@ async function fetchAggregatorModels(): Promise<Record<string, unknown>[]> {
       object: "model" as const,
       created: m.created ? Number(m.created) : Math.floor(Date.now() / 1000),
       owned_by: String(m.owned_by || m.provider || agg.name || ""),
-      name: String(m.id || ""),
+      name: String(m.name || (typeof m.id === "string" ? m.id.split("/").pop() : m.id) || ""),
       provider: String(m.owned_by || m.provider || agg.name || "unknown"),
     }));
   } catch {
     return [];
   }
-}
-
-function getFallbackModels() {
-  return [
-    { id: "gpt-4o", object: "model", owned_by: "openai", name: "GPT-4o", context: 128000, provider: "OpenAI" },
-    { id: "gpt-4o-mini", object: "model", owned_by: "openai", name: "GPT-4o Mini", context: 128000, provider: "OpenAI" },
-    { id: "gpt-5", object: "model", owned_by: "openai", name: "GPT-5", context: 1000000, provider: "OpenAI" },
-    { id: "o3", object: "model", owned_by: "openai", name: "o3", context: 200000, provider: "OpenAI" },
-    { id: "claude-sonnet-4", object: "model", owned_by: "anthropic", name: "Claude Sonnet 4", context: 200000, provider: "Anthropic" },
-    { id: "claude-haiku-3.5", object: "model", owned_by: "anthropic", name: "Claude Haiku 3.5", context: 200000, provider: "Anthropic" },
-    { id: "claude-opus-4", object: "model", owned_by: "anthropic", name: "Claude Opus 4", context: 200000, provider: "Anthropic" },
-    { id: "gemini-2.5-flash", object: "model", owned_by: "google", name: "Gemini 2.5 Flash", context: 1000000, provider: "Google" },
-    { id: "deepseek-chat", object: "model", owned_by: "deepseek", name: "DeepSeek V3", context: 64000, provider: "DeepSeek" },
-    { id: "deepseek-reasoner", object: "model", owned_by: "deepseek", name: "DeepSeek R1", context: 64000, provider: "DeepSeek" },
-    { id: "llama-3.1-70b", object: "model", owned_by: "meta", name: "Llama 3.1 70B", context: 128000, provider: "Meta" },
-    { id: "mistral-large", object: "model", owned_by: "mistral", name: "Mistral Large", context: 128000, provider: "Mistral" },
-    { id: "mixtral-8x7b", object: "model", owned_by: "mistral", name: "Mixtral 8x7B", context: 32000, provider: "Mistral" },
-  ];
 }
 
 export async function OPTIONS() {

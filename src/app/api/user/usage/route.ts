@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -15,7 +15,23 @@ function dayKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-export async function GET() {
+function getRangeStart(range: string): Date {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  switch (range) {
+    case "today":
+      break;
+    case "week":
+      start.setDate(start.getDate() - 6);
+      break;
+    default: // month
+      start.setDate(start.getDate() - 29);
+  }
+  return start;
+}
+
+export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
 
@@ -23,37 +39,27 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
+    const range = request.nextUrl.searchParams.get("range") || "month";
+    const startDate = getRangeStart(range);
 
-    const [allUsageRecords, recentUsageRecords] = await Promise.all([
-      prisma.usageRecord.findMany({
-        where: { userId: session.sub },
-        select: {
-          model: true,
-          totalTokens: true,
-          cost: true,
-        },
-      }),
-      prisma.usageRecord.findMany({
-        where: {
-          userId: session.sub,
-          createdAt: { gte: thirtyDaysAgo },
-        },
-        select: {
-          totalTokens: true,
-          cost: true,
-          createdAt: true,
-        },
-      }),
-    ]);
+    const usageRecords = await prisma.usageRecord.findMany({
+      where: {
+        userId: session.sub,
+        createdAt: { gte: startDate },
+      },
+      select: {
+        model: true,
+        totalTokens: true,
+        cost: true,
+        createdAt: true,
+      },
+    });
 
     const totals = emptySummary();
     const byModelMap = new Map<string, UsageSummary>();
     const byDayMap = new Map<string, UsageSummary>();
 
-    for (const record of allUsageRecords) {
+    for (const record of usageRecords) {
       const cost = record.cost?.toNumber() ?? 0;
       totals.tokens += record.totalTokens;
       totals.cost += cost;
@@ -64,13 +70,11 @@ export async function GET() {
       modelSummary.cost += cost;
       modelSummary.requests += 1;
       byModelMap.set(record.model, modelSummary);
-    }
 
-    for (const record of recentUsageRecords) {
       const date = dayKey(record.createdAt);
       const daySummary = byDayMap.get(date) ?? emptySummary();
       daySummary.tokens += record.totalTokens;
-      daySummary.cost += record.cost?.toNumber() ?? 0;
+      daySummary.cost += cost;
       daySummary.requests += 1;
       byDayMap.set(date, daySummary);
     }
@@ -79,6 +83,7 @@ export async function GET() {
       totalTokens: totals.tokens,
       totalCost: totals.cost,
       totalRequests: totals.requests,
+      range,
       byModel: Array.from(byModelMap, ([model, summary]) => ({
         model,
         tokens: summary.tokens,

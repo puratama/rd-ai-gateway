@@ -2,10 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, BarChart3, Coins, Hash, RefreshCw } from "lucide-react";
+import { Bar } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  TooltipItem,
+} from "chart.js";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardGridSkeleton, StatsCardSkeleton } from "@/components/ui/skeleton";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
 
 interface ModelUsage {
   model: string;
@@ -25,9 +37,27 @@ interface UsageResponse {
   totalTokens: number;
   totalCost: number;
   totalRequests: number;
+  range: string;
   byModel: ModelUsage[];
   byDay: DailyUsage[];
 }
+
+type RangeFilter = "week" | "month";
+
+const RANGE_OPTIONS: { key: RangeFilter; label: string }[] = [
+  { key: "week", label: "1 Week" },
+  { key: "month", label: "1 Month" },
+];
+
+const RANGE_LABEL: Record<RangeFilter, string> = {
+  week: "Last 7 days",
+  month: "Last 30 days",
+};
+
+const RANGE_DAYS: Record<RangeFilter, number> = {
+  week: 7,
+  month: 30,
+};
 
 const idr = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat("id-ID");
@@ -36,16 +66,34 @@ function shortDate(date: string) {
   return new Date(date).toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
 }
 
+/** Generate ISO dates (UTC) for the full range, back-filling usage data */
+function fillDays(range: RangeFilter, byDay: DailyUsage[]): DailyUsage[] {
+  const count = RANGE_DAYS[range];
+  const now = new Date();
+  // Use UTC midnight to match API's dayKey() which uses toISOString (always UTC)
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const map = new Map(byDay.map((d) => [d.date, d]));
+  const result: DailyUsage[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    result.push(map.get(key) ?? { date: key, tokens: 0, cost: 0, requests: 0 });
+  }
+  return result;
+}
+
 export default function UsagePage() {
   const [usage, setUsage] = useState<UsageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [range, setRange] = useState<RangeFilter>("month");
 
-  const loadUsage = useCallback(async () => {
+  const loadUsage = useCallback(async (r: RangeFilter) => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/user/usage");
+      const response = await fetch(`/api/user/usage?range=${r}`);
       if (!response.ok) throw new Error("Failed to load usage.");
       setUsage((await response.json()) as UsageResponse);
     } catch (err) {
@@ -56,11 +104,69 @@ export default function UsagePage() {
   }, []);
 
   useEffect(() => {
-    loadUsage();
-  }, [loadUsage]);
+    loadUsage(range);
+  }, [range, loadUsage]);
 
-  const days = useMemo(() => usage?.byDay.slice(-30) ?? [], [usage]);
+  const days = useMemo(() => usage ? fillDays(range, usage.byDay) : [], [usage, range]);
   const maxTokens = Math.max(...days.map((day) => day.tokens), 1);
+
+  const chartData = useMemo(() => ({
+    labels: days.map((d) => shortDate(d.date)),
+    datasets: [
+      {
+        label: "Tokens",
+        data: days.map((d) => d.tokens),
+        backgroundColor: "oklch(0.68 0.16 235)",
+        borderRadius: 4,
+        borderSkipped: false as const,
+      },
+    ],
+  }), [days]);
+
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "oklch(0.265 0.062 247)",
+        titleColor: "oklch(0.97 0.015 240)",
+        bodyColor: "oklch(0.97 0.015 240)",
+        borderColor: "oklch(0.39 0.065 246)",
+        borderWidth: 1,
+        padding: 10,
+        cornerRadius: 8,
+        displayColors: false,
+        callbacks: {
+          title: (items: TooltipItem<"bar">[]) => items[0]?.label ?? "",
+          label: (item: TooltipItem<"bar">) => {
+            const day = days[item.dataIndex];
+            if (!day) return "";
+            return [
+              `Tokens: ${number.format(day.tokens)}`,
+              `Requests: ${number.format(day.requests)}`,
+              day.cost > 0 ? `Cost: ${idr.format(day.cost)}` : "",
+            ].filter(Boolean) as unknown as string;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: "oklch(0.76 0.045 245)", font: { size: 10 } },
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: "oklch(0.39 0.065 246 / 0.4)" },
+        ticks: {
+          color: "oklch(0.76 0.045 245)",
+          font: { size: 10 },
+          callback: (v: string | number) => number.format(Number(v)),
+        },
+      },
+    },
+  }), [days, number, idr]);
 
   return (
     <AppShell variant="user">
@@ -74,9 +180,23 @@ export default function UsagePage() {
               <h1 className="text-3xl font-semibold tracking-tight">Usage dashboard</h1>
               <p className="text-sm text-muted-foreground">Track requests, tokens, and IDR cost.</p>
             </div>
-            <Button variant="outline" size="sm" onClick={loadUsage} disabled={loading} className="cursor-pointer">
-              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              {RANGE_OPTIONS.map((opt) => (
+                <Button
+                  key={opt.key}
+                  variant={range === opt.key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setRange(opt.key)}
+                  disabled={loading}
+                  className="cursor-pointer"
+                >
+                  {opt.label}
+                </Button>
+              ))}
+              <Button variant="outline" size="sm" onClick={() => loadUsage(range)} disabled={loading} className="cursor-pointer">
+                <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+              </Button>
+            </div>
           </header>
 
           {error && (
@@ -93,32 +213,43 @@ export default function UsagePage() {
           ) : usage ? (
             <>
               <div className="grid gap-3 md:grid-cols-3">
-                <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Hash className="h-4 w-4 text-blue-500" /> Total Requests</div><div className="mt-3 text-3xl font-semibold">{number.format(usage.totalRequests)}</div></CardContent></Card>
-                <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-sm text-muted-foreground"><BarChart3 className="h-4 w-4 text-emerald-500" /> Total Tokens</div><div className="mt-3 text-3xl font-semibold">{number.format(usage.totalTokens)}</div></CardContent></Card>
-                <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Coins className="h-4 w-4 text-amber-500" /> Total Cost</div><div className="mt-3 text-3xl font-semibold">{idr.format(usage.totalCost)}</div></CardContent></Card>
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Hash className="h-4 w-4 text-blue-500" /> Requests ({RANGE_LABEL[range]})
+                    </div>
+                    <div className="mt-3 text-3xl font-semibold">{number.format(usage.totalRequests)}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <BarChart3 className="h-4 w-4 text-emerald-500" /> Tokens ({RANGE_LABEL[range]})
+                    </div>
+                    <div className="mt-3 text-3xl font-semibold">{number.format(usage.totalTokens)}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Coins className="h-4 w-4 text-amber-500" /> Cost ({RANGE_LABEL[range]})
+                    </div>
+                    <div className="mt-3 text-3xl font-semibold">{idr.format(usage.totalCost)}</div>
+                  </CardContent>
+                </Card>
               </div>
 
               <Card>
                 <CardContent className="p-5">
                   <div className="mb-4 flex items-center justify-between">
                     <h2 className="text-sm font-semibold">Daily usage</h2>
-                    <span className="text-xs text-muted-foreground">Last 30 days · tokens</span>
+                    <span className="text-xs text-muted-foreground">{RANGE_LABEL[range]} · {days.filter((d) => d.tokens > 0).length} hari aktif</span>
                   </div>
-                  {days.length === 0 ? (
-                    <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">No daily usage yet.</div>
+                  {days.every((d) => d.tokens === 0) ? (
+                    <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">No usage in this period.</div>
                   ) : (
-                    <div className="flex h-56 items-end gap-1.5">
-                      {days.map((day) => (
-                        <div key={day.date} className="group relative flex flex-1 flex-col items-center gap-2">
-                          <div className="flex w-full flex-1 items-end rounded-t bg-muted/60">
-                            <div className="w-full rounded-t bg-primary transition-opacity hover:opacity-80" style={{ height: `${Math.max((day.tokens / maxTokens) * 100, day.tokens > 0 ? 4 : 1)}%` }} />
-                          </div>
-                          <span className="max-w-10 -rotate-45 truncate text-[10px] text-muted-foreground">{shortDate(day.date)}</span>
-                          <div className="pointer-events-none absolute -top-10 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-popover px-2 py-1 text-[10px] text-popover-foreground opacity-0 shadow group-hover:opacity-100">
-                            {number.format(day.tokens)} tokens · {number.format(day.requests)} requests
-                          </div>
-                        </div>
-                      ))}
+                    <div className="h-72">
+                      <Bar data={chartData} options={chartOptions} />
                     </div>
                   )}
                 </CardContent>
@@ -140,7 +271,7 @@ export default function UsagePage() {
                       </thead>
                       <tbody className="divide-y">
                         {usage.byModel.length === 0 ? (
-                          <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No model usage yet.</td></tr>
+                          <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No model usage in this period.</td></tr>
                         ) : usage.byModel.map((model) => (
                           <tr key={model.model}>
                             <td className="py-3 font-medium">{model.model}</td>

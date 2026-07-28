@@ -16,7 +16,7 @@ export async function getModels(): Promise<ModelInfo[]> {
     if (data?.data && Array.isArray(data.data)) {
       modelsCache = data.data.map((m: Record<string, unknown>) => ({
         id: String(m.id || ""),
-        name: String(m.id || m.name || ""),
+        name: String(m.name || m.id || ""),
         provider: getProviderFromModel(String(m.id || "")),
         context: m.context ? Number(m.context) : undefined,
         description: m.description ? String(m.description) : undefined,
