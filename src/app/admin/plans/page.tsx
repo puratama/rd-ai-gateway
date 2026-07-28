@@ -374,7 +374,7 @@ function PlanEditor({
           name: "",
           description: "",
           type: "subscription",
-          backend: "puter",
+          backend: "aggregator",
           price: 0,
           billingPeriod: "monthly",
           features: {
@@ -398,7 +398,7 @@ function PlanEditor({
     setForm((prev) => ({ ...prev, [key]: value }));
   const updateFeatures = (
     key: keyof PlanForm["features"],
-    value: string | number | boolean
+    value: string | number | boolean | string[]
   ) =>
     setForm((prev) => ({
       ...prev,
@@ -445,7 +445,6 @@ function PlanEditor({
             <label className="text-xs text-muted-foreground block mb-1.5">Backend</label>
             <select value={form.backend} onChange={(e) => update("backend", e.target.value)}
               className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="puter">Puter</option>
               <option value="aggregator">Aggregator</option>
             </select>
           </div>
@@ -572,6 +571,52 @@ function PlanEditor({
               <SelectItem value="high">High</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1.5">
+            Allowed Providers <span className="text-[10px] text-muted-foreground/60">(kosong = semua)</span>
+          </label>
+          <textarea
+            value={form.features?.allowedProviders?.join(", ") || ""}
+            onChange={(e) =>
+              updateFeatures(
+                "allowedProviders",
+                e.target.value
+                  .split(",")
+                  .map((s: string) => s.trim())
+                  .filter(Boolean)
+              )
+            }
+            placeholder="openai, anthropic, google"
+            rows={2}
+            className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          />
+          <p className="text-[10px] text-muted-foreground/60 mt-1">
+            Pisahkan dengan koma. Model hanya dari provider ini yang akan tampak.
+          </p>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1.5">
+            Allowed Models <span className="text-[10px] text-muted-foreground/60">(kosong = semua)</span>
+          </label>
+          <textarea
+            value={form.features?.allowedModels?.join(", ") || ""}
+            onChange={(e) =>
+              updateFeatures(
+                "allowedModels",
+                e.target.value
+                  .split(",")
+                  .map((s: string) => s.trim())
+                  .filter(Boolean)
+              )
+            }
+            placeholder="gpt-4o-mini, claude-haiku"
+            rows={3}
+            className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          />
+          <p className="text-[10px] text-muted-foreground/60 mt-1">
+            Pisahkan dengan koma. Partial match — "gpt" akan cocok dengan "gpt-4o", "gpt-4o-mini", dll.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <input

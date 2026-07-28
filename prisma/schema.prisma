@@ -230,12 +230,18 @@ model AppModel {
   category  String // chat | reasoning | coding | fast | image
   contextWindow Int @default(0)
 
-  // Pricing
+  // Pricing — cost to us
   costPer1kPrompt     Decimal?
   costPer1kCompletion Decimal?
   markupPercent       Decimal  @default(0)
+
+  // PAYG price (default, higher)
   sellPricePer1kPrompt     Decimal?
   sellPricePer1kCompletion Decimal?
+
+  // Token Plan price (discounted, used when client has active UserPackage)
+  tokenPlanPricePer1kPrompt     Decimal?
+  tokenPlanPricePer1kCompletion Decimal?
 
   isActive Boolean @default(true)
 
@@ -268,17 +274,5 @@ model PaymentGatewayConfig {
   isActive     Boolean @default(true)
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ====== Puter Limits ======
-
-model PuterLimit {
-  id                   String @id @default(cuid())
-  freeRequestsPerMonth Int
-  freeTokensPerMonth   Int
-  appMaxRequestsPerDay Int
-  appMaxTokensPerMonth Int
-
   updatedAt DateTime @updatedAt
 }

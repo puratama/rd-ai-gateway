@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type BalanceResponse = { balance: number };
-type TopupResponse = { transaction?: { token: string; redirectUrl?: string; provider?: string; orderId?: string }; devMode?: boolean; note?: string; billing?: Record<string, unknown> };
+type TopupResponse = { transaction?: { token: string; redirectUrl?: string; provider?: string; orderId?: string }; billing?: Record<string, unknown> };
 type BillingRecord = {
   id?: string;
   type?: string;
@@ -150,11 +150,6 @@ export default function WalletPage() {
       }
 
       const data = (await response.json()) as TopupResponse;
-
-      if (data.devMode) {
-        goToCallback("success", undefined, "dev");
-        return;
-      }
 
       if (!data.transaction) {
         setMessage("No payment session returned. Please try again.");

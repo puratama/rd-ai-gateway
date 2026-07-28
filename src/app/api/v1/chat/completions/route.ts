@@ -1,6 +1,18 @@
 import { NextRequest } from "next/server";
 import { routeRequest } from "@/lib/llm-router";
 
+// Derived provider from model ID — must match plan's allowedProviders
+function deriveProvider(modelId: string): string {
+  const id = modelId.toLowerCase();
+  if (id.includes("gpt") || id.includes("o1") || id.includes("o3")) return "openai";
+  if (id.includes("claude")) return "anthropic";
+  if (id.includes("gemini")) return "google";
+  if (id.includes("deepseek")) return "deepseek";
+  if (id.includes("llama") || id.includes("meta")) return "meta";
+  if (id.includes("mistral") || id.includes("mixtral")) return "mistral";
+  return "unknown";
+}
+
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
@@ -11,13 +23,17 @@ export async function POST(request: NextRequest) {
     let userId: string | null = null;
 
     if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
+      const token = authHeader.replace(/^Bearer\s+/i, "");
       const { validateServerKey } = await import("@/lib/server-store");
       const apiKey = await validateServerKey(token);
-      if (apiKey) {
-        apiKeyId = apiKey.id;
-        userId = apiKey.userId;
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ error: "Invalid or inactive API key" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
       }
+      apiKeyId = apiKey.id;
+      userId = apiKey.userId;
     }
 
     // 2. Parse request body
@@ -31,62 +47,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Rate limiting & model access check (only for API key users)
-    if (apiKeyId) {
-      const { checkRateLimit, checkModelAccess } = await import("@/lib/server-store");
-      const limitCheck = await checkRateLimit(apiKeyId);
-      if (!limitCheck.allowed) {
-        return new Response(
-          JSON.stringify({
-            error: limitCheck.reason || "Rate limit exceeded",
-            plan: limitCheck.plan?.name || "Free",
-          }),
-          { status: 429, headers: { "Content-Type": "application/json", "X-RateLimit-Plan": limitCheck.plan?.name || "Free" } }
-        );
+    // 3. Resolve session user, then require an authenticated billing identity.
+    if (!apiKeyId) {
+      try {
+        const { getSession } = await import("@/lib/auth");
+        const session = await getSession();
+        if (session?.sub) userId = session.sub;
+      } catch {
+        // Handled by the explicit unauthorized response below.
       }
-      if (!await checkModelAccess(apiKeyId, model)) {
+    }
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Only priced AppModels may be used. Unknown aggregator IDs must not become free.
+    const { prisma } = await import("@/lib/db");
+    const pricedModel = await prisma.appModel.findUnique({
+      where: { modelId: String(model) },
+      select: {
+        isActive: true,
+        sellPricePer1kPrompt: true,
+        sellPricePer1kCompletion: true,
+        tokenPlanPricePer1kPrompt: true,
+        tokenPlanPricePer1kCompletion: true,
+      },
+    });
+    if (!pricedModel || !pricedModel.isActive) {
+      return new Response(
+        JSON.stringify({ error: `Model "${model}" is not configured for billing` }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Estimate prompt tokens for balance check
+    const estimatedPromptTokens = estimateTokens(JSON.stringify(messages));
+
+    // Check wallet or token plan
+    if (userId) {
+      const { holdBalanceOrTokens } = await import("@/lib/db/quota");
+      const balanceCheck = await holdBalanceOrTokens(userId, model, estimatedPromptTokens);
+
+      if (!balanceCheck.ok) {
         return new Response(
-          JSON.stringify({
-            error: `Model "${model}" is not included in your plan`,
-            upgradeUrl: "/keys",
-          }),
-          { status: 403, headers: { "Content-Type": "application/json" } }
+          JSON.stringify({ error: balanceCheck.reason, upgradeUrl: "/wallet" }),
+          { status: 402, headers: { "Content-Type": "application/json" } }
         );
       }
 
-      // Check active package quota
-      const { prisma } = await import("@/lib/db");
-      const activePackage = await prisma.userPackage.findFirst({
-        where: {
-          userId: userId!,
-          status: "active",
-          expiresAt: { gt: new Date() },
-          tokensRemaining: { gt: 0 },
-        },
-        orderBy: { expiresAt: "asc" },
-      });
-      if (activePackage) {
-        // Store for deduction after completion
-        (request as unknown as Record<string, unknown>)._quotaPackageId = activePackage.id;
-        const pkgPlan = await prisma.plan.findUnique({ where: { id: activePackage.planId }, select: { backend: true } }).catch(() => null);
-        (request as unknown as Record<string, unknown>)._userPlanBackend = pkgPlan?.backend || "aggregator";
-      } else {
-        // No active package — check for active subscription
-        const activeSub = await prisma.subscription.findFirst({
-          where: {
-            userId: userId!,
-            status: "active",
-            endDate: { gt: new Date() },
-          },
-          select: { id: true, plan: { select: { backend: true } } },
-        });
-        if (activeSub) {
-          (request as unknown as Record<string, unknown>)._quotaSubscriptionId = activeSub.id;
-          (request as unknown as Record<string, unknown>)._userPlanBackend = activeSub.plan?.backend || "puter";
-        } else {
-          // Free tier — use Puter
-          (request as unknown as Record<string, unknown>)._userPlanBackend = "puter";
-        }
+      // Store tier info for deduction after completion
+      (request as unknown as Record<string, unknown>)._billingTier = balanceCheck.tier;
+      if (balanceCheck.tier === "package") {
+        (request as unknown as Record<string, unknown>)._billingPackageId = balanceCheck.packageId;
+        (request as unknown as Record<string, unknown>)._billingHeldTokens = balanceCheck.heldTokens;
+      }
+      if (balanceCheck.tier === "payg") {
+        (request as unknown as Record<string, unknown>)._billingHeldAmount = balanceCheck.heldAmount;
+      }
+      if (balanceCheck.tier !== "free") {
+        (request as unknown as Record<string, unknown>)._billingPricing = balanceCheck.pricing;
       }
     }
 
@@ -134,11 +157,6 @@ export async function POST(request: NextRequest) {
           let streamError = false;
 
           try {
-            // Forward provider prefix in first event
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ provider: result.provider })}\n\n`)
-            );
-
             while (true) {
               const { done, value } = await streamReader.read();
               if (done) break;
@@ -167,66 +185,42 @@ export async function POST(request: NextRequest) {
             streamReader.releaseLock();
           }
 
-          // Track usage after stream completes
-          if (apiKeyId && !streamError && fullText) {
+          // Deduct cost after stream completes
+          if (userId && !streamError && fullText) {
             try {
-              const { updateServerKeyUsage, addServerUsageRecord } =
-                await import("@/lib/server-store");
+              const { settleUsage } = await import("@/lib/db/quota");
               const promptTokens = estimateTokens(JSON.stringify(messages));
               const completionTokens = estimateTokens(fullText);
-              await updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
+              const tier = (request as unknown as Record<string, unknown>)._billingTier as string;
+              if (tier && tier !== "free") {
+                await settleUsage(userId, model, promptTokens, completionTokens, {
+                  tier: tier as "payg" | "package",
+                  packageId: (request as unknown as Record<string, unknown>)._billingPackageId as string | undefined,
+                  pricing: (request as unknown as Record<string, unknown>)._billingPricing as any,
+                  heldTokens: (request as unknown as Record<string, unknown>)._billingHeldTokens as number | undefined,
+                  heldAmount: (request as unknown as Record<string, unknown>)._billingHeldAmount as number | undefined,
+                });
+              }
+            } catch (e: unknown) {
+              console.error("[Billing-Stream-Deduction-Error]:", e instanceof Error ? e.message : e);
+              // Do not swallow completely: raise console alert.
+              // Stream already closed, so post-deduct cannot cancel stream but must be audited.
+            }
+
+            // Log usage
+            try {
+              const { addServerUsageRecord } = await import("@/lib/server-store");
               await addServerUsageRecord({
-                userId: userId ?? apiKeyId,
+                userId,
                 model,
                 provider: result.provider,
-                source: "api",
-                promptTokens,
-                completionTokens,
-                totalTokens: promptTokens + completionTokens,
+                source: apiKeyId ? "api" : "chat",
+                promptTokens: estimateTokens(JSON.stringify(messages)),
+                completionTokens: estimateTokens(fullText),
+                totalTokens: estimateTokens(JSON.stringify(messages)) + estimateTokens(fullText),
                 endpoint: "/v1/chat/completions",
               });
-              // Deduct from package quota if active
-              const pkgId = (request as unknown as Record<string, unknown>)._quotaPackageId;
-              if (typeof pkgId === "string") {
-                const { prisma } = await import("@/lib/db");
-                const updatedPackage = await prisma.userPackage.update({
-                  where: { id: pkgId },
-                  data: {
-                    tokensRemaining: { decrement: promptTokens + completionTokens },
-                  },
-                }).catch(() => null);
-
-                if (
-                  userId &&
-                  updatedPackage &&
-                  updatedPackage.tokensTotal > 0 &&
-                  updatedPackage.tokensRemaining < updatedPackage.tokensTotal * 0.2
-                ) {
-                  const percent = Math.round(
-                    ((updatedPackage.tokensTotal - updatedPackage.tokensRemaining) /
-                      updatedPackage.tokensTotal) *
-                      100
-                  );
-                  void import("@/lib/notifications")
-                    .then(({ notifyUsageAlert }) => notifyUsageAlert(userId, percent))
-                    .catch(() => {});
-                }
-              }
-
-              // Increment subscription tokensUsed if active
-              const subId = (request as unknown as Record<string, unknown>)._quotaSubscriptionId;
-              if (typeof subId === "string") {
-                const { prisma } = await import("@/lib/db");
-                await prisma.subscription.update({
-                  where: { id: subId },
-                  data: {
-                    tokensUsed: { increment: promptTokens + completionTokens },
-                  },
-                }).catch(() => null);
-              }
-            } catch {
-              // Non-critical
-            }
+            } catch {/* non-critical */}
           }
         },
       });
@@ -250,67 +244,54 @@ export async function POST(request: NextRequest) {
       data = { choices: [{ message: { content: text } }] };
     }
 
-    // Track usage for non-streaming
-    if (apiKeyId) {
+    // Deduct cost for non-streaming
+    if (userId) {
+      const tier = (request as unknown as Record<string, unknown>)._billingTier as string;
+      if (tier && tier !== "free") {
+        try {
+          const { settleUsage } = await import("@/lib/db/quota");
+          const promptTokens =
+            data.usage?.prompt_tokens || estimateTokens(JSON.stringify(messages));
+          const completionTokens =
+            data.usage?.completion_tokens ||
+            estimateTokens(data.choices?.[0]?.message?.content || "");
+
+          await settleUsage(userId, model, promptTokens, completionTokens, {
+            tier: tier as "payg" | "package",
+            packageId: (request as unknown as Record<string, unknown>)._billingPackageId as string | undefined,
+            pricing: (request as unknown as Record<string, unknown>)._billingPricing as any,
+            heldTokens: (request as unknown as Record<string, unknown>)._billingHeldTokens as number | undefined,
+            heldAmount: (request as unknown as Record<string, unknown>)._billingHeldAmount as number | undefined,
+          });
+        } catch (e: unknown) {
+          console.error("[Billing-Deduction-Error]:", e instanceof Error ? e.message : e);
+          // Return failure block since it was non-streaming (can safely return 402/500 before sending content)
+          return new Response(
+            JSON.stringify({ error: "Failed to finalize billing transaction. Request was aborted." }),
+            { status: 402, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // Log usage
       try {
-        const { updateServerKeyUsage, addServerUsageRecord } =
-          await import("@/lib/server-store");
+        const { addServerUsageRecord } = await import("@/lib/server-store");
         const promptTokens =
           data.usage?.prompt_tokens || estimateTokens(JSON.stringify(messages));
         const completionTokens =
           data.usage?.completion_tokens ||
           estimateTokens(data.choices?.[0]?.message?.content || "");
-        await updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
         await addServerUsageRecord({
-          userId: userId ?? apiKeyId,
+          userId,
           model,
           provider: result.provider,
-          source: "api",
+          source: apiKeyId ? "api" : "chat",
           promptTokens,
           completionTokens,
           totalTokens: promptTokens + completionTokens,
           endpoint: "/v1/chat/completions",
         });
-        // Deduct from package quota if active
-        const pkgId = (request as unknown as Record<string, unknown>)._quotaPackageId;
-        if (typeof pkgId === "string") {
-          const { prisma } = await import("@/lib/db");
-          const updatedPackage = await prisma.userPackage.update({
-            where: { id: pkgId },
-            data: {
-              tokensRemaining: { decrement: promptTokens + completionTokens },
-            },
-          }).catch(() => null);
-
-          if (
-            userId &&
-            updatedPackage &&
-            updatedPackage.tokensTotal > 0 &&
-            updatedPackage.tokensRemaining < updatedPackage.tokensTotal * 0.2
-          ) {
-            const percent = Math.round(
-              ((updatedPackage.tokensTotal - updatedPackage.tokensRemaining) / updatedPackage.tokensTotal) * 100
-            );
-            void import("@/lib/notifications")
-              .then(({ notifyUsageAlert }) => notifyUsageAlert(userId, percent))
-              .catch(() => {});
-          }
-        }
-
-        // Increment subscription tokensUsed if active
-        const subId = (request as unknown as Record<string, unknown>)._quotaSubscriptionId;
-        if (typeof subId === "string") {
-          const { prisma } = await import("@/lib/db");
-          await prisma.subscription.update({
-            where: { id: subId },
-            data: {
-              tokensUsed: { increment: promptTokens + completionTokens },
-            },
-          }).catch(() => null);
-        }
-      } catch {
-        // Non-critical
-      }
+      } catch {/* non-critical */}
     }
 
     return new Response(JSON.stringify({ ...data, _provider: result.provider }), {

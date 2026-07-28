@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (action === "update-model") {
-      const { id, markupPercent, costPer1kPrompt, costPer1kCompletion } = body;
+      const { id, markupPercent, costPer1kPrompt, costPer1kCompletion, tokenPlanPricePer1kPrompt, tokenPlanPricePer1kCompletion } = body;
       if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
       const m = await prisma.appModel.findUnique({ where: { id } });
@@ -44,17 +44,24 @@ export async function PUT(request: NextRequest) {
       const newCostC = typeof costPer1kCompletion === "number" && costPer1kCompletion >= 0
         ? costPer1kCompletion
         : Number(m.costPer1kCompletion || 0);
+      const newTPP = typeof tokenPlanPricePer1kPrompt === "number" && tokenPlanPricePer1kPrompt >= 0
+        ? tokenPlanPricePer1kPrompt
+        : undefined;
+      const newTPC = typeof tokenPlanPricePer1kCompletion === "number" && tokenPlanPricePer1kCompletion >= 0
+        ? tokenPlanPricePer1kCompletion
+        : undefined;
 
-      await prisma.appModel.update({
-        where: { id },
-        data: {
-          markupPercent: newMarkup,
-          costPer1kPrompt: newCostP,
-          costPer1kCompletion: newCostC,
-          sellPricePer1kPrompt: calcSellPrice(newCostP, newMarkup),
-          sellPricePer1kCompletion: calcSellPrice(newCostC, newMarkup),
-        },
-      });
+      const updateData: Record<string, unknown> = {
+        markupPercent: newMarkup,
+        costPer1kPrompt: newCostP,
+        costPer1kCompletion: newCostC,
+        sellPricePer1kPrompt: calcSellPrice(newCostP, newMarkup),
+        sellPricePer1kCompletion: calcSellPrice(newCostC, newMarkup),
+      };
+      if (newTPP !== undefined) updateData.tokenPlanPricePer1kPrompt = newTPP;
+      if (newTPC !== undefined) updateData.tokenPlanPricePer1kCompletion = newTPC;
+
+      await prisma.appModel.update({ where: { id }, data: updateData });
       return NextResponse.json({ updated: true });
     }
 

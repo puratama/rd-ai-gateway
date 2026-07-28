@@ -54,47 +54,7 @@ export interface ChatStreamCallbacks {
   onError: (error: Error) => void;
 }
 
-// Last-resort client-side Puter.js stream (no auth / no billing)
-async function chatStreamFallback(
-  messages: { role: string; content: string }[],
-  model: string,
-  callbacks: ChatStreamCallbacks,
-  signal?: AbortSignal
-): Promise<void> {
-  try {
-    if (signal?.aborted) return;
-    const puter = (await import("@heyputer/puter.js")).default;
-    // puter.ai.chat may return string or async iterable depending on version
-    const result = await puter.ai.chat(messages as never, { model, stream: true } as never) as
-      | string
-      | AsyncIterable<{ text?: string } | string>;
-
-    if (typeof result === "string") {
-      callbacks.onText(result);
-      callbacks.onDone(result);
-      return;
-    }
-
-    let full = "";
-    for await (const chunk of result) {
-      if (signal?.aborted) {
-        callbacks.onDone(full || "[Stopped]");
-        return;
-      }
-      const text = typeof chunk === "string" ? chunk : (chunk?.text ?? "");
-      if (text) {
-        full += text;
-        callbacks.onText(text);
-      }
-    }
-    callbacks.onDone(full);
-  } catch (error: unknown) {
-    if (signal?.aborted) return;
-    callbacks.onError(error instanceof Error ? error : new Error(String(error)));
-  }
-}
-
-// Chat dengan streaming via backend API kita
+// Chat streaming via backend API
 export async function chatStream(
   messages: { role: string; content: string }[],
   model: string,
@@ -110,8 +70,8 @@ export async function chatStream(
     });
 
     if (!response.ok) {
-      // Fallback: coba Puter.js client-side
-      await chatStreamFallback(messages, model, callbacks, signal);
+      const errText = await response.text().catch(() => "");
+      callbacks.onError(new Error(`API error ${response.status}: ${errText.slice(0, 200)}`));
       return;
     }
 
@@ -185,35 +145,4 @@ export async function chat(
   }
 }
 
-// Generate gambar (tetap pakai Puter.js untuk sekarang)
-export async function generateImage(
-  prompt: string,
-  model?: string
-): Promise<string | null> {
-  try {
-    const puter = (await import("@heyputer/puter.js")).default;
-    const options: Record<string, unknown> = {};
-    if (model) options.model = model;
 
-    const result = (await puter.ai.txt2img(prompt, options)) as
-      | HTMLImageElement
-      | string
-      | { src: string }
-      | null;
-
-    if (!result) return null;
-    if (result instanceof HTMLImageElement) return result.src;
-    if (typeof result === "string") return result;
-    if ("src" in result && typeof (result as { src: string }).src === "string")
-      return (result as { src: string }).src;
-
-    return null;
-  } catch (error) {
-    console.error("Image generation failed:", error);
-    return null;
-  }
-}
-
-export function isPuterReady(): boolean {
-  return true; // Always ready with our backend
-}

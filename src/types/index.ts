@@ -22,14 +22,6 @@ export interface ModelInfo {
   description?: string;
 }
 
-export interface PuterModel {
-  id: string;
-  name?: string;
-  provider?: string;
-  context?: number;
-  description?: string;
-}
-
 // Analytics types
 export interface AnalyticsEvent {
   type: "message_sent" | "message_received" | "conversation_created" | "conversation_deleted" | "model_switched" | "image_generated";

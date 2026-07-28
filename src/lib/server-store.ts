@@ -10,4 +10,4 @@ export { getActivePackages, createUserPackage, decrementPackageTokens } from "./
 export { getWallet, topupWallet, deductWallet } from "./db/wallet";
 export { createBillingRecord, updateBillingStatus, getBillingByOrderId, getBillingRecord } from "./db/billing";
 export { checkRateLimit, checkModelAccess, loadAppModels, updateAppModel, upsertAppModel } from "./db/quota";
-export { getAggregatorConfig, updateAggregatorConfig, getPuterLimits, updatePuterLimits, getAdminStats } from "./db/admin";
+export { getAggregatorConfig, updateAggregatorConfig, getAdminStats } from "./db/admin";

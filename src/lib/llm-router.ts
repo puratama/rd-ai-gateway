@@ -24,7 +24,7 @@ export interface RouterRequest {
   stream?: boolean;
   temperature?: number;
   max_tokens?: number;
-  preferProvider?: string; // "puter" | "aggregator" — used to prioritize provider based on user plan
+  preferProvider?: string; // provider name to prioritize (matches provider config name)
   userId?: string;        // for observability
   routingStrategy?: RoutingStrategy; // override default strategy per-request
 }

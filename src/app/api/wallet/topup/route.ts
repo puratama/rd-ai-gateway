@@ -79,20 +79,15 @@ export async function POST(request: NextRequest) {
           orderId,
         },
       });
-    } catch {
-      // Dev fallback: credit wallet directly when no payment gateway configured
-      await prisma.billingRecord.update({
-        where: { id: billing.id },
-        data: { status: "paid", paidAt: new Date() },
-      });
-      const { topupWallet } = await import("@/lib/server-store");
-      await topupWallet(user.id, amount);
+    } catch (e) {
+      // Hapus billing record yang tidak berguna
+      await prisma.billingRecord.delete({ where: { id: billing.id } }).catch(() => {});
 
-      return NextResponse.json({
-        billing,
-        note: "Payment not configured. Wallet credited directly (dev mode).",
-        devMode: true,
-      });
+      const msg = e instanceof Error ? e.message : "Payment gateway not available";
+      return NextResponse.json(
+        { error: msg },
+        { status: 503 }
+      );
     }
   } catch (error: unknown) {
     return NextResponse.json(

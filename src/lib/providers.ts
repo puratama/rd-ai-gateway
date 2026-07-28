@@ -43,24 +43,9 @@ async function getAggregatorProviders(): Promise<ProviderConfig[]> {
 }
 
 // Sync — static providers only (no DB lookup)
+// All providers are configured via Admin → Settings → Aggregator (DB).
 export function getProviders(): ProviderConfig[] {
-  const providers: ProviderConfig[] = [];
-
-  providers.push({
-    name: "puter",
-    label: "Puter",
-    baseUrl: "[REDACTED-URL]",
-    apiKeyEnv: "PUTER_AUTH_TOKEN",
-    models: [],
-    modelPrefixes: [],
-    priority: 0,
-  });
-
-  // Static providers (OpenAI, DeepSeek, Anthropic) removed.
-  // Configurable via Admin > Settings > Aggregator.
-  // Add as custom aggregator entries with baseUrl + API key in DB.
-
-  return providers;
+  return [];
 }
 
 // Async — includes all active DB aggregators at highest priority (chained)
@@ -81,7 +66,6 @@ export function findProvidersForModel(modelId: string): ProviderConfig[] {
   return providers.filter((p) => {
     if (p.models.some((m) => m.toLowerCase() === id)) return true;
     if (p.modelPrefixes.some((prefix) => id.startsWith(prefix))) return true;
-    if (p.name === "puter") return true;
     return false;
   });
 }
@@ -92,9 +76,10 @@ export async function findProvidersForModelAsync(modelId: string): Promise<Provi
   const id = modelId.toLowerCase();
 
   return providers.filter((p) => {
+    // Aggregator always matches — it's an OpenAI-compatible proxy that handles model routing itself
+    if (p.apiKeyEnc) return true;
     if (p.models.some((m) => m.toLowerCase() === id)) return true;
     if (p.modelPrefixes.some((prefix) => id.startsWith(prefix))) return true;
-    if (p.name === "puter" || p.apiKeyEnv === "AGGREGATOR_API_KEY") return true;
     return false;
   });
 }
@@ -105,13 +90,11 @@ export function getProviderApiKey(provider: ProviderConfig): string | null {
   if (provider.apiKeyEnc) return provider.apiKeyEnc;
   // Static provider: use env var
   if (provider.apiKeyEnv) return process.env[provider.apiKeyEnv] || null;
-  // Puter: no key needed
   return null;
 }
 
 // Check if provider is configured (has API key)
 export function isProviderConfigured(provider: ProviderConfig): boolean {
-  if (provider.name === "puter") return true;
   if (provider.apiKeyEnc) return true;
   if (provider.apiKeyEnv) return !!process.env[provider.apiKeyEnv];
   return false;
@@ -123,7 +106,6 @@ export function getAllProviderModels(): { id: string; provider: string; context?
   const providers = getProviders();
 
   for (const p of providers) {
-    if (p.name === "puter") continue;
     for (const modelId of p.models) {
       models.push({
         id: modelId,

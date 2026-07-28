@@ -15,20 +15,6 @@ export async function updateAggregatorConfig(data: Record<string, unknown>) {
   return prisma.aggregatorConfig.create({ data: data as Parameters<typeof prisma.aggregatorConfig.create>[0]["data"] });
 }
 
-// ====== Puter Limits ======
-
-export async function getPuterLimits() {
-  return prisma.puterLimit.findFirst({ orderBy: { updatedAt: "desc" } });
-}
-
-export async function updatePuterLimits(data: Record<string, unknown>) {
-  const existing = await prisma.puterLimit.findFirst();
-  if (existing) {
-    return prisma.puterLimit.update({ where: { id: existing.id }, data });
-  }
-  return prisma.puterLimit.create({ data: data as Parameters<typeof prisma.puterLimit.create>[0]["data"] });
-}
-
 // ====== Admin Stats ======
 
 export async function getAdminStats() {

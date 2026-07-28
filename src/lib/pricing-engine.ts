@@ -15,6 +15,8 @@ export interface PricedModel {
   sellPricePer1kCompletion: number;
   marginPercentPrompt: number;
   marginPercentCompletion: number;
+  tokenPlanPricePer1kPrompt: number;
+  tokenPlanPricePer1kCompletion: number;
   isActive: boolean;
 }
 
@@ -54,6 +56,8 @@ export async function getAllPricedModels(): Promise<PricedModel[]> {
       sellPricePer1kCompletion: sellC,
       marginPercentPrompt: calcMargin(costP, sellP),
       marginPercentCompletion: calcMargin(costC, sellC),
+      tokenPlanPricePer1kPrompt: Number(m.tokenPlanPricePer1kPrompt || 0),
+      tokenPlanPricePer1kCompletion: Number(m.tokenPlanPricePer1kCompletion || 0),
       isActive: m.isActive,
     };
   });

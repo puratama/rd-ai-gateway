@@ -34,12 +34,11 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type SettingsTabId = "payment" | "aggregator" | "puter";
+type SettingsTabId = "payment" | "aggregator";
 
 const TABS: { id: SettingsTabId; label: string; icon: React.ElementType }[] = [
   { id: "payment", label: "Payment Gateway", icon: Building2 },
   { id: "aggregator", label: "Aggregator", icon: Layers },
-  { id: "puter", label: "Puter", icon: Globe },
 ];
 
 export default function SettingsTab() {
@@ -70,7 +69,6 @@ export default function SettingsTab() {
 
       {activeTab === "payment" && <PaymentGatewaySection />}
       {activeTab === "aggregator" && <AggregatorSection />}
-      {activeTab === "puter" && <PuterSection />}
     </div>
   );
 }
@@ -940,207 +938,4 @@ function AggregatorForm({
   );
 }
 
-// ─── Puter ────────────────────────────────────────────────────────────────
 
-interface PuterLimitData {
-  id: string;
-  freeRequestsPerMonth: number;
-  freeTokensPerMonth: number;
-  appMaxRequestsPerDay: number;
-  appMaxTokensPerMonth: number;
-}
-
-const fmtNum = (n: number) => n.toLocaleString("id-ID");
-
-function PuterSection() {
-  const [limits, setLimits] = useState<PuterLimitData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({
-    freeRequestsPerMonth: "",
-    freeTokensPerMonth: "",
-    appMaxRequestsPerDay: "",
-    appMaxTokensPerMonth: "",
-  });
-  const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
-
-  const fetchLimits = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/puter-limits");
-      if (!res.ok) throw new Error("Failed");
-      const data = await res.json();
-      setLimits(data);
-      setForm({
-        freeRequestsPerMonth: String(data.freeRequestsPerMonth ?? 0),
-        freeTokensPerMonth: String(data.freeTokensPerMonth ?? 0),
-        appMaxRequestsPerDay: String(data.appMaxRequestsPerDay ?? 0),
-        appMaxTokensPerMonth: String(data.appMaxTokensPerMonth ?? 0),
-      });
-    } catch {
-      // ok
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchLimits();
-  }, [fetchLimits]);
-
-  async function handleSave() {
-    const vals = {
-      freeRequestsPerMonth: Number(form.freeRequestsPerMonth),
-      freeTokensPerMonth: Number(form.freeTokensPerMonth),
-      appMaxRequestsPerDay: Number(form.appMaxRequestsPerDay),
-      appMaxTokensPerMonth: Number(form.appMaxTokensPerMonth),
-    };
-    if (Object.values(vals).some((v) => isNaN(v) || v < 0)) {
-      setFeedback({
-        type: "error",
-        message: "Semua nilai harus berupa angka >= 0.",
-      });
-      return;
-    }
-    if (vals.freeTokensPerMonth > vals.appMaxTokensPerMonth) {
-      setFeedback({
-        type: "error",
-        message: "Free tier token tidak boleh melebihi app max token.",
-      });
-      return;
-    }
-    setSaving(true);
-    setFeedback(null);
-    try {
-      const res = await fetch("/api/admin/puter-limits", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(vals),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        setFeedback({ type: "error", message: err.error || "Gagal" });
-      } else {
-        setFeedback({ type: "success", message: "Puter limits disimpan." });
-        fetchLimits();
-      }
-    } catch {
-      setFeedback({ type: "error", message: "Gagal terhubung ke server" });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center p-8">
-          <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Globe className="h-5 w-5 text-primary" />
-          Puter Limit Configuration
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Free Tier Requests / Bulan
-            </label>
-            <Input
-              type="number"
-              min="0"
-              value={form.freeRequestsPerMonth}
-              onChange={(e) =>
-                setForm({ ...form, freeRequestsPerMonth: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Free Tier Tokens / Bulan
-            </label>
-            <Input
-              type="number"
-              min="0"
-              value={form.freeTokensPerMonth}
-              onChange={(e) =>
-                setForm({ ...form, freeTokensPerMonth: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              App Max Requests / Hari
-            </label>
-            <Input
-              type="number"
-              min="0"
-              value={form.appMaxRequestsPerDay}
-              onChange={(e) =>
-                setForm({ ...form, appMaxRequestsPerDay: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              App Max Tokens / Bulan
-            </label>
-            <Input
-              type="number"
-              min="0"
-              value={form.appMaxTokensPerMonth}
-              onChange={(e) =>
-                setForm({ ...form, appMaxTokensPerMonth: e.target.value })
-              }
-            />
-          </div>
-        </div>
-
-        {limits && (
-          <div className="rounded-lg border border-border/40 bg-accent/10 p-3 text-xs text-muted-foreground">
-            <p>
-              Saat ini: Free {fmtNum(limits.freeRequestsPerMonth)} req /{" "}
-              {fmtNum(limits.freeTokensPerMonth)} tokens · App{" "}
-              {fmtNum(limits.appMaxRequestsPerDay)} req/hari /{" "}
-              {fmtNum(limits.appMaxTokensPerMonth)} tokens/bln
-            </p>
-          </div>
-        )}
-
-        {feedback && (
-          <div
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-2 text-xs",
-              feedback.type === "success"
-                ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                : "bg-destructive/10 text-destructive"
-            )}
-          >
-            {feedback.message}
-          </div>
-        )}
-
-        <Button onClick={handleSave} disabled={saving} className="w-full">
-          {saving ? (
-            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          Simpan Limit
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}

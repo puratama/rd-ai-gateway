@@ -20,6 +20,8 @@ interface PricedModel {
   sellPricePer1kCompletion: number;
   marginPercentPrompt: number;
   marginPercentCompletion: number;
+  tokenPlanPricePer1kPrompt: number;
+  tokenPlanPricePer1kCompletion: number;
   isActive: boolean;
 }
 
@@ -39,7 +41,7 @@ export default function PricingTab() {
   const [bulkCategory, setBulkCategory] = useState("");
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingField, setEditingField] = useState<"markup" | "costP" | "costC">("markup");
+  const [editingField, setEditingField] = useState<"markup" | "costP" | "costC" | "tpP" | "tpC">("markup");
   const [editValue, setEditValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -70,13 +72,15 @@ export default function PricingTab() {
     setSubmitting(false);
   };
 
-  const handleEditModel = async (id: string, field: "markup" | "costP" | "costC") => {
+  const handleEditModel = async (id: string, field: "markup" | "costP" | "costC" | "tpP" | "tpC") => {
     setSubmitting(true);
     try {
       const body: Record<string, unknown> = { action: "update-model", id };
       if (field === "markup") body.markupPercent = parseFloat(editValue) || 0;
       else if (field === "costP") body.costPer1kPrompt = parseFloat(editValue) || 0;
       else if (field === "costC") body.costPer1kCompletion = parseFloat(editValue) || 0;
+      else if (field === "tpP") body.tokenPlanPricePer1kPrompt = parseFloat(editValue) || 0;
+      else if (field === "tpC") body.tokenPlanPricePer1kCompletion = parseFloat(editValue) || 0;
       await fetch("/api/admin/pricing", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -219,7 +223,8 @@ export default function PricingTab() {
                   <th className="px-4 py-3 font-medium">Provider</th>
                   <th className="px-4 py-3 text-right font-medium">Cost (1K)</th>
                   <th className="px-4 py-3 text-right font-medium">Markup</th>
-                  <th className="px-4 py-3 text-right font-medium">Sell (1K)</th>
+                  <th className="px-4 py-3 text-right font-medium">PAYG (1K)</th>
+                  <th className="px-4 py-3 text-right font-medium">Token Plan (1K)</th>
                   <th className="px-4 py-3 text-right font-medium">Margin</th>
                   <th className="px-4 py-3 text-center font-medium">Status</th>
                   <th className="w-16 px-4 py-3" />
@@ -308,6 +313,50 @@ export default function PricingTab() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmtRupiah(avgSell)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                        {editingId === m.id && editingField === "tpP" ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-20 h-7 px-2 bg-background border border-input rounded text-xs text-right"
+                              min="0"
+                              autoFocus
+                            />
+                            <Button size="xs" variant="ghost" onClick={() => handleEditModel(m.id, "tpP")} disabled={submitting} className="h-7 text-xs">OK</Button>
+                            <Button size="xs" variant="ghost" onClick={() => setEditingId(null)} className="h-7 text-xs">X</Button>
+                          </div>
+                        ) : (
+                          <button
+                            className="hover:underline underline-offset-2 decoration-dotted cursor-pointer"
+                            onClick={() => { setEditingId(m.id); setEditingField("tpP"); setEditValue(String(m.tokenPlanPricePer1kPrompt)); }}
+                          >
+                            {fmtRupiah(m.tokenPlanPricePer1kPrompt)}
+                          </button>
+                        )}
+                        /{editingId === m.id && editingField === "tpC" ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-20 h-7 px-2 bg-background border border-input rounded text-xs text-right"
+                              min="0"
+                              autoFocus
+                            />
+                            <Button size="xs" variant="ghost" onClick={() => handleEditModel(m.id, "tpC")} disabled={submitting} className="h-7 text-xs">OK</Button>
+                            <Button size="xs" variant="ghost" onClick={() => setEditingId(null)} className="h-7 text-xs">X</Button>
+                          </div>
+                        ) : (
+                          <button
+                            className="hover:underline underline-offset-2 decoration-dotted cursor-pointer"
+                            onClick={() => { setEditingId(m.id); setEditingField("tpC"); setEditValue(String(m.tokenPlanPricePer1kCompletion)); }}
+                          >
+                            {fmtRupiah(m.tokenPlanPricePer1kCompletion)}
+                          </button>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         <span className={`text-xs font-medium ${(m.marginPercentPrompt + m.marginPercentCompletion) / 2 >= 30 ? "text-emerald-400" : "text-amber-400"}`}>
                           {((m.marginPercentPrompt + m.marginPercentCompletion) / 2).toFixed(1)}%

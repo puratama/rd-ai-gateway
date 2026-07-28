@@ -1,7 +1,6 @@
 import type { ModelPricing } from "@/types";
 
 // Data harga model berdasarkan harga pasar (OpenRouter & provider langsung)
-// Puter menggunakan user-pays model — biaya ditanggung end user via akun Puter
 // Harga ini sebagai referensi transparansi
 export const pricingData: ModelPricing[] = [
   // ===== OpenAI =====

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ChevronDown, Sparkles, RefreshCw, Search } from "lucide-react";
-import { getModels } from "@/lib/puter";
+import { getModels, clearModelsCache } from "@/lib/api-client";
 import type { ModelInfo } from "@/types";
 
 interface ModelSelectorProps {
@@ -48,6 +48,7 @@ export default function ModelSelector({ selectedModel, onSelect }: ModelSelector
 
   async function handleRefresh() {
     setRefreshing(true);
+    clearModelsCache();
     const result = await getModels();
     setModels(result);
     setTimeout(() => setRefreshing(false), 500);

@@ -6,7 +6,7 @@ import AppShell from "@/components/layout/AppShell";
 import ChatArea from "@/components/ChatArea";
 import PromptInput from "@/components/PromptInput";
 import ModelSelector from "@/components/ModelSelector";
-import { chatStream, getModels } from "@/lib/puter";
+import { chatStream, getModels } from "@/lib/api-client";
 import { recordEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { PanelLeftClose, PanelLeft, Plus, Trash2 } from "lucide-react";
@@ -47,7 +47,7 @@ export default function ChatPage() {
   const [selectedModel, setSelectedModel] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
-  const [puterReady, setPuterReady] = useState(false);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<Message[]>([]);
 
@@ -76,7 +76,7 @@ export default function ChatPage() {
       try {
         const models = await getModels();
         if (models.length > 0 && !selectedModel) setSelectedModel(models[0].id);
-        setPuterReady(true);
+
       } catch {}
     }
     init();
@@ -295,7 +295,7 @@ export default function ChatPage() {
           </header>
 
           <ChatArea messages={currentMessages} isStreaming={isStreaming} streamingContent={streamingContent} />
-          <PromptInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming} disabled={!puterReady} />
+          <PromptInput onSend={handleSend} onStop={handleStop} isStreaming={isStreaming}  />
         </div>
       </div>
     </AppShell>
