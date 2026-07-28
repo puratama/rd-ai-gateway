@@ -10,7 +10,7 @@ const BCRYPT_ROUNDS = 12;
 async function main() {
   console.log("Seeding database...");
 
-  // Wipe in FK-safe order
+  // Wipe everything except user accounts
   await prisma.billingRecord.deleteMany();
   await prisma.usageRecord.deleteMany();
   await prisma.userPackage.deleteMany();
@@ -23,13 +23,13 @@ async function main() {
   await prisma.appModel.deleteMany();
   await prisma.aggregatorConfig.deleteMany();
   await prisma.paymentGatewayConfig.deleteMany();
-  await prisma.puterLimit.deleteMany();
-  await prisma.user.deleteMany();
 
   const passwordHash = await bcrypt.hash("password", BCRYPT_ROUNDS);
 
-  const superadmin = await prisma.user.create({
-    data: {
+  const superadmin = await prisma.user.upsert({
+    where: { email: "superadmin@mail.com" },
+    update: { passwordHash, role: "superadmin", status: "active" },
+    create: {
       email: "superadmin@mail.com",
       passwordHash,
       name: "Super Admin",
@@ -39,8 +39,10 @@ async function main() {
     },
   });
 
-  const client = await prisma.user.create({
-    data: {
+  const client = await prisma.user.upsert({
+    where: { email: "client@mail.com" },
+    update: { passwordHash, role: "user", status: "active" },
+    create: {
       email: "client@mail.com",
       passwordHash,
       name: "Client",
@@ -53,6 +55,8 @@ async function main() {
   console.log("\n=== Seed Summary ===");
   console.log(`  Superadmin: ${superadmin.email} / password`);
   console.log(`  Client:     ${client.email} / password`);
+  console.log(`  Plans:      (none)`);
+  console.log(`  Models:     (none — superadmin must add via Models → Add Model)`);
   console.log("===================\n");
 }
 
