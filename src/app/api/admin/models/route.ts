@@ -9,13 +9,9 @@ export async function GET() {
       id: m.id,
       modelId: m.modelId,
       name: m.name,
+      providerModelId: m.providerModelId,
       provider: m.provider,
-      source: m.source,
-      category: m.category,
       contextWindow: m.contextWindow,
-      costPer1kPrompt: m.costPer1kPrompt ? Number(m.costPer1kPrompt) : null,
-      costPer1kCompletion: m.costPer1kCompletion ? Number(m.costPer1kCompletion) : null,
-      markupPercent: Number(m.markupPercent),
       sellPricePer1kPrompt: m.sellPricePer1kPrompt ? Number(m.sellPricePer1kPrompt) : null,
       sellPricePer1kCompletion: m.sellPricePer1kCompletion ? Number(m.sellPricePer1kCompletion) : null,
       isActive: m.isActive,
@@ -32,10 +28,10 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { modelId, name, provider, source, category, contextWindow, costPer1kPrompt, costPer1kCompletion, markupPercent, sellPricePer1kPrompt, sellPricePer1kCompletion } = body;
+    const { modelId, name, providerModelId, provider, contextWindow, sellPricePer1kPrompt, sellPricePer1kCompletion } = body;
 
-    if (!modelId || !name || !provider || !source || !category) {
-      return NextResponse.json({ error: "modelId, name, provider, source, category required" }, { status: 400 });
+    if (!modelId || !name || !provider) {
+      return NextResponse.json({ error: "modelId, name, provider required" }, { status: 400 });
     }
 
     const existing = await prisma.appModel.findUnique({ where: { modelId } });
@@ -47,13 +43,9 @@ export async function POST(request: NextRequest) {
       data: {
         modelId,
         name,
+        providerModelId: providerModelId || null,
         provider,
-        source,
-        category,
         contextWindow: contextWindow || 0,
-        costPer1kPrompt: costPer1kPrompt ?? null,
-        costPer1kCompletion: costPer1kCompletion ?? null,
-        markupPercent: markupPercent ?? 0,
         sellPricePer1kPrompt: sellPricePer1kPrompt ?? null,
         sellPricePer1kCompletion: sellPricePer1kCompletion ?? null,
       },
@@ -79,7 +71,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Decimal fields that should be passed as-is to Prisma
-    const decimalFields = new Set(["costPer1kPrompt", "costPer1kCompletion", "markupPercent", "sellPricePer1kPrompt", "sellPricePer1kCompletion"]);
+    const decimalFields = new Set(["sellPricePer1kPrompt", "sellPricePer1kCompletion"]);
     const data: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(updates)) {
       if (value === undefined) continue;

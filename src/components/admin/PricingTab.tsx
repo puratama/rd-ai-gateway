@@ -11,7 +11,6 @@ interface PricedModel {
   modelId: string;
   name: string;
   provider: string;
-  category: string;
   contextWindow: number;
   costPer1kPrompt: number;
   costPer1kCompletion: number;
@@ -38,7 +37,7 @@ export default function PricingTab() {
   const [loading, setLoading] = useState(true);
   const [bulkMarkup, setBulkMarkup] = useState("20");
   const [bulkProvider, setBulkProvider] = useState("");
-  const [bulkCategory, setBulkCategory] = useState("");
+
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<"markup" | "costP" | "costC" | "tpP" | "tpC">("markup");
@@ -61,7 +60,6 @@ export default function PricingTab() {
     try {
       const filter: Record<string, string> = {};
       if (bulkProvider) filter.provider = bulkProvider;
-      if (bulkCategory) filter.category = bulkCategory;
       await fetch("/api/admin/pricing", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -165,17 +163,7 @@ export default function PricingTab() {
                 {data?.providers.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Filter Category</label>
-              <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} className="h-9 px-3 bg-background border border-input rounded-md text-sm">
-                <option value="">All Categories</option>
-                <option value="chat">Chat</option>
-                <option value="reasoning">Reasoning</option>
-                <option value="coding">Coding</option>
-                <option value="fast">Fast</option>
-                <option value="image">Image</option>
-              </select>
-            </div>
+
             <Button size="sm" onClick={handleBulkMarkup} disabled={submitting} className="cursor-pointer">
               {submitting ? "Updating..." : "Apply Bulk"}
             </Button>

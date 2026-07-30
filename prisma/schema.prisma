@@ -226,8 +226,8 @@ model AppModel {
   modelId   String @unique
   name      String
   provider  String
-  source    String // "puter" | "aggregator"
-  category  String // chat | reasoning | coding | fast | image
+  providerModelId String?
+
   contextWindow Int @default(0)
 
   // Pricing — cost to us

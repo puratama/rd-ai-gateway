@@ -67,10 +67,7 @@ export async function GET(request: NextRequest) {
     }).filter((m) => m.id);
 
     // Cross-reference with existing AppModels to flag which are already configured
-    const existingModels = await prisma.appModel.findMany({
-      where: { source: "aggregator" },
-      select: { modelId: true },
-    });
+    const existingModels = await prisma.appModel.findMany({ select: { modelId: true } });
     const existingIds = new Set(existingModels.map((m) => m.modelId));
 
     return NextResponse.json({

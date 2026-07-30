@@ -1,11 +1,19 @@
 // Provider definitions and routing logic
 
+export interface ProviderKey {
+  id: string;        // unique key identifier
+  key: string;       // the actual API key
+  pool: string;      // pool/group name this key belongs to
+}
+
 export interface ProviderConfig {
   name: string;
   label: string;
   baseUrl: string;
-  apiKeyEnc?: string; // DB-stored API key for aggregators
-  apiKeyEnv?: string; // env var name for static providers
+  apiKeyEnc?: string;   // DB-stored API key for aggregators (single key)
+  apiKeyEnv?: string;   // env var name for static providers
+  apiKeys?: ProviderKey[]; // key pool — multiple keys for load distribution
+  apiKeyPoolStrategy?: "round-robin" | "random" | "least-used";
   models: string[];
   modelPrefixes: string[];
   priority: number;
@@ -84,38 +92,121 @@ export async function findProvidersForModelAsync(modelId: string): Promise<Provi
   });
 }
 
-// Get API key for a provider
-export function getProviderApiKey(provider: ProviderConfig): string | null {
-  // Aggregator: use DB-stored key
-  if (provider.apiKeyEnc) return provider.apiKeyEnc;
-  // Static provider: use env var
-  if (provider.apiKeyEnv) return process.env[provider.apiKeyEnv] || null;
+// ─── Key Pool State (runtime, not persisted) ──────────────────────────────
+
+const keyPoolIndex = new Map<string, number>();         // pool name → round-robin index
+const keyUsageCount = new Map<string, number>();         // key id → usage count
+const keyCooldowns = new Map<string, number>();          // key id → cooldown until timestamp
+const keyFailureCount = new Map<string, number>();       // key id → consecutive failures
+
+const KEY_COOLDOWN_MS = 60_000;     // 1 min cooldown after rate limit
+const KEY_MAX_FAILURES = 3;         // max failures before cooldown
+
+/** Mark a key as rate-limited (cooldown). Returns true if key was put on cooldown. */
+export function cooldownKey(keyId: string): boolean {
+  keyCooldowns.set(keyId, Date.now() + KEY_COOLDOWN_MS);
+  return true;
+}
+
+/** Mark a key as failed. Auto-cooldowns after KEY_MAX_FAILURES. */
+export function markKeyFailure(keyId: string): void {
+  const count = (keyFailureCount.get(keyId) || 0) + 1;
+  keyFailureCount.set(keyId, count);
+  if (count >= KEY_MAX_FAILURES) {
+    cooldownKey(keyId);
+  }
+}
+
+/** Mark a key as successful — reset failure count. */
+export function markKeySuccess(keyId: string): void {
+  keyFailureCount.delete(keyId);
+}
+
+/** Check if a key is on cooldown. */
+export function isKeyOnCooldown(keyId: string): boolean {
+  const until = keyCooldowns.get(keyId);
+  if (!until) return false;
+  if (Date.now() > until) {
+    keyCooldowns.delete(keyId);
+    keyFailureCount.delete(keyId);
+    return false;
+  }
+  return true;
+}
+
+/** Clear all key cooldowns (e.g. on config change). */
+export function clearKeyCooldowns(): void {
+  keyCooldowns.clear();
+  keyFailureCount.clear();
+  keyPoolIndex.clear();
+}
+
+/** Get available (non-cooldown) keys from a provider's key pool. */
+export function getAvailableKeys(provider: ProviderConfig): ProviderKey[] {
+  if (!provider.apiKeys || provider.apiKeys.length === 0) return [];
+  return provider.apiKeys.filter((k) => !isKeyOnCooldown(k.id));
+}
+
+/** Get the next key from a pool using the configured strategy. */
+export function getNextPoolKey(provider: ProviderConfig): ProviderKey | null {
+  const available = getAvailableKeys(provider);
+  if (available.length === 0) return null;
+
+  const strategy = provider.apiKeyPoolStrategy || "round-robin";
+
+  switch (strategy) {
+    case "round-robin": {
+      const poolName = provider.name;
+      const idx = keyPoolIndex.get(poolName) || 0;
+      const key = available[idx % available.length];
+      keyPoolIndex.set(poolName, idx + 1);
+      return key;
+    }
+    case "random": {
+      return available[Math.floor(Math.random() * available.length)];
+    }
+    case "least-used": {
+      let min = Infinity;
+      let selected = available[0];
+      for (const k of available) {
+        const count = keyUsageCount.get(k.id) || 0;
+        if (count < min) {
+          min = count;
+          selected = k;
+        }
+      }
+      return selected;
+    }
+    default:
+      return available[0];
+  }
+}
+
+// Get API key for a provider (supports key pools)
+export function getProviderApiKey(provider: ProviderConfig): { key: string; keyId?: string } | null {
+  // Key pool mode
+  if (provider.apiKeys && provider.apiKeys.length > 0) {
+    const poolKey = getNextPoolKey(provider);
+    if (!poolKey) return null;
+    keyUsageCount.set(poolKey.id, (keyUsageCount.get(poolKey.id) || 0) + 1);
+    return { key: poolKey.key, keyId: poolKey.id };
+  }
+
+  // Single key mode (backward compat)
+  if (provider.apiKeyEnc) return { key: provider.apiKeyEnc };
+  if (provider.apiKeyEnv) {
+    const envVal = process.env[provider.apiKeyEnv];
+    if (envVal) return { key: envVal };
+  }
   return null;
 }
 
 // Check if provider is configured (has API key)
 export function isProviderConfigured(provider: ProviderConfig): boolean {
+  if (provider.apiKeys && provider.apiKeys.length > 0) return true;
   if (provider.apiKeyEnc) return true;
   if (provider.apiKeyEnv) return !!process.env[provider.apiKeyEnv];
   return false;
-}
-
-// Get all models across all providers (for model listing)
-export function getAllProviderModels(): { id: string; provider: string; context?: number }[] {
-  const models: { id: string; provider: string; context?: number }[] = [];
-  const providers = getProviders();
-
-  for (const p of providers) {
-    for (const modelId of p.models) {
-      models.push({
-        id: modelId,
-        provider: p.name,
-        context: getDefaultContext(modelId),
-      });
-    }
-  }
-
-  return models;
 }
 
 // Default context windows for known models
@@ -137,11 +228,10 @@ export function shouldFallback(error: unknown): boolean {
   if (!error) return false;
   const msg = String(error instanceof Error ? error.message : error).toLowerCase();
   if (msg.includes("401") || msg.includes("unauthorized") || msg.includes("invalid api key")) return false;
-  if (msg.includes("400") || msg.includes("bad request")) return false;
   if (msg.includes("fetch failed") || msg.includes("network") || msg.includes("econnrefused")) return true;
   if (msg.includes("500") || msg.includes("502") || msg.includes("503") || msg.includes("service unavailable")) return true;
   if (msg.includes("timeout") || msg.includes("timed out")) return true;
   if (msg.includes("429") || msg.includes("rate limit")) return true;
   if (msg.includes("404")) return true;
-  return true;
+  return true; // all other errors (including 400/model-not-found) → fallback to next provider
 }

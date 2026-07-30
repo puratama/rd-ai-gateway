@@ -11,7 +11,6 @@ export async function GET() {
         modelId: true,
         name: true,
         provider: true,
-        category: true,
         isActive: true,
       },
     });

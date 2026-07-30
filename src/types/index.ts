@@ -63,7 +63,6 @@ export interface ModelPricing {
   id: string;
   name: string;
   provider: string;
-  category: "chat" | "reasoning" | "coding" | "vision" | "image" | "fast" | "open-source";
   context: number;
   pricing: {
     prompt: number;

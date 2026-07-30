@@ -6,7 +6,6 @@ interface AdminModelRaw {
   name: string;
   provider: string;
   source: string;
-  category: string;
   contextWindow: number;
   costPer1kPrompt: number | null;
   costPer1kCompletion: number | null;
@@ -16,21 +15,11 @@ interface AdminModelRaw {
   isActive: boolean;
 }
 
-const SPEED_MAP: Record<string, ModelPricing["speed"]> = {
-  fast: "fast",
-  coding: "balanced",
-  chat: "balanced",
-  reasoning: "slow",
-  image: "balanced",
-  vision: "balanced",
-  "open-source": "fast",
-};
-
 function inferSpeed(model: AdminModelRaw): ModelPricing["speed"] {
   const id = model.modelId.toLowerCase();
   if (id.includes("mini") || id.includes("flash") || id.includes("haiku")) return "fast";
   if (id.includes("opus") || id.includes("reasoner") || id.includes("r1")) return "slow";
-  return SPEED_MAP[model.category] ?? "balanced";
+  return "balanced";
 }
 
 function inferQuality(model: AdminModelRaw): string {
@@ -41,22 +30,11 @@ function inferQuality(model: AdminModelRaw): string {
   return "Good";
 }
 
-const CATEGORY_MAP: Record<string, ModelPricing["category"]> = {
-  chat: "chat",
-  reasoning: "reasoning",
-  coding: "coding",
-  fast: "fast",
-  image: "image",
-  vision: "vision",
-  "open-source": "open-source",
-};
-
 export function dbModelToPricing(m: AdminModelRaw): ModelPricing {
   return {
     id: m.modelId,
     name: m.name,
     provider: m.provider,
-    category: CATEGORY_MAP[m.category] ?? "chat",
     context: m.contextWindow,
     pricing: {
       prompt: m.sellPricePer1kPrompt ?? m.costPer1kPrompt ?? 0,

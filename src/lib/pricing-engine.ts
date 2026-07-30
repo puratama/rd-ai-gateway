@@ -5,8 +5,6 @@ export interface PricedModel {
   modelId: string;
   name: string;
   provider: string;
-  source: string;
-  category: string;
   contextWindow: number;
   costPer1kPrompt: number;
   costPer1kCompletion: number;
@@ -46,8 +44,6 @@ export async function getAllPricedModels(): Promise<PricedModel[]> {
       modelId: m.modelId,
       name: m.name,
       provider: m.provider,
-      source: m.source,
-      category: m.category,
       contextWindow: m.contextWindow,
       costPer1kPrompt: costP,
       costPer1kCompletion: costC,
@@ -64,10 +60,9 @@ export async function getAllPricedModels(): Promise<PricedModel[]> {
 }
 
 /** Bulk set markup for filtered models. Returns count updated. */
-export async function bulkUpdateMarkup(markupPercent: number, filter?: { provider?: string; category?: string }): Promise<number> {
+export async function bulkUpdateMarkup(markupPercent: number, filter?: { provider?: string }): Promise<number> {
   const where: Record<string, unknown> = {};
   if (filter?.provider) where.provider = filter.provider;
-  if (filter?.category) where.category = filter.category;
 
   const models = await prisma.appModel.findMany({ where });
   if (!models.length) return 0;

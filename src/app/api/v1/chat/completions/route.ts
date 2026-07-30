@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json();
-    const { model, messages, stream = false, temperature, max_tokens } = body;
+    const { model, messages, stream = false, temperature, max_tokens, tools, tool_choice } = body;
 
     if (!messages || !model) {
       return new Response(
@@ -120,6 +120,8 @@ export async function POST(request: NextRequest) {
       stream,
       temperature,
       max_tokens,
+      tools,
+      tool_choice,
       preferProvider: (request as unknown as Record<string, unknown>)._userPlanBackend as string | undefined,
       userId: userId || undefined,
     });
@@ -131,7 +133,7 @@ export async function POST(request: NextRequest) {
           attempts: result.attempts,
         }),
         {
-          status: 502,
+          status: result.status || 502,
           headers: { "Content-Type": "application/json" },
         }
       );

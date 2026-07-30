@@ -6,40 +6,24 @@ export async function GET(request: NextRequest) {
   // 0. Resolve user & plan from Authorization header or session
   const { userId, plan } = await resolveUserPlan(request);
 
-  // 1. Fetch active AppModels (IDs + display names)
-  const { prisma } = await import("@/lib/db");
-  const activeAppModels = await prisma.appModel.findMany({
-    where: { isActive: true },
-    select: { modelId: true, name: true },
-  });
+  // 1. Fetch all active AppModels as base
+  let models = await fetchAppModels();
 
-  // Map modelId → displayName for merging into aggregator response
-  const modelMap = new Map(
-    activeAppModels.map((m: { modelId: string; name: string }) => [m.modelId, m.name])
-  );
-
-  // If no active models configured, return empty
-  if (modelMap.size === 0) {
+  if (models.length === 0) {
     return NextResponse.json({ data: [], fallbackAvailable: false });
   }
 
-  // 2. Primary: aggregator models → filter + merge display name from AppModel
-  let models = await fetchAggregatorModels();
-  if (models.length > 0) {
-    models = models
-      .filter((m: Record<string, unknown>) => modelMap.has(String(m.id)))
-      .map((m: Record<string, unknown>) => ({
-        ...m,
-        name: modelMap.get(String(m.id)) || m.name,
-      }));
+  // 2. Enrich display names from aggregator if available
+  const aggModels = await fetchAggregatorModels().catch(() => []);
+  if (aggModels.length > 0) {
+    const aggMap = new Map(aggModels.map((m: Record<string, unknown>) => [String(m.id), String(m.name || "")]));
+    models = models.map((m: Record<string, unknown>) => ({
+      ...m,
+      name: aggMap.get(String(m.id)) || m.name,
+    }));
   }
 
-  // 3. Fallback: AppModel-derived (if aggregator fails or no intersection)
-  if (models.length === 0) {
-    models = await fetchAppModels();
-  }
-
-  // 4. Filter by plan's allowedModels & allowedProviders
+  // 3. Filter by plan's allowedModels & allowedProviders
   const filtered = plan ? filterByPlan(models, plan) : models;
 
   return NextResponse.json({ data: filtered, fallbackAvailable: true });

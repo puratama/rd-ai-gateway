@@ -28,17 +28,6 @@ import { fetchPricingFromDB } from "@/lib/pricing-db";
 import type { ModelPricing } from "@/types";
 
 function getProviders(models: ModelPricing[]) { return Array.from(new Set(models.map((m) => m.provider))); }
-function getCategories(models: ModelPricing[]) {
-  return [
-    { key: "chat", icon: "💬", label: "Chat" },
-    { key: "reasoning", icon: "🧠", label: "Reasoning" },
-    { key: "coding", icon: "💻", label: "Coding" },
-    { key: "fast", icon: "⚡", label: "Fast" },
-    { key: "image", icon: "🖼️", label: "Image" },
-    { key: "vision", icon: "👁️", label: "Vision" },
-    { key: "open-source", icon: "🌐", label: "Open Source" },
-  ].filter((c) => models.some((m) => m.category === c.key));
-}
 function formatPrice(n: number) { return n === 0 ? "Free" : n.toFixed(2); }
 function getMinPrice(models: ModelPricing[]) { return models.reduce((min, m) => Math.min(min, m.pricing.prompt), Infinity); }
 function getMaxPrice(models: ModelPricing[]) { return models.reduce((max, m) => Math.max(max, m.pricing.prompt), 0); }
@@ -56,7 +45,7 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("all");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+
   const [sortBy, setSortBy] = useState<"name" | "prompt" | "completion" | "context">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [compareMode, setCompareMode] = useState(false);
@@ -68,7 +57,6 @@ export default function PricingPage() {
   }, []);
 
   const providers = useMemo(() => getProviders(pricingData), [pricingData]);
-  const categories = useMemo(() => getCategories(pricingData), [pricingData]);
 
   const providerCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -83,7 +71,6 @@ export default function PricingPage() {
       result = result.filter((m) => m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q));
     }
     if (selectedProvider !== "all") result = result.filter((m) => m.provider === selectedProvider);
-    if (selectedCategory !== "all") result = result.filter((m) => m.category === selectedCategory);
     result.sort((a, b) => {
       const cmp = sortBy === "name"
         ? a.name.localeCompare(b.name)
@@ -95,7 +82,7 @@ export default function PricingPage() {
       return sortOrder === "asc" ? cmp : -cmp;
     });
     return result;
-  }, [pricingData, search, selectedProvider, selectedCategory, sortBy, sortOrder]);
+  }, [pricingData, search, selectedProvider, sortBy, sortOrder]);
 
   const toggleCompare = (modelId: string) => {
     setCompareList((prev) => prev.includes(modelId) ? prev.filter((id) => id !== modelId) : prev.length < 4 ? [...prev, modelId] : prev);
@@ -106,8 +93,6 @@ export default function PricingPage() {
     else { setSortBy(field); setSortOrder("asc"); }
   };
 
-  const getCategoryLabel = (cat: string) => categories.find((c) => c.key === cat)?.label || cat;
-  const getCategoryIcon = (cat: string) => categories.find((c) => c.key === cat)?.icon || "❓";
   const formatContext = (ctx: number) => ctx === 0 ? "-" : ctx >= 1000000 ? `${(ctx / 1000000).toFixed(0)}M` : ctx >= 1000 ? `${(ctx / 1000).toFixed(0)}K` : String(ctx);
 
   const renderPriceBadge = (value: number, label: string) => (
@@ -194,35 +179,7 @@ export default function PricingPage() {
                 <option value="all">All ({pricingData.length})</option>
                 {providers.map((p) => <option key={p} value={p}>{p} ({providerCounts[p] || 0})</option>)}
               </select>
-              <div className="mx-2 h-5 w-px bg-border" />
-              <span className="mr-1 text-xs font-medium text-muted-foreground">Category</span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  onClick={() => setSelectedCategory("all")}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-all",
-                    selectedCategory === "all"
-                      ? "border-primary/30 bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground"
-                  )}
-                >
-                  All
-                </button>
-                {categories.map((cat) => (
-                  <button
-                    key={cat.key}
-                    onClick={() => setSelectedCategory(cat.key)}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition-all",
-                      selectedCategory === cat.key
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground"
-                    )}
-                  >
-                    {cat.icon} {cat.label}
-                  </button>
-                ))}
-              </div>
+
             </div>
           </div>
 
@@ -300,7 +257,6 @@ export default function PricingPage() {
                   <tbody>
                     {[
                       { key: "provider", label: "Provider" },
-                      { key: "category", label: "Category", render: (m: ModelPricing) => `${getCategoryIcon(m.category)} ${getCategoryLabel(m.category)}` },
                       { key: "context", label: "Context Window", render: (m: ModelPricing) => formatContext(m.context) },
                       { key: "speed", label: "Speed", render: (m: ModelPricing) => speedLabel(m.speed) },
                       { key: "quality", label: "Quality" },
@@ -361,7 +317,7 @@ export default function PricingPage() {
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => { setSearch(""); setSelectedProvider("all"); setSelectedCategory("all"); }}
+                onClick={() => { setSearch(""); setSelectedProvider("all"); }}
               >
                 Reset Filters
               </Button>
@@ -416,9 +372,6 @@ export default function PricingPage() {
 
                         {/* Tags row */}
                         <div className="mb-4 flex flex-wrap gap-1.5">
-                          <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            {getCategoryIcon(model.category)} {getCategoryLabel(model.category)}
-                          </span>
                           <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium", speedBg(model.speed), speedColor(model.speed))}>
                             <Gauge className="h-2.5 w-2.5" /> {speedLabel(model.speed)}
                           </span>

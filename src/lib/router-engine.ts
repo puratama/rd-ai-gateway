@@ -38,6 +38,37 @@ const latencyStore = new Map<string, number[]>(); // provider → recent latenci
 
 const MAX_LATENCIES = 10;
 
+// ─── Provider-Aware Rate Limit State ────────────────────────────────────────
+
+const rateLimitedUntil = new Map<string, number>(); // provider → cooldown timestamp
+const RATE_LIMIT_COOLDOWN_MS = 30_000; // 30s cooldown after 429
+
+/** Mark a provider as rate-limited. Skips in routing until cooldown expires. */
+export function markRateLimited(provider: string): void {
+  rateLimitedUntil.set(provider, Date.now() + RATE_LIMIT_COOLDOWN_MS);
+}
+
+/** Check if a provider is currently rate-limited. */
+export function isRateLimited(provider: string): boolean {
+  const until = rateLimitedUntil.get(provider);
+  if (!until) return false;
+  if (Date.now() > until) {
+    rateLimitedUntil.delete(provider);
+    return false;
+  }
+  return true;
+}
+
+/** Check if a provider should be skipped for routing (rate-limited OR circuit-breaker cooldown). */
+export function shouldSkipProvider(provider: string): boolean {
+  return isOnCooldown(provider) || isRateLimited(provider);
+}
+
+/** Clear all rate limit states. */
+export function clearRateLimitStates(): void {
+  rateLimitedUntil.clear();
+}
+
 export function isOnCooldown(provider: string): boolean {
   const until = cooldowns.get(provider);
   if (!until) return false;
@@ -97,9 +128,9 @@ export async function sortProviders(
   strategy: RoutingStrategy,
   modelId?: string
 ): Promise<ProviderConfig[]> {
-  // Filter out providers on cooldown
-  const available = providers.filter((p) => !isOnCooldown(p.name));
-  if (available.length === 0) return providers; // fallback to all if all on cooldown
+  // Filter out providers on cooldown or rate-limited
+  const available = providers.filter((p) => !shouldSkipProvider(p.name));
+  if (available.length === 0) return providers; // fallback to all if all unavailable
 
   switch (strategy) {
     case "simple-shuffle":
