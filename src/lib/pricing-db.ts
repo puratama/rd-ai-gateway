@@ -6,7 +6,6 @@ interface AdminModelRaw {
   name: string;
   provider: string;
   source: string;
-  contextWindow: number;
   costPer1kPrompt: number | null;
   costPer1kCompletion: number | null;
   markupPercent: number;
@@ -35,7 +34,6 @@ export function dbModelToPricing(m: AdminModelRaw): ModelPricing {
     id: m.modelId,
     name: m.name,
     provider: m.provider,
-    context: m.contextWindow,
     pricing: {
       prompt: m.sellPricePer1kPrompt ?? m.costPer1kPrompt ?? 0,
       completion: m.sellPricePer1kCompletion ?? m.costPer1kCompletion ?? 0,

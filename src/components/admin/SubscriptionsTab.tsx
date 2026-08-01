@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Users, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface SubItem {
   id: string;
@@ -70,14 +71,23 @@ export default function SubscriptionsTab() {
           <p className="text-xs text-muted-foreground">View and monitor all user subscriptions.</p>
         </div>
         <div className="flex items-center gap-2">
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">All Status</option>
-            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <FormSelect
+            options={[
+              { value: "", label: "All Status" },
+              ...STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
+            ]}
+            value={
+              statusFilter === ""
+                ? { value: "", label: "All Status" }
+                : { value: statusFilter, label: statusFilter }
+            }
+            onChange={(v) => {
+              setStatusFilter(v ?? "");
+              setPage(1);
+            }}
+            isSearchable={false}
+            className="w-40"
+          />
           <Button variant="outline" size="sm" onClick={fetchSubs} className="cursor-pointer">
             <RefreshCw className="w-4 h-4" />
           </Button>

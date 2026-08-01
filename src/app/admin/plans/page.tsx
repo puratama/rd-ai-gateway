@@ -1,24 +1,18 @@
 "use client";
 
 import { Suspense, useState, useEffect, useCallback } from "react";
+import { FormSelect, type SelectOption } from "@/components/ui/form-select";
 import {
   Plus,
   Edit3,
   Trash2,
   RefreshCw,
   AlertTriangle,
+  CreditCard,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -36,15 +30,14 @@ interface PlanItem {
   id: string;
   name: string;
   description: string | null;
-  type: string;
-  backend: string;
   price: number;
   billingPeriod: string;
   features: {
-    maxRequestsPerDay: number;
     maxTokensPerMonth: number;
     allowedModels: string[];
+    allModels: boolean;
     allowedProviders: string[];
+    allProviders: boolean;
     streaming: boolean;
     imageGeneration: boolean;
     apiAccess: boolean;
@@ -58,15 +51,14 @@ interface PlanForm {
   id?: string;
   name: string;
   description: string;
-  type: string;
-  backend: string;
   price: number;
   billingPeriod: string;
   features: {
-    maxRequestsPerDay: number;
     maxTokensPerMonth: number;
     allowedModels: string[];
+    allModels: boolean;
     allowedProviders: string[];
+    allProviders: boolean;
     streaming: boolean;
     imageGeneration: boolean;
     apiAccess: boolean;
@@ -88,6 +80,53 @@ const formatNumber = (n: number) => {
   if (n >= 1000) return (n / 1000).toFixed(1) + "K";
   return n.toLocaleString();
 };
+
+function ToggleSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        checked ? "bg-emerald-500" : "bg-input"
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform",
+          checked ? "translate-x-4" : "translate-x-0.5"
+        )}
+      />
+    </button>
+  );
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <div className="h-5 w-0.5 rounded-full bg-primary/60" />
+      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+      {children}
+    </label>
+  );
+}
 
 function AdminPlansPageContent() {
   const [plans, setPlans] = useState<PlanItem[]>([]);
@@ -166,7 +205,6 @@ function AdminPlansPageContent() {
                     <th className="px-4 py-3 font-medium">Nama</th>
                     <th className="px-4 py-3 font-medium">Harga</th>
                     <th className="px-4 py-3 text-center font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">Req/Hari</th>
                     <th className="px-4 py-3 text-right font-medium">Token/Bln</th>
                     <th className="px-4 py-3 text-center font-medium">Models</th>
                     <th className="px-4 py-3 text-center font-medium">Priority</th>
@@ -210,13 +248,10 @@ function AdminPlansPageContent() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right text-xs">
-                        {plan.features.maxRequestsPerDay.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs">
                         {formatNumber(plan.features.maxTokensPerMonth)}
                       </td>
                       <td className="px-4 py-3 text-center text-xs">
-                        {plan.features.allowedModels.length === 0 ? "All" : plan.features.allowedModels.length}
+                        {plan.features.allModels ? "All" : plan.features.allowedModels.length}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="text-[10px] px-2 py-0.5 bg-muted rounded-full capitalize">
@@ -250,6 +285,7 @@ function AdminPlansPageContent() {
           </div>
         )}
 
+        {/* Plan Create/Edit Dialog */}
         <Dialog
           open={editingPlan !== null || showCreate}
           onOpenChange={(open) => {
@@ -259,12 +295,20 @@ function AdminPlansPageContent() {
             }
           }}
         >
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>
-                {editingPlan ? "Edit Plan" : "Create Plan"}
-              </DialogTitle>
-            </DialogHeader>
+          <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+            <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <CreditCard className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-base">{editingPlan ? "Edit Plan" : "Add Plan"}</DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">
+                  {editingPlan
+                    ? "Update plan details, quota, and feature access."
+                    : "Create a membership plan or token package with quota and access rules."}
+                </DialogDescription>
+              </div>
+            </div>
             <PlanEditor
               plan={editingPlan}
               onSave={async (data) => {
@@ -274,10 +318,10 @@ function AdminPlansPageContent() {
                 // Flatten nested features -> top-level Prisma fields
                 const payload = {
                   ...data,
-                  maxRequestsPerDay: data.features.maxRequestsPerDay,
                   maxTokensPerPeriod: data.features.maxTokensPerMonth,
                   allowedModels: data.features.allowedModels,
                   allowedProviders: data.features.allowedProviders,
+                  allProviders: data.features.allProviders,
                   streaming: data.features.streaming,
                   imageGeneration: data.features.imageGeneration,
                   apiAccess: data.features.apiAccess,
@@ -356,32 +400,30 @@ function PlanEditor({
   onSave: (data: PlanForm) => void;
   onClose: () => void;
 }) {
+  const isEdit = !!plan;
   const [form, setForm] = useState<PlanForm>(
     plan
       ? {
           id: plan.id,
           name: plan.name,
           description: plan.description || "",
-          type: plan.type,
-          backend: plan.backend,
           price: plan.price,
           billingPeriod: plan.billingPeriod,
-          features: { ...plan.features },
+          features: { ...plan.features, allModels: plan.features.allModels ?? true, allProviders: plan.features.allProviders ?? true },
           isActive: plan.isActive,
           sortOrder: plan.sortOrder,
         }
       : {
           name: "",
           description: "",
-          type: "subscription",
-          backend: "aggregator",
           price: 0,
           billingPeriod: "monthly",
           features: {
-            maxRequestsPerDay: 1000,
             maxTokensPerMonth: 1000000,
             allowedModels: [],
+            allModels: true,
             allowedProviders: [],
+            allProviders: true,
             streaming: true,
             imageGeneration: false,
             apiAccess: true,
@@ -393,6 +435,50 @@ function PlanEditor({
   );
   const [saving, setSaving] = useState(false);
   const [editorError, setEditorError] = useState("");
+  const [catalog, setCatalog] = useState<{
+    providers: string[];
+    models: { modelId: string; name: string; provider: string }[];
+  } | null>(null);
+
+  // Load registered providers (aggregators) & models for checkbox options
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const [mRes, aRes] = await Promise.all([
+        fetch("/api/admin/models"),
+        fetch("/api/admin/aggregators"),
+      ]);
+      const models: { modelId: string; name: string; provider: string }[] = mRes.ok ? await mRes.json() : [];
+      const aggrs: { name: string; isActive: boolean }[] = aRes.ok ? await aRes.json() : [];
+      const slug = (n: string) => n.toLowerCase().replace(/\s+/g, "-");
+      const providers = [...new Set(aggrs.filter((a) => a.isActive).map((a) => slug(a.name)))];
+      if (active) setCatalog({ providers, models });
+    })().catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const toggleList = (key: "allowedModels" | "allowedProviders", value: string) =>
+    setForm((prev) => {
+      const list = prev.features[key];
+      const next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+      return { ...prev, features: { ...prev.features, [key]: next } };
+    });
+
+  const periodOptions: SelectOption[] = [
+    { value: "daily", label: "Daily" },
+    { value: "weekly", label: "Weekly" },
+    { value: "monthly", label: "Monthly" },
+    { value: "yearly", label: "Yearly" },
+  ];
+  const priorityOptions: SelectOption[] = [
+    { value: "low", label: "Low" },
+    { value: "normal", label: "Normal" },
+    { value: "high", label: "High" },
+  ];
+  const findOpt = (opts: SelectOption[], v: string) =>
+    opts.find((o) => o.value === v) ?? null;
 
   const update = (key: keyof PlanForm, value: string | number | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -405,10 +491,28 @@ function PlanEditor({
       features: { ...prev.features, [key]: value },
     }));
 
+  // ── Numeric input helpers ──
+  const digitsOnly = (v: string) => v.replace(/\D/g, "");
+  const fmtNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
+  const onNumericChange = (
+    key: keyof PlanForm | keyof PlanForm["features"],
+    raw: string
+  ) => {
+    const value = parseInt(digitsOnly(raw), 10) || 0;
+    if (key === "price") update("price", value);
+    else updateFeatures(key as keyof PlanForm["features"], value);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setEditorError("");
     try {
+      if (
+        !form.features.allProviders &&
+        form.features.allowedProviders.length === 0
+      ) {
+        throw new Error("Wajib pilih minimal satu provider saat 'Semua Provider' dimatikan.");
+      }
       await onSave(form);
     } catch (e: unknown) {
       setEditorError(e instanceof Error ? e.message : "Save failed");
@@ -417,226 +521,313 @@ function PlanEditor({
   };
 
   return (
-    <>
-      <div className="space-y-4">
+    <div className="flex flex-col max-h-[70vh]">
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
         {editorError && (
           <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
             {editorError}
           </div>
         )}
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">Plan Name</label>
-          <Input value={form.name || ""} onChange={(e) => update("name", e.target.value)} />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">Description</label>
-          <Input value={form.description || ""} onChange={(e) => update("description", e.target.value)} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">Type</label>
-            <select value={form.type} onChange={(e) => update("type", e.target.value)}
-              className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="subscription">Subscription</option>
-              <option value="package">Package</option>
-            </select>
+
+        {/* ── General ── */}
+        <section>
+          <SectionHeader>General</SectionHeader>
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+            <div>
+              <FieldLabel>Plan Name</FieldLabel>
+              <Input
+                value={form.name || ""}
+                onChange={(e) => update("name", e.target.value)}
+                placeholder="e.g. Pro"
+                className="h-9 bg-background"
+              />
+            </div>
+            <div>
+              <FieldLabel>Description</FieldLabel>
+              <Input
+                value={form.description || ""}
+                onChange={(e) => update("description", e.target.value)}
+                placeholder="Short plan description"
+                className="h-9 bg-background"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">Backend</label>
-            <select value={form.backend} onChange={(e) => update("backend", e.target.value)}
-              className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="aggregator">Aggregator</option>
-            </select>
+        </section>
+
+        {/* ── Pricing ── */}
+        <section>
+          <SectionHeader>Pricing (IDR)</SectionHeader>
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>Price</FieldLabel>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={fmtNumber(form.price)}
+                  onChange={(e) => onNumericChange("price", e.target.value)}
+                  placeholder="e.g. 50.000"
+                  className="h-9 bg-background"
+                />
+                <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  0 = free plan
+                </p>
+              </div>
+              <div>
+                <FieldLabel>Billing Period</FieldLabel>
+                <FormSelect
+                  options={[
+                    { value: "daily", label: "Daily" },
+                    { value: "weekly", label: "Weekly" },
+                    { value: "monthly", label: "Monthly" },
+                    { value: "yearly", label: "Yearly" },
+                  ]}
+                  value={findOpt(periodOptions, form.billingPeriod || "monthly")}
+                  onChange={(v) => update("billingPeriod", v ?? "monthly")}
+                  isClearable={false}
+                  isSearchable={false}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Price (IDR)
-            </label>
-            <Input
-              type="number"
-              value={form.price || 0}
-              onChange={(e) =>
-                update("price", parseInt(e.target.value) || 0)
-              }
-            />
+        </section>
+
+        {/* ── Quota ── */}
+        <section>
+          <SectionHeader>Quota</SectionHeader>
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <div>
+              <FieldLabel>Max Tokens / Period</FieldLabel>
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={fmtNumber(form.features.maxTokensPerMonth)}
+                onChange={(e) => onNumericChange("maxTokensPerMonth", e.target.value)}
+                placeholder="e.g. 1.000.000"
+                className="h-9 bg-background"
+              />
+              <p className="text-[10px] text-muted-foreground/60 mt-1">
+                Jatah token per {form.billingPeriod || "period"}. Berlaku untuk paket &amp; token plan.
+              </p>
+            </div>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Billing Period
-            </label>
-            <Select
-              value={form.billingPeriod || "monthly"}
-              onValueChange={(v) => update("billingPeriod", v || "monthly")}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
-              </SelectContent>
-            </Select>
+        </section>
+
+        {/* ── Features ── */}
+        <section>
+          <SectionHeader>Features</SectionHeader>
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-4">
+            {[
+              {
+                key: "streaming" as const,
+                title: "Streaming",
+                desc: "Allow streaming responses for this plan.",
+              },
+              {
+                key: "imageGeneration" as const,
+                title: "Image Generation",
+                desc: "Allow image generation endpoints.",
+              },
+              {
+                key: "apiAccess" as const,
+                title: "API Access",
+                desc: "Allow access via REST API keys.",
+              },
+            ].map((f) => (
+              <div key={f.key} className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">{f.title}</p>
+                  <p className="text-xs text-muted-foreground/60">{f.desc}</p>
+                </div>
+                <ToggleSwitch
+                  checked={form.features[f.key]}
+                  onChange={(v) => updateFeatures(f.key, v)}
+                />
+              </div>
+            ))}
+            <div>
+              <FieldLabel>Priority</FieldLabel>
+              <FormSelect
+                options={priorityOptions}
+                value={findOpt(priorityOptions, form.features.priority || "normal")}
+                onChange={(v) => updateFeatures("priority", v ?? "normal")}
+                isClearable={false}
+                isSearchable={false}
+              />
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Max Requests/Day
-            </label>
-            <Input
-              type="number"
-              value={form.features?.maxRequestsPerDay || 0}
-              onChange={(e) =>
-                updateFeatures(
-                  "maxRequestsPerDay",
-                  parseInt(e.target.value) || 0
-                )
-              }
-            />
+        </section>
+
+        {/* ── Access ── */}
+        <section>
+          <SectionHeader>Access</SectionHeader>
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Semua Provider</p>
+                <p className="text-xs text-muted-foreground/60">
+                  {form.features.allProviders
+                    ? "Semua provider diizinkan tanpa filter."
+                    : "Matikan untuk membatasi ke provider tertentu."}
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={form.features.allProviders}
+                onChange={(v) => {
+                  updateFeatures("allProviders", v);
+                  if (v) updateFeatures("allowedProviders", []);
+                }}
+              />
+            </div>
+            {!form.features.allProviders && (
+              <div>
+                <FieldLabel>
+                  Allowed Providers <span className="text-red-500">*</span>
+                </FieldLabel>
+                <FormSelect
+                  isMulti
+                  options={(catalog?.providers ?? []).map((p) => ({
+                    value: p,
+                    label: p.charAt(0).toUpperCase() + p.slice(1),
+                  }))}
+                  value={(catalog?.providers ?? [])
+                    .filter((p) => form.features.allowedProviders.includes(p))
+                    .map((p) => ({
+                      value: p,
+                      label: p.charAt(0).toUpperCase() + p.slice(1),
+                    }))}
+                  onChange={(v) => updateFeatures("allowedProviders", v)}
+                  placeholder="Tidak ada"
+                  noOptionsMessage="Belum ada provider terdaftar (kelola di Admin → Aggregator)."
+                />
+                {form.features.allowedProviders.length === 0 ? (
+                  <p className="text-[10px] text-amber-500 mt-1">
+                    Wajib pilih minimal satu provider.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                    Hanya provider yang dipilih yang diizinkan.
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Semua Model</p>
+                <p className="text-xs text-muted-foreground/60">
+                  {form.features.allModels
+                    ? "Semua model diizinkan tanpa filter."
+                    : "Matikan untuk membatasi ke model tertentu."}
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={form.features.allModels}
+                onChange={(v) => {
+                  updateFeatures("allModels", v);
+                  if (v) updateFeatures("allowedModels", []);
+                }}
+              />
+            </div>
+            {!form.features.allModels && (
+              <div>
+                <FieldLabel>
+                  Allowed Models <span className="text-red-500">*</span>
+                </FieldLabel>
+                <FormSelect
+                  isMulti
+                  options={(catalog?.models ?? []).map((m) => ({
+                    value: m.modelId,
+                    label: `${m.modelId} · ${m.provider}`,
+                  }))}
+                  value={(catalog?.models ?? [])
+                    .filter((m) => form.features.allowedModels.includes(m.modelId))
+                    .map((m) => ({
+                      value: m.modelId,
+                      label: `${m.modelId} · ${m.provider}`,
+                    }))}
+                  onChange={(v) => updateFeatures("allowedModels", v)}
+                  placeholder="Tidak ada"
+                  noOptionsMessage="Belum ada model terdaftar (kelola di Admin → Models)."
+                />
+                {(() => {
+                  const orphan = form.features.allowedModels.filter(
+                    (m) => !catalog?.models.some((c) => c.modelId === m)
+                  );
+                  if (!catalog || orphan.length === 0) return null;
+                  return (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {orphan.map((m) => (
+                        <span
+                          key={m}
+                          className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-500 text-[10px] px-2 py-0.5"
+                        >
+                          {m}
+                          <button
+                            type="button"
+                            onClick={() => toggleList("allowedModels", m)}
+                            className="hover:text-amber-300 leading-none"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
+                {form.features.allowedModels.length === 0 ? (
+                  <p className="text-[10px] text-amber-500 mt-1">
+                    Wajib pilih minimal satu model.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                    Hanya model yang dipilih yang diizinkan. Partial match: "gpt" cocok dengan "gpt-4o", dst.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Max Tokens/Month
-            </label>
-            <Input
-              type="number"
-              value={form.features?.maxTokensPerMonth || 0}
-              onChange={(e) =>
-                updateFeatures(
-                  "maxTokensPerMonth",
-                  parseInt(e.target.value) || 0
-                )
-              }
-            />
+        </section>
+
+        {/* ── Status ── */}
+        <section>
+          <SectionHeader>Status</SectionHeader>
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Plan Active</p>
+                <p className="text-xs text-muted-foreground/60">
+                  When inactive, this plan won't be available for purchase.
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={form.isActive !== false}
+                onChange={(v) => update("isActive", v)}
+              />
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Streaming
-            </label>
-            <Select
-              value={form.features?.streaming ? "yes" : "no"}
-              onValueChange={(v) =>
-                updateFeatures("streaming", (v || "no") === "yes")
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="yes">Yes</SelectItem>
-                <SelectItem value="no">No</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Image Generation
-            </label>
-            <Select
-              value={form.features?.imageGeneration ? "yes" : "no"}
-              onValueChange={(v) =>
-                updateFeatures("imageGeneration", (v || "no") === "yes")
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="yes">Yes</SelectItem>
-                <SelectItem value="no">No</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">
-            Priority
-          </label>
-          <Select
-            value={form.features?.priority || "normal"}
-            onValueChange={(v) => updateFeatures("priority", v || "normal")}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">
-            Allowed Providers <span className="text-[10px] text-muted-foreground/60">(kosong = semua)</span>
-          </label>
-          <textarea
-            value={form.features?.allowedProviders?.join(", ") || ""}
-            onChange={(e) =>
-              updateFeatures(
-                "allowedProviders",
-                e.target.value
-                  .split(",")
-                  .map((s: string) => s.trim())
-                  .filter(Boolean)
-              )
-            }
-            placeholder="openai, anthropic, google"
-            rows={2}
-            className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-          />
-          <p className="text-[10px] text-muted-foreground/60 mt-1">
-            Pisahkan dengan koma. Model hanya dari provider ini yang akan tampak.
-          </p>
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">
-            Allowed Models <span className="text-[10px] text-muted-foreground/60">(kosong = semua)</span>
-          </label>
-          <textarea
-            value={form.features?.allowedModels?.join(", ") || ""}
-            onChange={(e) =>
-              updateFeatures(
-                "allowedModels",
-                e.target.value
-                  .split(",")
-                  .map((s: string) => s.trim())
-                  .filter(Boolean)
-              )
-            }
-            placeholder="gpt-4o-mini, claude-haiku"
-            rows={3}
-            className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-          />
-          <p className="text-[10px] text-muted-foreground/60 mt-1">
-            Pisahkan dengan koma. Partial match — "gpt" akan cocok dengan "gpt-4o", "gpt-4o-mini", dll.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={form.isActive !== false}
-            onChange={(e) => update("isActive", e.target.checked)}
-            className="rounded border-input accent-primary"
-          />
-          <span className="text-sm text-muted-foreground">Active</span>
-        </div>
+        </section>
       </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
+
+      {/* ── Footer ── */}
+      <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
+        <Button variant="outline" size="sm" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : form.id ? "Update" : "Create"}
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          {saving ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Saving...
+            </>
+          ) : (
+            isEdit ? "Update" : "Create"
+          )}
         </Button>
-      </DialogFooter>
-    </>
+      </div>
+    </div>
   );
 }
 

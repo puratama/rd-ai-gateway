@@ -5,13 +5,13 @@ import { RefreshCw, DollarSign, Percent, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface PricedModel {
   id: string;
   modelId: string;
   name: string;
   provider: string;
-  contextWindow: number;
   costPer1kPrompt: number;
   costPer1kCompletion: number;
   markupPercent: number;
@@ -158,10 +158,20 @@ export default function PricingTab() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Filter Provider</label>
-              <select value={bulkProvider} onChange={(e) => setBulkProvider(e.target.value)} className="h-9 px-3 bg-background border border-input rounded-md text-sm">
-                <option value="">All Providers</option>
-                {data?.providers.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <FormSelect
+                options={[
+                  { value: "", label: "All Providers" },
+                  ...(data?.providers ?? []).map((p) => ({ value: p, label: p })),
+                ]}
+                value={
+                  bulkProvider === ""
+                    ? { value: "", label: "All Providers" }
+                    : { value: bulkProvider, label: bulkProvider }
+                }
+                onChange={(v) => setBulkProvider(v ?? "")}
+                isSearchable={false}
+                className="w-48"
+              />
             </div>
 
             <Button size="sm" onClick={handleBulkMarkup} disabled={submitting} className="cursor-pointer">

@@ -133,11 +133,6 @@ export default function ModelSelector({ selectedModel, onSelect }: ModelSelector
                     }`}
                   >
                     <div className="font-medium">{model.name || model.id}</div>
-                    {model.context && (
-                      <div className="text-xs text-zinc-500 mt-0.5">
-                        {(model.context / 1000).toFixed(0)}K context
-                      </div>
-                    )}
                   </button>
                 ))}
               </div>

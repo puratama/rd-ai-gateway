@@ -9,15 +9,14 @@ export interface MembershipPlan {
   id: string;
   name: string;
   description?: string | null;
-  type: string;
-  backend: string;
   billingPeriod: string;
   price: number;
   features: {
-    maxRequestsPerDay: number;
     maxTokensPerMonth: number;
     allowedModels: string[];
+    allModels: boolean;
     allowedProviders: string[];
+    allProviders: boolean;
     streaming: boolean;
     imageGeneration: boolean;
     apiAccess: boolean;
@@ -35,14 +34,13 @@ function mapPlan(p: {
   id: string;
   name: string;
   description?: string | null;
-  type: string;
-  backend: string;
   billingPeriod: string;
   price: unknown;
   maxTokensPerPeriod: number;
-  maxRequestsPerDay: number;
   allowedModels: string[];
+  allModels: boolean;
   allowedProviders: string[];
+  allProviders: boolean;
   streaming: boolean;
   imageGeneration: boolean;
   apiAccess: boolean;
@@ -56,15 +54,14 @@ function mapPlan(p: {
     id: p.id,
     name: p.name,
     description: p.description ?? null,
-    type: p.type,
-    backend: p.backend,
     billingPeriod: p.billingPeriod,
     price: Number(p.price),
     features: {
-      maxRequestsPerDay: p.maxRequestsPerDay,
       maxTokensPerMonth: p.maxTokensPerPeriod,
       allowedModels: p.allowedModels,
+      allModels: p.allModels ?? true,
       allowedProviders: p.allowedProviders,
+      allProviders: p.allProviders ?? true,
       streaming: p.streaming,
       imageGeneration: p.imageGeneration,
       apiAccess: p.apiAccess,
@@ -92,14 +89,13 @@ export async function getPlan(id: string): Promise<MembershipPlan | null> {
 export async function createPlan(data: {
   name: string;
   description?: string;
-  type: string;
-  backend: string;
   billingPeriod: string;
   price: number;
   maxTokensPerPeriod: number;
-  maxRequestsPerDay: number;
   allowedModels?: string[];
+  allModels?: boolean;
   allowedProviders?: string[];
+  allProviders?: boolean;
   streaming?: boolean;
   imageGeneration?: boolean;
   apiAccess?: boolean;

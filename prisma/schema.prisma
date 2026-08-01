@@ -95,18 +95,17 @@ model Plan {
   id            String @id @default(cuid())
   name          String
   description   String?
-  type          String // "subscription" | "package"
-  backend       String // "puter" | "aggregator"
   billingPeriod String // "daily" | "weekly" | "monthly" | "yearly"
   price         Decimal // IDR
 
   // Quota limits
   maxTokensPerPeriod Int
-  maxRequestsPerDay  Int
 
   // Access control
-  allowedModels    String[] // empty = all
-  allowedProviders String[] // empty = all
+  allowedModels    String[] // empty = none (used when allModels = false)
+  allModels        Boolean  @default(true) // true = semua model diizinkan, false = wajib isi allowedModels
+  allowedProviders String[] // empty = none (used when allProviders = false)
+  allProviders     Boolean  @default(true) // true = semua provider diizinkan, false = wajib isi allowedProviders
   streaming        Boolean  @default(true)
   imageGeneration  Boolean  @default(false)
   apiAccess        Boolean  @default(true)
@@ -227,8 +226,6 @@ model AppModel {
   name      String
   provider  String
   providerModelId String?
-
-  contextWindow Int @default(0)
 
   // Pricing — cost to us
   costPer1kPrompt     Decimal?

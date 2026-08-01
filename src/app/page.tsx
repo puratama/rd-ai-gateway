@@ -77,8 +77,7 @@ interface PlanRaw {
 function planToTier(p: PlanRaw): PricingTier {
   const features: string[] = [];
   const f = p.features;
-  if (f.maxTokensPerMonth) features.push(`${Number(f.maxTokensPerMonth).toLocaleString()} tokens/month`);
-  if (f.maxRequestsPerDay) features.push(`${f.maxRequestsPerDay} requests/day`);
+  if (f.maxTokensPerMonth) features.push(`${Number(f.maxTokensPerMonth).toLocaleString()} tokens/${p.billingPeriod}`);
   if (f.streaming) features.push("Streaming");
   if (f.imageGeneration) features.push("Image generation");
   if (f.apiAccess) features.push("API access");
@@ -336,7 +335,7 @@ export default function LandingPage() {
           <div>
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Platform</h3>
             <div className="grid gap-3 text-sm">
-              <Link href="/pricing" className="text-muted-foreground transition hover:text-foreground">Pricing</Link>
+              <Link href="/models" className="text-muted-foreground transition hover:text-foreground">Models</Link>
               <Link href="/login" className="text-muted-foreground transition hover:text-foreground">Sign in</Link>
               <Link href="/register" className="text-muted-foreground transition hover:text-foreground">Create account</Link>
             </div>

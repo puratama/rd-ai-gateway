@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { FormSelect } from "@/components/ui/form-select";
 import { fetchPricingFromDB } from "@/lib/pricing-db";
 import type { ModelPricing } from "@/types";
 
@@ -40,13 +41,13 @@ const speedLabel = (speed: string) =>
   speed === "fast" ? "⚡ Fast" : speed === "balanced" ? "⚖️ Balanced" : speed === "slow" ? "🐢 Slow" : speed;
 
 
-export default function PricingPage() {
+export default function ModelsPage() {
   const [pricingData, setPricingData] = useState<ModelPricing[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("all");
 
-  const [sortBy, setSortBy] = useState<"name" | "prompt" | "completion" | "context">("name");
+  const [sortBy, setSortBy] = useState<"name" | "prompt" | "completion">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [compareMode, setCompareMode] = useState(false);
   const [compareList, setCompareList] = useState<string[]>([]);
@@ -78,7 +79,7 @@ export default function PricingPage() {
           ? a.pricing.prompt - b.pricing.prompt
           : sortBy === "completion"
             ? a.pricing.completion - b.pricing.completion
-            : a.context - b.context;
+            : 0;
       return sortOrder === "asc" ? cmp : -cmp;
     });
     return result;
@@ -88,12 +89,10 @@ export default function PricingPage() {
     setCompareList((prev) => prev.includes(modelId) ? prev.filter((id) => id !== modelId) : prev.length < 4 ? [...prev, modelId] : prev);
   };
 
-  const toggleSort = (field: "name" | "prompt" | "completion" | "context") => {
+  const toggleSort = (field: "name" | "prompt" | "completion") => {
     if (sortBy === field) setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     else { setSortBy(field); setSortOrder("asc"); }
   };
-
-  const formatContext = (ctx: number) => ctx === 0 ? "-" : ctx >= 1000000 ? `${(ctx / 1000000).toFixed(0)}M` : ctx >= 1000 ? `${(ctx / 1000).toFixed(0)}K` : String(ctx);
 
   const renderPriceBadge = (value: number, label: string) => (
     <div className="text-center">
@@ -102,7 +101,7 @@ export default function PricingPage() {
     </div>
   );
 
-  const SortArrow = ({ field }: { field: typeof sortBy }) =>
+  const SortArrow = ({ field }: { field: "name" | "prompt" | "completion" }) =>
     sortBy === field ? (
       sortOrder === "asc" ? <ChevronUp className="ml-0.5 h-3 w-3" /> : <ChevronDown className="ml-0.5 h-3 w-3" />
     ) : null;
@@ -115,10 +114,10 @@ export default function PricingPage() {
           <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Sparkles className="h-4 w-4 text-primary" /> Pricing
+                <Sparkles className="h-4 w-4 text-primary" /> Models
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight">Transparent AI pricing</h1>
-              <p className="text-sm text-muted-foreground">Compare costs, context windows, speed, and quality across all providers.</p>
+              <h1 className="text-3xl font-semibold tracking-tight">Browse AI Models</h1>
+              <p className="text-sm text-muted-foreground">Compare models by cost, context window, speed, and quality across all providers.</p>
             </div>
             <Button
               variant={compareMode ? "default" : "outline"}
@@ -171,15 +170,24 @@ export default function PricingPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="mr-1 text-xs font-medium text-muted-foreground">Provider</span>
-              <select
-                value={selectedProvider}
-                onChange={(e) => setSelectedProvider(e.target.value)}
-                className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="all">All ({pricingData.length})</option>
-                {providers.map((p) => <option key={p} value={p}>{p} ({providerCounts[p] || 0})</option>)}
-              </select>
-
+              <FormSelect
+                options={[
+                  { value: "all", label: `All (${pricingData.length})` },
+                  ...providers.map((p) => ({ value: p, label: `${p} (${providerCounts[p] || 0})` })),
+                ]}
+                value={
+                  selectedProvider === "all"
+                    ? { value: "all", label: `All (${pricingData.length})` }
+                    : {
+                        value: selectedProvider,
+                        label: `${selectedProvider} (${providerCounts[selectedProvider] || 0})`,
+                      }
+                }
+                onChange={(v) => setSelectedProvider(v ?? "all")}
+                isSearchable={false}
+                isClearable={false}
+                className="w-40"
+              />
             </div>
           </div>
 
@@ -190,7 +198,7 @@ export default function PricingPage() {
             </p>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-muted-foreground">Sort:</span>
-              {(["name", "prompt", "completion", "context"] as const).map((field) => (
+              {(["name", "prompt", "completion"] as const).map((field) => (
                 <button
                   key={field}
                   onClick={() => toggleSort(field)}
@@ -201,7 +209,7 @@ export default function PricingPage() {
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                 >
-                  {field === "name" ? "Name" : field === "prompt" ? "Prompt $" : field === "completion" ? "Completion $" : "Context"}
+                  {field === "name" ? "Name" : field === "prompt" ? "Prompt $" : "Completion $"}
                   <SortArrow field={field} />
                 </button>
               ))}
@@ -257,7 +265,6 @@ export default function PricingPage() {
                   <tbody>
                     {[
                       { key: "provider", label: "Provider" },
-                      { key: "context", label: "Context Window", render: (m: ModelPricing) => formatContext(m.context) },
                       { key: "speed", label: "Speed", render: (m: ModelPricing) => speedLabel(m.speed) },
                       { key: "quality", label: "Quality" },
                     ].map((row) => (
@@ -374,9 +381,6 @@ export default function PricingPage() {
                         <div className="mb-4 flex flex-wrap gap-1.5">
                           <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium", speedBg(model.speed), speedColor(model.speed))}>
                             <Gauge className="h-2.5 w-2.5" /> {speedLabel(model.speed)}
-                          </span>
-                          <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            {formatContext(model.context)} ctx
                           </span>
                         </div>
 

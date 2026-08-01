@@ -18,7 +18,6 @@ export async function getModels(): Promise<ModelInfo[]> {
         id: String(m.id || ""),
         name: String(m.name || m.id || ""),
         provider: getProviderFromModel(String(m.id || "")),
-        context: m.context ? Number(m.context) : undefined,
         description: m.description ? String(m.description) : undefined,
       }));
       return modelsCache as ModelInfo[];

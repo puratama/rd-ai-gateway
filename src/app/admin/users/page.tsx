@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface AdminUser {
   id: string;
@@ -323,17 +324,25 @@ export default function AdminUsersPage() {
                   </Button>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span>Role:</span>
-                    <select value={modalUser.role} onChange={(e) => patchUser(modalUser.id, { role: e.target.value })}
-                      className="cursor-pointer rounded border border-border bg-background px-2 py-1 text-xs">
-                      {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
+                    <FormSelect
+                      options={roles.map((r) => ({ value: r, label: r }))}
+                      value={roles.includes(modalUser.role) ? { value: modalUser.role, label: modalUser.role } : null}
+                      onChange={(v) => v && patchUser(modalUser.id, { role: v })}
+                      isClearable={false}
+                      isSearchable={false}
+                      className="w-28"
+                    />
                   </div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span>Status:</span>
-                    <select value={modalUser.status} onChange={(e) => patchUser(modalUser.id, { status: e.target.value })}
-                      className="cursor-pointer rounded border border-border bg-background px-2 py-1 text-xs">
-                      {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <FormSelect
+                      options={statuses.map((s) => ({ value: s, label: s }))}
+                      value={statuses.includes(modalUser.status) ? { value: modalUser.status, label: modalUser.status } : null}
+                      onChange={(v) => v && patchUser(modalUser.id, { status: v })}
+                      isClearable={false}
+                      isSearchable={false}
+                      className="w-28"
+                    />
                   </div>
                 </div>
 

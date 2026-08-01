@@ -25,19 +25,10 @@ export async function checkRateLimit(apiKeyId: string): Promise<{ allowed: boole
   if (!sub) {
     // No subscription → PAYG user. Wallet handles billing, apply soft rate limits only.
     const freePlan = await getPlan("free");
-    const maxDaily = freePlan?.features?.maxRequestsPerDay || 1000;
     const maxDailyTokens = freePlan?.features?.maxTokensPerMonth || 1000000;
 
-    // Check daily request limit
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const todayCount = await prisma.usageRecord.count({
-      where: { userId: apiKey.userId, createdAt: { gte: today } },
-    });
-    if (todayCount >= maxDaily) {
-      return { allowed: false, reason: `Daily request limit reached (${maxDaily})` };
-    }
-
     // Check daily token limit
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayTokens = await prisma.usageRecord.aggregate({
       where: { userId: apiKey.userId, createdAt: { gte: today } },
       _sum: { totalTokens: true },
@@ -53,18 +44,8 @@ export async function checkRateLimit(apiKeyId: string): Promise<{ allowed: boole
   if (!plan) return { allowed: false, reason: "Plan not found" };
 
   // Check subscription token quota
-  if (sub.tokensUsed >= Math.min(plan.features.maxTokensPerMonth, plan.features.maxRequestsPerDay)) {
+  if (sub.tokensUsed >= plan.features.maxTokensPerMonth) {
     return { allowed: false, reason: `Subscription quota exhausted (${sub.tokensUsed}/${plan.features.maxTokensPerMonth} tokens)`, plan };
-  }
-
-  // Check daily request limit via usage records
-  const today = new Date(); today.setHours(0,0,0,0);
-  const todayCount = await prisma.usageRecord.count({
-    where: { userId: apiKey.userId, createdAt: { gte: today } },
-  });
-
-  if (todayCount >= plan.features.maxRequestsPerDay) {
-    return { allowed: false, reason: `Daily limit reached (${plan.features.maxRequestsPerDay})`, plan };
   }
 
   return { allowed: true, plan };
@@ -81,38 +62,51 @@ export async function checkModelAccess(apiKeyId: string, modelId: string): Promi
 
   const id = modelId.toLowerCase();
 
-  // allowedModels: empty = all allowed; non-empty = partial match
-  if (plan.allowedModels.length > 0) {
-    const allowed = plan.allowedModels.some((m: string) => id.includes(m.toLowerCase()));
-    if (!allowed) return false;
+  // allowedModels: allModels=true → semua; false → wajib list non-empty, partial match
+  if (plan.allModels === false) {
+    if (plan.allowedModels.length === 0) return false;
+    const allowedModel = plan.allowedModels.some((m: string) =>
+      id.includes(m.toLowerCase())
+    );
+    if (!allowedModel) return false;
   }
 
-  // allowedProviders: empty = all allowed; non-empty = partial match
-  if (plan.allowedProviders.length > 0) {
+  // allowedProviders: allProviders=true → semua diizinkan;
+  // false → wajib list non-empty, partial match
+  if (plan.allProviders === false) {
+    if (plan.allowedProviders.length === 0) return false;
     // Derive provider from model ID (e.g. "claude" → "anthropic", "gpt" → "openai")
     const provider = deriveProvider(id);
-    const allowed = plan.allowedProviders.some((p: string) => provider.includes(p.toLowerCase()));
-    if (!allowed) return false;
+    const allowedProvider = plan.allowedProviders.some((p: string) =>
+      provider.includes(p.toLowerCase())
+    );
+    if (!allowedProvider) return false;
   }
 
   return true;
 }
 
-async function resolveUserPlan(userId: string): Promise<{ allowedModels: string[]; allowedProviders: string[] } | null> {
+async function resolveUserPlan(userId: string): Promise<{ allowedModels: string[]; allModels: boolean; allowedProviders: string[]; allProviders: boolean } | null> {
   const sub = await prisma.subscription.findFirst({
     where: { userId, status: "active", endDate: { gt: new Date() } },
-    select: { plan: { select: { allowedModels: true, allowedProviders: true } } },
+    select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },
   });
-  if (sub?.plan) return sub.plan as { allowedModels: string[]; allowedProviders: string[] };
+  if (sub?.plan) return sub.plan as { allowedModels: string[]; allModels: boolean; allowedProviders: string[]; allProviders: boolean };
 
   const pkg = await prisma.userPackage.findFirst({
     where: { userId, status: "active", expiresAt: { gt: new Date() } },
-    select: { plan: { select: { allowedModels: true, allowedProviders: true } } },
+    select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },
   });
-  if (pkg?.plan) return pkg.plan as { allowedModels: string[]; allowedProviders: string[] };
+  if (pkg?.plan) return pkg.plan as { allowedModels: string[]; allModels: boolean; allowedProviders: string[]; allProviders: boolean };
 
   const freePlan = await getPlan("free");
-  if (freePlan) return { allowedModels: freePlan.features.allowedModels, allowedProviders: freePlan.features.allowedProviders };
+  if (freePlan)
+    return {
+      allowedModels: freePlan.features.allowedModels,
+      allModels: freePlan.features.allModels,
+      allowedProviders: freePlan.features.allowedProviders,
+      allProviders: freePlan.features.allProviders,
+    };
 
   return null;
 }

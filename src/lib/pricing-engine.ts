@@ -5,7 +5,6 @@ export interface PricedModel {
   modelId: string;
   name: string;
   provider: string;
-  contextWindow: number;
   costPer1kPrompt: number;
   costPer1kCompletion: number;
   markupPercent: number;
@@ -44,7 +43,6 @@ export async function getAllPricedModels(): Promise<PricedModel[]> {
       modelId: m.modelId,
       name: m.name,
       provider: m.provider,
-      contextWindow: m.contextWindow,
       costPer1kPrompt: costP,
       costPer1kCompletion: costC,
       markupPercent: markup,

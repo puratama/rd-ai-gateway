@@ -26,7 +26,7 @@ export function setCompressionConfig(partial: Partial<CompressionConfig>) {
 
 export interface CompressedMessage {
   role: string;
-  content: string;
+  content: unknown;
 }
 
 export interface CompressionResult {
@@ -39,9 +39,10 @@ export interface CompressionResult {
 
 /** Compress an array of chat messages. Returns compressed messages + stats. */
 export function compressMessages(
-  messages: { role: string; content: string }[]
+  messages: { role: string; content: unknown }[]
 ): CompressionResult {
-  if (!config.enabled) {
+  // Skip compression if any message has non-string content (e.g. multimodal arrays)
+  if (!config.enabled || messages.some((m) => typeof m.content !== "string")) {
     return {
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
       originalChars: countChars(messages),
@@ -51,12 +52,15 @@ export function compressMessages(
     };
   }
 
-  let working = messages.map((m) => ({ role: m.role, content: m.content }));
+  let working: CompressedMessage[] = messages.map((m) => ({ role: m.role, content: m.content }));
   const originalChars = countChars(working);
 
-  // 1. Trim each message content
+  // 1. Trim each message content (only string content — multimodal arrays skipped above)
   if (config.trimMessages) {
-    working = working.map((m) => ({ ...m, content: m.content.trim() }));
+    working = working.map((m) => ({
+      ...m,
+      content: typeof m.content === "string" ? m.content.trim() : m.content,
+    }));
   }
 
   // 2. Collapse consecutive same-role messages
@@ -65,7 +69,11 @@ export function compressMessages(
     for (const msg of working) {
       const last = grouped[grouped.length - 1];
       if (last && last.role === msg.role) {
-        last.content += "\n" + msg.content;
+        if (typeof last.content === "string" && typeof msg.content === "string") {
+          last.content += "\n" + msg.content;
+        } else {
+          grouped.push({ ...msg });
+        }
       } else {
         grouped.push({ ...msg });
       }
@@ -73,24 +81,28 @@ export function compressMessages(
     working = grouped;
   }
 
-  // 3. Strip extra whitespace
+  // 3. Strip extra whitespace (string content only)
   if (config.stripExtraWhitespace) {
     working = working.map((m) => ({
       ...m,
-      content: m.content
-        .replace(/\r\n/g, "\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .replace(/[ \t]{3,}/g, "  ")
-        .trim(),
+      content: typeof m.content === "string"
+        ? m.content
+            .replace(/\r\n/g, "\n")
+            .replace(/\n{3,}/g, "\n\n")
+            .replace(/[ \t]{3,}/g, "  ")
+            .trim()
+        : m.content,
     }));
   }
 
-  // 4. Collapse repeated chars
+  // 4. Collapse repeated chars (string content only)
   if (config.maxRepeatedChars > 0) {
     const re = new RegExp(`(.)\\1{${config.maxRepeatedChars},}`, "g");
     working = working.map((m) => ({
       ...m,
-      content: m.content.replace(re, (match) => match.slice(0, config.maxRepeatedChars + 1)),
+      content: typeof m.content === "string"
+        ? m.content.replace(re, (match) => match.slice(0, config.maxRepeatedChars + 1))
+        : m.content,
     }));
   }
 
@@ -106,8 +118,11 @@ export function compressMessages(
   };
 }
 
-function countChars(messages: { role: string; content: string }[]): number {
-  return messages.reduce((sum, m) => sum + m.role.length + 2 + m.content.length, 0);
+function countChars(messages: { role: string; content: unknown }[]): number {
+  return messages.reduce((sum, m) => {
+    const len = typeof m.content === "string" ? m.content.length : 0;
+    return sum + m.role.length + 2 + len;
+  }, 0);
 }
 
 /** Estimate tokens from characters (~4 chars/token). */

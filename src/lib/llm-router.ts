@@ -33,7 +33,7 @@ import { prisma } from "./db";
 
 export interface RouterRequest {
   model: string;
-  messages: { role: string; content: string }[];
+  messages: { role: string; content: unknown }[];
   stream?: boolean;
   temperature?: number;
   max_tokens?: number;
@@ -487,7 +487,7 @@ export async function routeRequest(
 
 interface MessageLike {
   role?: string;
-  content?: string;
+  content?: unknown;
   tool_call_id?: string;
   [key: string]: unknown;
 }
@@ -508,13 +508,12 @@ function validateMessages(
 
     if (!msg.role) return `messages[${i}]: missing required field 'role'`;
 
-    // tool messages must have tool_call_id
-    if (msg.role === "tool" && !msg.tool_call_id) {
-      return `messages[${i}]: 'role:tool' requires 'tool_call_id' — reference the assistant's tool call id (e.g. "call_abc123")`;
-    }
+    // tool messages should have tool_call_id per spec, but some clients omit it
+    // upstream provider will reject if actually required
 
-    // non-tool messages must have content
-    if (msg.role !== "tool" && (msg.content === undefined || msg.content === null)) {
+    // non-tool messages must have content (assistant can have null content with tool_calls)
+    const requiresContent = msg.role !== "tool" && !(msg.role === "assistant" && msg.tool_calls);
+    if (requiresContent && msg.content === undefined) {
       return `messages[${i}]: missing required field 'content'`;
     }
 
@@ -523,10 +522,7 @@ function validateMessages(
       return `messages[${i}]: 'tool_call_id' is only valid on messages with 'role:tool'`;
     }
 
-    // Content must be string (for now — image parts not yet supported in this proxy)
-    if (msg.content !== undefined && msg.content !== null && typeof msg.content !== "string") {
-      return `messages[${i}]: 'content' must be a string`;
-    }
+    // Content can be string or array (multimodal) — pass through to upstream provider
   }
 
   // If tools are provided, check there's at least one assistant message with tool_calls

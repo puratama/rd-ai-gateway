@@ -186,7 +186,7 @@ export default function DashboardPage() {
               <CardContent className="space-y-3">
                 {[
                   { href: "/keys", title: "Generate API key", desc: "Buat key untuk app, server, atau IDE kamu.", icon: Key },
-                  { href: "/pricing", title: "Pilih model dan harga", desc: "Bandingkan model, konteks, speed, dan biaya.", icon: CreditCard },
+                  { href: "/models", title: "Pilih model dan harga", desc: "Bandingkan model, konteks, speed, dan biaya.", icon: CreditCard },
                   { href: "/settings", title: "Atur akun", desc: "Ubah profil dan preferensi aplikasi.", icon: Settings },
                 ].map((item) => {
                   const Icon = item.icon;

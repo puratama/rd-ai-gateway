@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface AggregatorItem {
   id: string;
@@ -35,7 +36,6 @@ interface AppModelItem {
   name: string;
   provider: string;
   providerModelId: string | null;
-  contextWindow: number;
   sellPricePer1kPrompt: number | null;
   sellPricePer1kCompletion: number | null;
   isActive: boolean;
@@ -46,7 +46,6 @@ interface ModelForm {
   name: string;
   provider: string;
   providerModelId: string;
-  contextWindow: number;
   sellPricePer1kPrompt: number | null;
   sellPricePer1kCompletion: number | null;
   isActive: boolean;
@@ -354,7 +353,6 @@ function ModelForm({
           name: model.name,
           provider: model.provider,
           providerModelId: model.providerModelId || "",
-          contextWindow: model.contextWindow,
           sellPricePer1kPrompt: model.sellPricePer1kPrompt,
           sellPricePer1kCompletion: model.sellPricePer1kCompletion,
           isActive: model.isActive,
@@ -364,7 +362,6 @@ function ModelForm({
           name: "",
           provider: "",
           providerModelId: "",
-          contextWindow: 4096,
           sellPricePer1kPrompt: null,
           sellPricePer1kCompletion: null,
           isActive: true,
@@ -470,10 +467,18 @@ function ModelForm({
                 <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
                   Aggregator
                 </label>
-                <select
-                  value={selectedAggregatorId}
-                  onChange={(e) => {
-                    setSelectedAggregatorId(e.target.value);
+                <FormSelect
+                  options={[
+                    { value: "", label: loadingAggregators ? "Loading..." : "Select aggregator" },
+                    ...aggregators.map((a) => ({ value: a.id, label: a.name })),
+                  ]}
+                  value={
+                    selectedAggregator
+                      ? { value: selectedAggregator.id, label: selectedAggregator.name }
+                      : { value: "", label: loadingAggregators ? "Loading..." : "Select aggregator" }
+                  }
+                  onChange={(v) => {
+                    setSelectedAggregatorId(v ?? "");
                     setForm((prev) => ({
                       ...prev,
                       modelId: "",
@@ -483,17 +488,9 @@ function ModelForm({
                     }));
                   }}
                   disabled={loadingAggregators}
-                  className="w-full h-9 px-3 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-primary/50 disabled:opacity-50"
-                >
-                  <option value="">
-                    {loadingAggregators ? "Loading..." : "Select aggregator"}
-                  </option>
-                  {aggregators.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
+                  isClearable={false}
+                  isSearchable={false}
+                />
                 {aggregators.length === 0 && !loadingAggregators && (
                   <p className="text-[11px] text-amber-500 mt-1.5">
                     No active aggregators. Add one in Settings → Aggregator.
@@ -504,16 +501,43 @@ function ModelForm({
                 <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
                   Provider Model
                 </label>
-                <select
-                  value={form.providerModelId}
-                  onChange={(e) => {
-                    const id = e.target.value;
+                <FormSelect
+                  options={[
+                    {
+                      label: !selectedAggregatorId
+                        ? "Choose an aggregator first"
+                        : loadingModels
+                          ? "Loading models..."
+                          : availableModels.length === 0
+                            ? "No models available"
+                            : "Available",
+                      options: availableModels.map((m) => ({ value: m.id, label: m.id })),
+                    },
+                    ...(registeredModelIds.length > 0
+                      ? [
+                          {
+                            label: "Already registered",
+                            options: registeredModelIds.map((m) => ({
+                              value: m.id,
+                              label: `${m.id} ✓`,
+                              isDisabled: true,
+                            })),
+                          },
+                        ]
+                      : []),
+                  ]}
+                  value={
+                    form.providerModelId
+                      ? { value: form.providerModelId, label: form.providerModelId }
+                      : null
+                  }
+                  onChange={(id) => {
                     const m = aggregatorModels.find((x) => x.id === id);
-                    const suggestedModelId = id ? id : "";
+                    const suggestedModelId = id ?? "";
                     setForm((prev) => ({
                       ...prev,
                       modelId: prev.modelId || suggestedModelId,
-                      providerModelId: id,
+                      providerModelId: id ?? "",
                       provider: selectedAggregator
                         ? selectedAggregator.name.toLowerCase()
                         : prev.provider,
@@ -521,32 +545,9 @@ function ModelForm({
                     }));
                   }}
                   disabled={!selectedAggregatorId || loadingModels}
-                  className="w-full h-9 px-3 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-primary/50 disabled:opacity-50"
-                >
-                  <option value="">
-                    {!selectedAggregatorId
-                      ? "Choose an aggregator first"
-                      : loadingModels
-                        ? "Loading models..."
-                        : availableModels.length === 0
-                          ? "No models available"
-                          : "Select a model"}
-                  </option>
-                  {availableModels.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.id}
-                    </option>
-                  ))}
-                  {registeredModelIds.length > 0 && (
-                    <optgroup label="Already registered">
-                      {registeredModelIds.map((m) => (
-                        <option key={m.id} value={m.id} disabled>
-                          {m.id} ✓
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
+                  isClearable={false}
+                  placeholder="Select a model"
+                />
                 {modelError && (
                   <p className="text-[11px] text-destructive mt-1.5">{modelError}</p>
                 )}
@@ -611,18 +612,6 @@ function ModelForm({
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="Model display name"
-                className="h-9 bg-background"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
-                Context Window
-              </label>
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={fmtNumber(form.contextWindow)}
-                onChange={(e) => onNumericChange("contextWindow", e.target.value)}
                 className="h-9 bg-background"
               />
             </div>

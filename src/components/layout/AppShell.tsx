@@ -7,7 +7,6 @@ import {
   Key,
   CreditCard,
   BarChart3,
-  DollarSign,
   Settings,
   LogOut,
   ChevronLeft,
@@ -15,10 +14,10 @@ import {
   Menu,
   X,
   Wallet,
-  UserCircle,
-  Shield,
   Users,
   Box,
+  Gauge,
+  UserRound,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 import NotificationBell from "@/components/NotificationBell";
@@ -42,8 +41,8 @@ interface NavItem {
 const userNavItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/keys", label: "API Keys", icon: Key },
-  { href: "/pricing", label: "Pricing", icon: CreditCard },
-  { href: "/wallet", label: "Wallet", icon: Wallet },
+  { href: "/plan", label: "Token Plan", icon: CreditCard },
+  { href: "/models", label: "Models", icon: CreditCard },
   { href: "/usage", label: "Usage", icon: BarChart3 },
 ];
 
@@ -205,33 +204,36 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                   <DropdownMenuTrigger render={
                     <Button variant="ghost" size="sm" className="gap-1.5 pl-1 pr-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
-                        {(user?.name ?? user?.email ?? "?")[0].toUpperCase()}
+                        <UserRound />
                       </span>
-                      <span className="hidden md:inline">Account</span>
+                      <span className="hidden md:inline">{user?.name || user?.email}</span>
                       <ChevronDown className="h-3.5 w-3.5" />
                     </Button>
                   } />
                   <DropdownMenuContent align="end" className="w-64 p-2">
                     <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
-                        {(user?.name ?? user?.email ?? "?")[0].toUpperCase()}
+                        <UserRound />
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{user?.name || user?.email || "Account"}</p>
+                        <p className="truncate text-sm font-semibold">{user?.name || user?.email}</p>
                         <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
                       </div>
                     </div>
 
-                    <div className="my-1.5" />
+                    <DropdownMenuSeparator className="my-2" />
+                    {user?.role === "superadmin" && (
+                      <DropdownMenuItem onClick={() => router.push("/admin")} className="flex items-center gap-2 rounded-lg cursor-pointer">
+                        <Gauge className="h-4 w-4" /> Admin Dashboard
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => router.push("/wallet")} className="flex items-center gap-2 rounded-lg cursor-pointer">
+                      <Wallet className="h-4 w-4" /> Wallet
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2 rounded-lg cursor-pointer">
                       <Settings className="h-4 w-4" /> Settings
                     </DropdownMenuItem>
-                    {user?.role === "superadmin" && (
-                      <DropdownMenuItem onClick={() => router.push("/admin")} className="flex items-center gap-2 rounded-lg cursor-pointer">
-                        <Shield className="h-4 w-4" /> Admin Panel
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
+                    <DropdownMenuSeparator className="my-2" />
                     <DropdownMenuItem variant="destructive" onClick={handleLogout} className="flex items-center gap-2 rounded-lg cursor-pointer">
                       <LogOut className="h-4 w-4" /> Logout
                     </DropdownMenuItem>
@@ -390,35 +392,35 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
             )}
           </nav>
           <div className="flex items-center gap-2">
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm">Back to App</Button>
-            </Link>
             <div>
               <DropdownMenu>
                 <DropdownMenuTrigger render={
                   <Button variant="ghost" size="sm" className="gap-1.5 pl-1 pr-2">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
-                      {(user?.name ?? user?.email ?? "A")[0].toUpperCase()}
+                      <UserRound />
                     </span>
-                    <span className="hidden md:inline">Account</span>
+                    <span className="hidden md:inline">{user?.name || user?.email}</span>
                     <ChevronDown className="w-3.5 h-3.5" />
                   </Button>
                 } />
                 <DropdownMenuContent align="end" className="w-64 p-2">
                   <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
-                      {(user?.name ?? user?.email ?? "A")[0].toUpperCase()}
+                      <UserRound />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{user?.name || user?.email || "Account"}</p>
+                      <p className="truncate text-sm font-semibold">{user?.name || user?.email}</p>
                       <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
                     </div>
                   </div>
-                  <div className="my-1.5" />
+                  <DropdownMenuSeparator className="my-2" />
+                  <DropdownMenuItem onClick={() => router.push("/dashboard")} className="flex items-center gap-2 rounded-lg cursor-pointer">
+                    <Gauge className="h-4 w-4" /> Client Dashboard
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2 rounded-lg cursor-pointer">
                     <Settings className="h-4 w-4" /> Settings
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="my-2" />
                   <DropdownMenuItem variant="destructive" onClick={handleLogout} className="flex items-center gap-2 rounded-lg cursor-pointer">
                     <LogOut className="h-4 w-4" /> Logout
                   </DropdownMenuItem>

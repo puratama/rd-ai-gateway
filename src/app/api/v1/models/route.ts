@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
 
 interface PlanInfo {
   allowedModels: string[];
+  allModels: boolean;
   allowedProviders: string[];
+  allProviders: boolean;
 }
 
 async function resolveUserPlan(
@@ -78,12 +80,12 @@ async function getUserPlan(
     const p = prisma as {
       subscription: {
         findFirst: (args: unknown) => Promise<{
-          plan?: { allowedModels: string[]; allowedProviders: string[] };
+          plan?: { allowedModels: string[]; allModels: boolean; allowedProviders: string[]; allProviders: boolean };
         } | null>;
       };
       userPackage: {
         findFirst: (args: unknown) => Promise<{
-          plan?: { allowedModels: string[]; allowedProviders: string[] };
+          plan?: { allowedModels: string[]; allModels: boolean; allowedProviders: string[]; allProviders: boolean };
         } | null>;
       };
     };
@@ -91,36 +93,42 @@ async function getUserPlan(
     // Active subscription
     const sub = await p.subscription.findFirst({
       where: { userId, status: "active", endDate: { gt: new Date() } },
-      select: { plan: { select: { allowedModels: true, allowedProviders: true } } },
+      select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },
     });
     if (sub?.plan) {
       return {
         allowedModels: sub.plan.allowedModels ?? [],
+        allModels: sub.plan.allModels ?? true,
         allowedProviders: sub.plan.allowedProviders ?? [],
+        allProviders: sub.plan.allProviders ?? true,
       };
     }
 
     // Active package
     const pkg = await p.userPackage.findFirst({
       where: { userId, status: "active", expiresAt: { gt: new Date() } },
-      select: { plan: { select: { allowedModels: true, allowedProviders: true } } },
+      select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },
     });
     if (pkg?.plan) {
       return {
         allowedModels: pkg.plan.allowedModels ?? [],
+        allModels: pkg.plan.allModels ?? true,
         allowedProviders: pkg.plan.allowedProviders ?? [],
+        allProviders: pkg.plan.allProviders ?? true,
       };
     }
 
     // Free tier — get "free" plan
     const freePlan = await p.subscription.findFirst({
       where: { userId, status: "active", planId: "free" },
-      select: { plan: { select: { allowedModels: true, allowedProviders: true } } },
+      select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },
     });
     if (freePlan?.plan) {
       return {
         allowedModels: freePlan.plan.allowedModels ?? [],
+        allModels: freePlan.plan.allModels ?? true,
         allowedProviders: freePlan.plan.allowedProviders ?? [],
+        allProviders: freePlan.plan.allProviders ?? true,
       };
     }
   } catch {
@@ -139,20 +147,20 @@ function filterByPlan(
     const modelId = String(m.id || "").toLowerCase();
     const provider = String(m.provider || m.owned_by || "").toLowerCase();
 
-    // allowedModels: empty = all allowed; non-empty = only listed
-    if (
-      plan.allowedModels.length > 0 &&
-      !plan.allowedModels.some((a) => modelId.includes(a.toLowerCase()))
-    ) {
-      return false;
+    // allowedModels: allModels=true → semua; false → wajib list non-empty
+    if (plan.allModels === false) {
+      if (plan.allowedModels.length === 0) return false;
+      if (!plan.allowedModels.some((a) => modelId.includes(a.toLowerCase()))) {
+        return false;
+      }
     }
 
-    // allowedProviders: empty = all providers; non-empty = only listed
-    if (
-      plan.allowedProviders.length > 0 &&
-      !plan.allowedProviders.some((a) => provider.includes(a.toLowerCase()))
-    ) {
-      return false;
+    // allowedProviders: allProviders=true → semua; false → wajib list non-empty
+    if (plan.allProviders === false) {
+      if (plan.allowedProviders.length === 0) return false;
+      if (!plan.allowedProviders.some((a) => provider.includes(a.toLowerCase()))) {
+        return false;
+      }
     }
 
     return true;
@@ -179,7 +187,6 @@ async function fetchAppModels(): Promise<Record<string, unknown>[]> {
       ),
       owned_by: String(m.provider || ""),
       name: String(m.name || m.modelId || ""),
-      context: m.contextWindow || undefined,
       provider: String(m.provider || "unknown"),
     }));
   } catch {

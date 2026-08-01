@@ -18,7 +18,6 @@ export interface ModelInfo {
   id: string;
   name: string;
   provider: string;
-  context?: number;
   description?: string;
 }
 
@@ -63,7 +62,6 @@ export interface ModelPricing {
   id: string;
   name: string;
   provider: string;
-  context: number;
   pricing: {
     prompt: number;
     completion: number;
