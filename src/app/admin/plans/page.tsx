@@ -9,6 +9,7 @@ import {
   RefreshCw,
   AlertTriangle,
   CreditCard,
+  GripVertical,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
@@ -40,8 +41,7 @@ interface PlanItem {
     allProviders: boolean;
     streaming: boolean;
     imageGeneration: boolean;
-    apiAccess: boolean;
-    priority: string;
+    highlights: string[];
   };
   isActive: boolean;
   sortOrder: number;
@@ -61,8 +61,7 @@ interface PlanForm {
     allProviders: boolean;
     streaming: boolean;
     imageGeneration: boolean;
-    apiAccess: boolean;
-    priority: string;
+    highlights: string[];
   };
   isActive: boolean;
   sortOrder: number;
@@ -75,11 +74,7 @@ const fmtRupiah = (n: number) =>
     minimumFractionDigits: 0,
   }).format(n);
 
-const formatNumber = (n: number) => {
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
-  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
-  return n.toLocaleString();
-};
+const formatNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
 
 function ToggleSwitch({
   checked,
@@ -125,6 +120,38 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
     <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
       {children}
     </label>
+  );
+}
+
+function AddManualItem({
+  placeholder,
+  onAdd,
+}: {
+  placeholder: string;
+  onAdd: (value: string) => void;
+}) {
+  const [value, setValue] = useState("");
+  const trimmed = value.trim();
+  const submit = () => {
+    if (!trimmed) return;
+    onAdd(trimmed);
+    setValue("");
+  };
+  return (
+    <div className="flex gap-2">
+      <Input
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+        }}
+        className="h-9 bg-background"
+      />
+      <Button type="button" variant="outline" size="lg" className="shrink-0" disabled={!trimmed} onClick={submit}>
+        <Plus className="h-4 w-4" />
+      </Button>
+    </div>
   );
 }
 
@@ -207,7 +234,6 @@ function AdminPlansPageContent() {
                     <th className="px-4 py-3 text-center font-medium">Status</th>
                     <th className="px-4 py-3 text-right font-medium">Token/Bln</th>
                     <th className="px-4 py-3 text-center font-medium">Models</th>
-                    <th className="px-4 py-3 text-center font-medium">Priority</th>
                     <th className="w-16 px-4 py-3" />
                   </tr>
                 </thead>
@@ -217,7 +243,7 @@ function AdminPlansPageContent() {
                       <td className="px-4 py-3">
                         <p className="font-medium">{plan.name}</p>
                         {plan.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-50">
                             {plan.description}
                           </p>
                         )}
@@ -252,11 +278,6 @@ function AdminPlansPageContent() {
                       </td>
                       <td className="px-4 py-3 text-center text-xs">
                         {plan.features.allModels ? "All" : plan.features.allowedModels.length}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-[10px] px-2 py-0.5 bg-muted rounded-full capitalize">
-                          {plan.features.priority}
-                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
@@ -321,11 +342,11 @@ function AdminPlansPageContent() {
                   maxTokensPerPeriod: data.features.maxTokensPerMonth,
                   allowedModels: data.features.allowedModels,
                   allowedProviders: data.features.allowedProviders,
+                  allModels: data.features.allModels,
                   allProviders: data.features.allProviders,
                   streaming: data.features.streaming,
                   imageGeneration: data.features.imageGeneration,
-                  apiAccess: data.features.apiAccess,
-                  priority: data.features.priority,
+                  highlights: data.features.highlights,
                 };
                 delete (payload as Record<string, unknown>).features;
                 const res = await fetch(url, {
@@ -426,8 +447,7 @@ function PlanEditor({
             allProviders: true,
             streaming: true,
             imageGeneration: false,
-            apiAccess: true,
-            priority: "normal",
+            highlights: [],
           },
           isActive: true,
           sortOrder: 0,
@@ -435,6 +455,7 @@ function PlanEditor({
   );
   const [saving, setSaving] = useState(false);
   const [editorError, setEditorError] = useState("");
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [catalog, setCatalog] = useState<{
     providers: string[];
     models: { modelId: string; name: string; provider: string }[];
@@ -459,11 +480,26 @@ function PlanEditor({
     };
   }, []);
 
-  const toggleList = (key: "allowedModels" | "allowedProviders", value: string) =>
+  const toggleList = (key: "allowedModels" | "allowedProviders" | "highlights", value: string) =>
     setForm((prev) => {
       const list = prev.features[key];
       const next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
       return { ...prev, features: { ...prev.features, [key]: next } };
+    });
+
+  const addToList = (key: "allowedModels" | "allowedProviders" | "highlights", value: string) =>
+    setForm((prev) => {
+      if (prev.features[key].includes(value)) return prev;
+      return { ...prev, features: { ...prev.features, [key]: [...prev.features[key], value] } };
+    });
+
+  const moveFeature = (from: number, to: number) =>
+    setForm((prev) => {
+      if (from === to) return prev;
+      const next = [...prev.features.highlights];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return { ...prev, features: { ...prev.features, highlights: next } };
     });
 
   const periodOptions: SelectOption[] = [
@@ -471,11 +507,6 @@ function PlanEditor({
     { value: "weekly", label: "Weekly" },
     { value: "monthly", label: "Monthly" },
     { value: "yearly", label: "Yearly" },
-  ];
-  const priorityOptions: SelectOption[] = [
-    { value: "low", label: "Low" },
-    { value: "normal", label: "Normal" },
-    { value: "high", label: "High" },
   ];
   const findOpt = (opts: SelectOption[], v: string) =>
     opts.find((o) => o.value === v) ?? null;
@@ -513,7 +544,28 @@ function PlanEditor({
       ) {
         throw new Error("Wajib pilih minimal satu provider saat 'Semua Provider' dimatikan.");
       }
-      await onSave(form);
+      if (
+        !form.features.allModels &&
+        form.features.allowedModels.length === 0
+      ) {
+        throw new Error("Wajib pilih minimal satu model saat 'Semua Model' dimatikan.");
+      }
+      // Saat "Semua Model"/"Semua Provider" aktif, ikutkan seluruh yang terdaftar saat ini
+      const payload = {
+        ...form,
+        features: {
+          ...form.features,
+          allowedModels:
+            form.features.allModels && catalog
+              ? catalog.models.map((m) => m.modelId)
+              : form.features.allowedModels,
+          allowedProviders:
+            form.features.allProviders && catalog
+              ? catalog.providers
+              : form.features.allowedProviders,
+        },
+      };
+      await onSave(payload);
     } catch (e: unknown) {
       setEditorError(e instanceof Error ? e.message : "Save failed");
     }
@@ -628,13 +680,11 @@ function PlanEditor({
                 title: "Image Generation",
                 desc: "Allow image generation endpoints.",
               },
-              {
-                key: "apiAccess" as const,
-                title: "API Access",
-                desc: "Allow access via REST API keys.",
-              },
             ].map((f) => (
-              <div key={f.key} className="flex items-center justify-between gap-4">
+              <div
+                key={f.key}
+                className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-background px-3 py-2.5"
+              >
                 <div>
                   <p className="text-sm font-medium">{f.title}</p>
                   <p className="text-xs text-muted-foreground/60">{f.desc}</p>
@@ -645,16 +695,6 @@ function PlanEditor({
                 />
               </div>
             ))}
-            <div>
-              <FieldLabel>Priority</FieldLabel>
-              <FormSelect
-                options={priorityOptions}
-                value={findOpt(priorityOptions, form.features.priority || "normal")}
-                onChange={(v) => updateFeatures("priority", v ?? "normal")}
-                isClearable={false}
-                isSearchable={false}
-              />
-            </div>
           </div>
         </section>
 
@@ -673,10 +713,7 @@ function PlanEditor({
               </div>
               <ToggleSwitch
                 checked={form.features.allProviders}
-                onChange={(v) => {
-                  updateFeatures("allProviders", v);
-                  if (v) updateFeatures("allowedProviders", []);
-                }}
+                onChange={(v) => updateFeatures("allProviders", v)}
               />
             </div>
             {!form.features.allProviders && (
@@ -722,10 +759,7 @@ function PlanEditor({
               </div>
               <ToggleSwitch
                 checked={form.features.allModels}
-                onChange={(v) => {
-                  updateFeatures("allModels", v);
-                  if (v) updateFeatures("allowedModels", []);
-                }}
+                onChange={(v) => updateFeatures("allModels", v)}
               />
             </div>
             {!form.features.allModels && (
@@ -784,6 +818,60 @@ function PlanEditor({
                   </p>
                 )}
               </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── Highlights ── */}
+        <section>
+          <SectionHeader>Highlights</SectionHeader>
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+            <AddManualItem
+              placeholder='Tambah keunggulan (mis. "Full support")…'
+              onAdd={(v) => addToList("highlights", v)}
+            />
+            {form.features.highlights.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground/60">
+                Belum ada highlight. Tambahkan teks bebas seperti "Full support", "Priority queue", dll.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border/70">
+                {form.features.highlights.map((f, i) => (
+                  <li
+                    key={f}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => {
+                      if (dragIndex === null) return;
+                      moveFeature(dragIndex, i);
+                      setDragIndex(null);
+                    }}
+                    className={`group flex items-center justify-between gap-3 bg-card px-3 py-2 text-sm transition-colors hover:bg-muted/40 ${
+                      dragIndex === i ? "opacity-50" : ""
+                    }`}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                      <span
+                        draggable
+                        onDragStart={() => setDragIndex(i)}
+                        onDragEnd={() => setDragIndex(null)}
+                        className="shrink-0 cursor-grab text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+                        title="Seret untuk urut ulang"
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 truncate">{f}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleList("highlights", f)}
+                      className="shrink-0 border-l border-border/70 pl-2.5 text-muted-foreground/50 transition-colors hover:text-destructive"
+                      title="Hapus"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </section>

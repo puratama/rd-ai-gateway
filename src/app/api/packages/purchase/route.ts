@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { deductWallet } from "@/lib/server-store";
+import { getSession } from "@/lib/auth";
+
+async function resolveUserId(request: NextRequest): Promise<string | null> {
+  const token = request.headers.get("authorization")?.replace("Bearer ", "");
+  if (token) {
+    const apiKey = await prisma.apiKey.findUnique({
+      where: { key: token, isActive: true },
+      select: { userId: true },
+    });
+    if (apiKey) return apiKey.userId;
+  }
+  const session = await getSession();
+  return session ? session.sub : null;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    if (!token) {
+    const userId = await resolveUserId(request);
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const apiKey = await prisma.apiKey.findUnique({
-      where: { key: token, isActive: true },
-      include: { user: true },
-    });
-
-    if (!apiKey) {
-      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -31,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const price = Number(plan.price);
-    const deducted = await deductWallet(apiKey.userId, price);
+    const deducted = await deductWallet(userId, price);
     if (!deducted) {
       return NextResponse.json({ error: "Insufficient balance" }, { status: 402 });
     }
@@ -40,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     const userPackage = await prisma.userPackage.create({
       data: {
-        userId: apiKey.userId,
+        userId,
         planId,
         tokensTotal: plan.maxTokensPerPeriod,
         tokensRemaining: plan.maxTokensPerPeriod,

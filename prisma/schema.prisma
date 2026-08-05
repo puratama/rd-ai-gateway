@@ -108,8 +108,9 @@ model Plan {
   allProviders     Boolean  @default(true) // true = semua provider diizinkan, false = wajib isi allowedProviders
   streaming        Boolean  @default(true)
   imageGeneration  Boolean  @default(false)
-  apiAccess        Boolean  @default(true)
-  priority         String   @default("normal") // low | normal | high
+
+  // Free-text benefit list (e.g. "Full support", "Priority queue")
+  highlights String[] @default([])
 
   isActive  Boolean @default(true)
   sortOrder Int     @default(0)

@@ -80,8 +80,6 @@ function planToTier(p: PlanRaw): PricingTier {
   if (f.maxTokensPerMonth) features.push(`${Number(f.maxTokensPerMonth).toLocaleString()} tokens/${p.billingPeriod}`);
   if (f.streaming) features.push("Streaming");
   if (f.imageGeneration) features.push("Image generation");
-  if (f.apiAccess) features.push("API access");
-  if (f.priority && f.priority !== "normal") features.push(`${f.priority} priority`);
   if (f.allowedModels && Array.isArray(f.allowedModels) && f.allowedModels.length > 0) features.push(`${f.allowedModels.length} models`);
   else features.push("All models");
 

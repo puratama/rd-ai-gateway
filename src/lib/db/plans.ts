@@ -19,8 +19,7 @@ export interface MembershipPlan {
     allProviders: boolean;
     streaming: boolean;
     imageGeneration: boolean;
-    apiAccess: boolean;
-    priority: "low" | "normal" | "high";
+    highlights: string[];
   };
   isActive: boolean;
   sortOrder: number;
@@ -43,8 +42,7 @@ function mapPlan(p: {
   allProviders: boolean;
   streaming: boolean;
   imageGeneration: boolean;
-  apiAccess: boolean;
-  priority: string;
+  highlights: string[];
   isActive: boolean;
   sortOrder: number;
   createdAt: Date;
@@ -64,8 +62,7 @@ function mapPlan(p: {
       allProviders: p.allProviders ?? true,
       streaming: p.streaming,
       imageGeneration: p.imageGeneration,
-      apiAccess: p.apiAccess,
-      priority: p.priority as "low" | "normal" | "high",
+      highlights: p.highlights ?? [],
     },
     isActive: p.isActive,
     sortOrder: p.sortOrder,
@@ -98,8 +95,7 @@ export async function createPlan(data: {
   allProviders?: boolean;
   streaming?: boolean;
   imageGeneration?: boolean;
-  apiAccess?: boolean;
-  priority?: string;
+  highlights?: string[];
   isActive?: boolean;
   sortOrder?: number;
 }) {
@@ -109,7 +105,8 @@ export async function createPlan(data: {
 export async function updatePlan(id: string, data: Record<string, unknown>) {
   try {
     return await prisma.plan.update({ where: { id }, data });
-  } catch {
+  } catch (e) {
+    console.error("[updatePlan] error for id:", id, e);
     return null;
   }
 }
