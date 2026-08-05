@@ -9,12 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [subscription, packages, wallet] = await Promise.all([
-      prisma.subscription.findFirst({
-        where: { userId: session.sub, status: "active", endDate: { gt: new Date() } },
-        include: { plan: true },
-        orderBy: { createdAt: "desc" },
-      }),
+    const [packages, wallet] = await Promise.all([
       prisma.userPackage.findMany({
         where: { userId: session.sub },
         include: { plan: true },
@@ -24,24 +19,6 @@ export async function GET() {
     ]);
 
     return NextResponse.json({
-      subscription: subscription
-        ? {
-            id: subscription.id,
-            status: subscription.status,
-            tokensUsed: subscription.tokensUsed,
-            startDate: subscription.startDate,
-            endDate: subscription.endDate,
-            autoRenew: subscription.autoRenew,
-            plan: {
-              id: subscription.plan.id,
-              name: subscription.plan.name,
-              description: subscription.plan.description,
-              billingPeriod: subscription.plan.billingPeriod,
-              price: Number(subscription.plan.price),
-              maxTokensPerPeriod: subscription.plan.maxTokensPerPeriod,
-            },
-          }
-        : null,
       packages: packages.map((p) => ({
         id: p.id,
         status: p.status,

@@ -117,7 +117,7 @@ export async function deletePlan(id: string) {
     return true;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
-      throw new Error("Cannot delete: plan has active subscriptions or packages");
+      throw new Error("Cannot delete: plan has active packages");
     }
     return false;
   }

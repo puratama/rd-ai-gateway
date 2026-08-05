@@ -78,11 +78,6 @@ async function getUserPlan(
 ): Promise<PlanInfo | undefined> {
   try {
     const p = prisma as {
-      subscription: {
-        findFirst: (args: unknown) => Promise<{
-          plan?: { allowedModels: string[]; allModels: boolean; allowedProviders: string[]; allProviders: boolean };
-        } | null>;
-      };
       userPackage: {
         findFirst: (args: unknown) => Promise<{
           plan?: { allowedModels: string[]; allModels: boolean; allowedProviders: string[]; allProviders: boolean };
@@ -90,21 +85,7 @@ async function getUserPlan(
       };
     };
 
-    // Active subscription
-    const sub = await p.subscription.findFirst({
-      where: { userId, status: "active", endDate: { gt: new Date() } },
-      select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },
-    });
-    if (sub?.plan) {
-      return {
-        allowedModels: sub.plan.allowedModels ?? [],
-        allModels: sub.plan.allModels ?? true,
-        allowedProviders: sub.plan.allowedProviders ?? [],
-        allProviders: sub.plan.allProviders ?? true,
-      };
-    }
-
-    // Active package
+    // Active package (prepaid token plan) — determines model access
     const pkg = await p.userPackage.findFirst({
       where: { userId, status: "active", expiresAt: { gt: new Date() } },
       select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },
@@ -118,17 +99,15 @@ async function getUserPlan(
       };
     }
 
-    // Free tier — get "free" plan
-    const freePlan = await p.subscription.findFirst({
-      where: { userId, status: "active", planId: "free" },
-      select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },
-    });
-    if (freePlan?.plan) {
+    // Free tier — read "free" plan defaults
+    const { getPlan } = await import("@/lib/server-store");
+    const freePlan = await getPlan("free");
+    if (freePlan) {
       return {
-        allowedModels: freePlan.plan.allowedModels ?? [],
-        allModels: freePlan.plan.allModels ?? true,
-        allowedProviders: freePlan.plan.allowedProviders ?? [],
-        allProviders: freePlan.plan.allProviders ?? true,
+        allowedModels: freePlan.features.allowedModels ?? [],
+        allModels: freePlan.features.allModels ?? true,
+        allowedProviders: freePlan.features.allowedProviders ?? [],
+        allProviders: freePlan.features.allProviders ?? true,
       };
     }
   } catch {

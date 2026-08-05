@@ -56,7 +56,7 @@ interface PricingTier {
 
 const FALLBACK_TIERS: PricingTier[] = [
   { name: "Starter", price: "Free", description: "For trying out the platform", features: ["1,000 tokens/day", "Basic models", "Community support", "1 API key"], cta: "Get Started", popular: false },
-  { name: "Pro", price: "Rp 99K", period: "/month", description: "For serious developers", features: ["1M tokens/month", "All models", "Priority support", "10 API keys", "Streaming", "Analytics"], cta: "Start Pro", popular: true },
+  { name: "Pro", price: "Rp 99K", description: "For serious developers", features: ["1M tokens", "All models", "Priority support", "10 API keys", "Streaming", "Analytics"], cta: "Beli Paket", popular: true },
   { name: "Enterprise", price: "Custom", description: "For teams and businesses", features: ["Unlimited tokens", "Custom models", "Dedicated support", "Unlimited keys", "SLA", "On-prem option"], cta: "Contact Sales", popular: false },
 ];
 
@@ -86,10 +86,9 @@ function planToTier(p: PlanRaw): PricingTier {
   return {
     name: p.name,
     price: p.price === 0 ? "Free" : formatRupiah(p.price),
-    period: p.price > 0 ? `/${p.billingPeriod}` : undefined,
     description: p.description || p.name,
     features,
-    cta: p.price === 0 ? "Get Started" : "Subscribe",
+    cta: p.price === 0 ? "Get Started" : "Beli Paket",
     popular: p.name.toLowerCase().includes("pro"),
   };
 }

@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { validateServerKey, getPlan, createBillingRecord, generateId, extendSubscription } = await import("@/lib/server-store");
+    const { validateServerKey, getPlan, createBillingRecord, generateId } = await import("@/lib/server-store");
     const apiKey = await validateServerKey(auth);
     if (!apiKey) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
@@ -25,12 +25,12 @@ export async function POST(request: NextRequest) {
 
     const billingRecord = await createBillingRecord({
       userId: apiKey.userId,
-      type: "subscription",
+      type: "package_purchase",
       amount: plan.price,
       status: "pending",
       midtransOrderId: orderId,
       planId,
-      description: `Renewal: ${plan.name} - ${plan.billingPeriod}`,
+      description: `Package: ${plan.name} - ${plan.billingPeriod}`,
     });
 
     try {
@@ -47,12 +47,24 @@ export async function POST(request: NextRequest) {
         plan,
       });
     } catch {
-      // Dev mode fallback - extend directly
-      await extendSubscription(apiKey.userId, planId, plan.billingPeriod as import("@/lib/server-store").BillingPeriod);
+      // Dev mode fallback - create package directly
+      const { prisma } = await import("@/lib/db");
+      const pkg = await prisma.userPackage.create({
+        data: {
+          userId: apiKey.userId,
+          planId,
+          status: "active",
+          tokensTotal: plan.features.maxTokensPerMonth,
+          tokensRemaining: plan.features.maxTokensPerMonth,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          billingId: billingRecord.id,
+        },
+      });
       return NextResponse.json({
         billing: billingRecord,
         plan,
-        note: "Payment not configured. Subscription extended directly (dev mode).",
+        package: pkg,
+        note: "Payment not configured. Package created directly (dev mode).",
         devMode: true,
       });
     }

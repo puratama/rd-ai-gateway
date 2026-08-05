@@ -20,7 +20,7 @@ export async function updateAggregatorConfig(data: Record<string, unknown>) {
 export async function getAdminStats() {
   const keys = await prisma.apiKey.findMany();
   const records = await prisma.usageRecord.findMany();
-  const subs = await prisma.subscription.findMany();
+  const packages = await prisma.userPackage.findMany();
   const plans = await loadPlans();
   const billing = await prisma.billingRecord.findMany();
 
@@ -57,10 +57,10 @@ export async function getAdminStats() {
     }
   });
 
-  const activeSubs = subs.filter((s) => s.status === "active");
-  const subsByPlan: Record<string, number> = {};
-  activeSubs.forEach((s) => {
-    subsByPlan[s.planId] = (subsByPlan[s.planId] || 0) + 1;
+  const activePkgs = packages.filter((p) => p.status === "active");
+  const pkgsByPlan: Record<string, number> = {};
+  activePkgs.forEach((p) => {
+    pkgsByPlan[p.planId] = (pkgsByPlan[p.planId] || 0) + 1;
   });
 
   return {
@@ -80,10 +80,10 @@ export async function getAdminStats() {
       pendingPayments: billing.filter((b) => b.status === "pending").length,
       totalBillingRecords: billing.length,
     },
-    subscriptions: {
-      total: subs.length,
-      active: activeSubs.length,
-      byPlan: subsByPlan,
+    packages: {
+      total: packages.length,
+      active: activePkgs.length,
+      byPlan: pkgsByPlan,
     },
     providers: providerUsage,
     dailyUsage,

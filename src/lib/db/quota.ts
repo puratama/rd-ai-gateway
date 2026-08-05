@@ -17,38 +17,21 @@ export async function checkRateLimit(apiKeyId: string): Promise<{ allowed: boole
     return { allowed: false, reason: "Email belum diverifikasi. Cek email Anda." };
   }
 
-  const sub = await prisma.subscription.findFirst({
-    where: { userId: apiKey.userId, status: "active", endDate: { gt: new Date() } },
-    include: { plan: true },
+  // PAYG user — no subscription gating. Wallet handles billing, soft rate limits only.
+  const freePlan = await getPlan("free");
+  const maxDailyTokens = freePlan?.features?.maxTokensPerMonth || 1000000;
+
+  // Check daily token limit
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayTokens = await prisma.usageRecord.aggregate({
+    where: { userId: apiKey.userId, createdAt: { gte: today } },
+    _sum: { totalTokens: true },
   });
-
-  if (!sub) {
-    // No subscription → PAYG user. Wallet handles billing, apply soft rate limits only.
-    const freePlan = await getPlan("free");
-    const maxDailyTokens = freePlan?.features?.maxTokensPerMonth || 1000000;
-
-    // Check daily token limit
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const todayTokens = await prisma.usageRecord.aggregate({
-      where: { userId: apiKey.userId, createdAt: { gte: today } },
-      _sum: { totalTokens: true },
-    });
-    if ((todayTokens._sum.totalTokens || 0) >= maxDailyTokens) {
-      return { allowed: false, reason: `Daily token limit reached (${maxDailyTokens} tokens)`, plan: freePlan ?? undefined };
-    }
-
-    return { allowed: true, plan: freePlan ?? undefined };
+  if ((todayTokens._sum.totalTokens || 0) >= maxDailyTokens) {
+    return { allowed: false, reason: `Daily token limit reached (${maxDailyTokens} tokens)`, plan: freePlan ?? undefined };
   }
 
-  const plan = await getPlan(sub.planId);
-  if (!plan) return { allowed: false, reason: "Plan not found" };
-
-  // Check subscription token quota
-  if (sub.tokensUsed >= plan.features.maxTokensPerMonth) {
-    return { allowed: false, reason: `Subscription quota exhausted (${sub.tokensUsed}/${plan.features.maxTokensPerMonth} tokens)`, plan };
-  }
-
-  return { allowed: true, plan };
+  return { allowed: true, plan: freePlan ?? undefined };
 }
 
 // ====== Model Access ======
@@ -87,12 +70,6 @@ export async function checkModelAccess(apiKeyId: string, modelId: string): Promi
 }
 
 async function resolveUserPlan(userId: string): Promise<{ allowedModels: string[]; allModels: boolean; allowedProviders: string[]; allProviders: boolean } | null> {
-  const sub = await prisma.subscription.findFirst({
-    where: { userId, status: "active", endDate: { gt: new Date() } },
-    select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },
-  });
-  if (sub?.plan) return sub.plan as { allowedModels: string[]; allModels: boolean; allowedProviders: string[]; allProviders: boolean };
-
   const pkg = await prisma.userPackage.findFirst({
     where: { userId, status: "active", expiresAt: { gt: new Date() } },
     select: { plan: { select: { allowedModels: true, allModels: true, allowedProviders: true, allProviders: true } } },

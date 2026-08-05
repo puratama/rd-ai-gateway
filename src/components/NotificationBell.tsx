@@ -23,7 +23,6 @@ type Notification = {
 
 const typeIcons: Record<string, ComponentType<{ className?: string }>> = {
   usage_alert: AlertTriangle,
-  subscription_expiry: CreditCard,
   low_balance: Wallet,
   system: CheckCircle2,
 };

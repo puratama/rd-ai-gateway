@@ -31,7 +31,6 @@ model User {
   // Relations
   apiKeys        ApiKey[]
   wallet         Wallet?
-  subscriptions  Subscription[]
   packages       UserPackage[]
   usageRecords   UsageRecord[]
   billingRecords BillingRecord[]
@@ -115,29 +114,10 @@ model Plan {
   isActive  Boolean @default(true)
   sortOrder Int     @default(0)
 
-  subscriptions Subscription[]
   packages      UserPackage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-// ====== Subscriptions ======
-
-model Subscription {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId String
-  plan   Plan   @relation(fields: [planId], references: [id])
-
-  status     String   @default("active") // active | expired | cancelled
-  tokensUsed Int      @default(0)
-  startDate  DateTime @default(now())
-  endDate    DateTime
-  autoRenew  Boolean  @default(false)
-
-  createdAt DateTime @default(now())
 }
 
 // ====== User Packages ======
@@ -209,7 +189,7 @@ model Notification {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type    String // "usage_alert" | "subscription_expiry" | "low_balance" | "system"
+  type    String // "usage_alert" | "low_balance" | "system"
   title   String
   message String
   read    Boolean @default(false)

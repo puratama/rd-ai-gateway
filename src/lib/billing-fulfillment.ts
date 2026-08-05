@@ -47,31 +47,6 @@ export async function handlePaidBilling(
     return;
   }
 
-  if (billing.type === "subscription") {
-    // Find active subscription for same plan → extend, else create
-    const existingSub = await prisma.subscription.findFirst({
-      where: { userId: billing.userId, planId: plan.id, status: "active", endDate: { gt: new Date() } },
-      orderBy: { endDate: "desc" },
-    });
-
-    if (existingSub) {
-      await prisma.subscription.update({
-        where: { id: existingSub.id },
-        data: { endDate: addBillingPeriod(existingSub.endDate, plan.billingPeriod) },
-      });
-    } else {
-      await prisma.subscription.create({
-        data: {
-          userId: billing.userId,
-          planId: plan.id,
-          status: "active",
-          endDate: addBillingPeriod(new Date(), plan.billingPeriod),
-        },
-      });
-    }
-    return;
-  }
-
   if (billing.type === "package_purchase") {
     await prisma.userPackage.create({
       data: {

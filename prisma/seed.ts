@@ -14,7 +14,6 @@ async function main() {
   await prisma.billingRecord.deleteMany();
   await prisma.usageRecord.deleteMany();
   await prisma.userPackage.deleteMany();
-  await prisma.subscription.deleteMany();
   await prisma.apiKey.deleteMany();
   await prisma.wallet.deleteMany();
   await prisma.notification.deleteMany();

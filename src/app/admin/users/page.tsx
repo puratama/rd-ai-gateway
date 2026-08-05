@@ -27,7 +27,6 @@ interface AdminUser {
   createdAt: string;
   usageCount: number;
   totalTokens: number;
-  subscriptionCount: number;
   packageCount: number;
   activePlan: string | null;
 }
@@ -37,15 +36,6 @@ interface UsersResponse {
   total: number;
   page: number;
   limit: number;
-}
-
-interface SubItem {
-  id: string;
-  status: string;
-  plan: { name: string; price: number; billingPeriod: string };
-  tokensUsed: number;
-  endDate: string;
-  autoRenew: boolean;
 }
 
 interface PackageItem {
@@ -85,7 +75,6 @@ interface ApiKeyItem {
 }
 
 type UserDetail = AdminUser & {
-  subscriptions?: SubItem[];
   packages?: PackageItem[];
   usageRecords?: UsageItem[];
   billingRecords?: BillingItem[];
@@ -134,18 +123,18 @@ export default function AdminUsersPage() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
-  const [subscribedOnly, setSubscribedOnly] = useState(false);
+  const [hasPackageOnly, setHasPackageOnly] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [modalUser, setModalUser] = useState<UserDetail | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
 
-  const fetchUsers = useCallback(async (term: string, p: number, l: number, subscribed: boolean) => {
+  const fetchUsers = useCallback(async (term: string, p: number, l: number, hasPackage: boolean) => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({ page: String(p), limit: String(l) });
       if (term.trim()) params.set("search", term.trim());
-      if (subscribed) params.set("subscribed", "true");
+      if (hasPackage) params.set("hasPackage", "true");
       const res = await fetch(`/api/admin/users?${params}`);
       if (!res.ok) throw new Error("Failed to load users");
       const data: UsersResponse = await res.json();
@@ -159,9 +148,9 @@ export default function AdminUsersPage() {
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => fetchUsers(search, page, limit, subscribedOnly), 300);
+    const timer = window.setTimeout(() => fetchUsers(search, page, limit, hasPackageOnly), 300);
     return () => window.clearTimeout(timer);
-  }, [fetchUsers, search, page, limit, subscribedOnly]);
+  }, [fetchUsers, search, page, limit, hasPackageOnly]);
 
   const handleDeleteUser = async () => {
     if (!deletingUserId) return;
@@ -169,7 +158,7 @@ export default function AdminUsersPage() {
       const res = await fetch(`/api/admin/users/${deletingUserId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete user");
       setDeletingUserId(null);
-      fetchUsers(search, page, limit, subscribedOnly);
+      fetchUsers(search, page, limit, hasPackageOnly);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete user");
     }
@@ -189,7 +178,7 @@ export default function AdminUsersPage() {
     if (modalUser?.id === id) {
       setModalUser((prev) => prev ? { ...prev, ...patch as Partial<UserDetail> } : prev);
     }
-    fetchUsers(search, page, limit, subscribedOnly);
+    fetchUsers(search, page, limit, hasPackageOnly);
   };
 
   const openModal = async (id: string) => {
@@ -217,11 +206,11 @@ export default function AdminUsersPage() {
             <p className="text-sm text-muted-foreground">Manage roles, status, verification, and monitor user data.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant={subscribedOnly ? "default" : "outline"} size="sm" onClick={() => setSubscribedOnly(v => !v)} className="cursor-pointer">
+            <Button variant={hasPackageOnly ? "default" : "outline"} size="sm" onClick={() => setHasPackageOnly(v => !v)} className="cursor-pointer">
               <Users className="w-4 h-4 mr-2" />
-              Berlangganan
+              Punya Paket
             </Button>
-            <Button variant="outline" onClick={() => fetchUsers(search, page, limit, subscribedOnly)} className="cursor-pointer">
+            <Button variant="outline" onClick={() => fetchUsers(search, page, limit, hasPackageOnly)} className="cursor-pointer">
               <RefreshCw className="w-4 h-4" />
               Refresh
             </Button>
@@ -347,27 +336,11 @@ export default function AdminUsersPage() {
                 </div>
 
                 {/* Summary cards */}
-                <div className="grid gap-3 text-xs sm:grid-cols-4">
+                <div className="grid gap-3 text-xs sm:grid-cols-3">
                   <CardDetail label="Created" value={fmtDate(modalUser.createdAt)} />
                   <CardDetail label="Wallet" value={modalUser.wallet ? fmtRupiah(Number(modalUser.wallet.balance)) : "No wallet"} />
-                  <CardDetail label="Subscriptions" value={String(modalUser.subscriptionCount)} />
                   <CardDetail label="Packages" value={String(modalUser.packageCount)} />
                 </div>
-
-                {/* Active subscriptions */}
-                {modalUser.subscriptions && modalUser.subscriptions.filter(s => s.status === "active").length > 0 && (
-                  <Section title="Active Subscriptions" color="emerald">
-                    {modalUser.subscriptions.filter(s => s.status === "active").map(s => (
-                      <div key={s.id} className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-                        <div><span className="text-muted-foreground">Plan:</span> <span className="font-medium">{s.plan.name}</span></div>
-                        <div><span className="text-muted-foreground">Price:</span> {fmtRupiah(Number(s.plan.price))}/{s.plan.billingPeriod}</div>
-                        <div><span className="text-muted-foreground">Tokens Used:</span> {s.tokensUsed.toLocaleString()}</div>
-                        <div><span className="text-muted-foreground">Expires:</span> {fmtDate(s.endDate)}</div>
-                        <div><span className="text-muted-foreground">Auto:</span> {s.autoRenew ? "Yes" : "No"}</div>
-                      </div>
-                    ))}
-                  </Section>
-                )}
 
                 {/* Active packages */}
                 {modalUser.packages && modalUser.packages.filter(p => p.status === "active").length > 0 && (
@@ -391,9 +364,8 @@ export default function AdminUsersPage() {
                 )}
 
                 {/* No active plan */}
-                {(!modalUser.subscriptions || modalUser.subscriptions.filter(s => s.status === "active").length === 0) &&
-                 (!modalUser.packages || modalUser.packages.filter(s => s.status === "active").length === 0) && (
-                  <div className="rounded-lg border border-border bg-background p-3 text-xs text-muted-foreground">No active subscription or package. User is on free tier.</div>
+                {(!modalUser.packages || modalUser.packages.filter(p => p.status === "active").length === 0) && (
+                  <div className="rounded-lg border border-border bg-background p-3 text-xs text-muted-foreground">No active package. User is on free tier.</div>
                 )}
 
                 {/* API Keys */}

@@ -178,17 +178,13 @@ export default function PlanPage() {
                     <CardContent className="flex flex-col gap-4 p-5">
                       <div>
                         <p className="truncate text-sm font-semibold">{plan.name}</p>
-                        <p className="text-[11px] text-muted-foreground">Berlaku per {plan.billingPeriod}</p>
+                        <p className="text-[11px] text-muted-foreground">Sekali bayar</p>
                       </div>
 
                       <div>
                         <p className="text-[10px] font-medium tracking-widest text-muted-foreground uppercase">Harga</p>
                         <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground tabular-nums">
-                          {plan.price === 0 ? "Gratis" : (
-                            <>
-                              {fmtRupiah(plan.price)} <sub className="text-sm font-medium text-muted-foreground">/ {plan.billingPeriod}</sub>
-                            </>
-                          )}
+                          {plan.price === 0 ? "Gratis" : fmtRupiah(plan.price)}
                         </p>
                       </div>
 

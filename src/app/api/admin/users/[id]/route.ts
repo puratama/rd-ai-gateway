@@ -34,7 +34,6 @@ async function findUser(id: string) {
     include: {
       apiKeys: true,
       wallet: true,
-      subscriptions: { include: { plan: true }, orderBy: { createdAt: "desc" } },
       packages: { include: { plan: true }, orderBy: { createdAt: "desc" } },
       usageRecords: { orderBy: { createdAt: "desc" }, take: 50 },
       billingRecords: { orderBy: { createdAt: "desc" }, take: 20 },

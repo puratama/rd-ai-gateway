@@ -11,17 +11,6 @@ export function notifyUsageAlert(userId: string, percent: number) {
   });
 }
 
-export function notifySubscriptionExpiry(userId: string, planName: string, daysLeft: number) {
-  return prisma.notification.create({
-    data: {
-      userId,
-      type: "subscription_expiry",
-      title: "Subscription Expiring",
-      message: `Your ${planName} plan expires in ${daysLeft} days.`,
-    },
-  });
-}
-
 export function notifyLowBalance(userId: string, balance: number) {
   return prisma.notification.create({
     data: {

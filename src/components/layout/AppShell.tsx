@@ -143,8 +143,6 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
     ? "Models"
     : pathname === "/admin/plans"
     ? "Plans"
-    : pathname === "/admin/subscriptions"
-    ? "Subscriptions"
     : pathname === "/admin/keys"
     ? "API Keys"
     : pathname === "/admin/settings"
@@ -229,6 +227,9 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                     )}
                     <DropdownMenuItem onClick={() => router.push("/wallet")} className="flex items-center gap-2 rounded-lg cursor-pointer">
                       <Wallet className="h-4 w-4" /> Wallet
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push("/my/plan")} className="flex items-center gap-2 rounded-lg cursor-pointer">
+                      <CreditCard className="h-4 w-4" /> My Plan
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2 rounded-lg cursor-pointer">
                       <Settings className="h-4 w-4" /> Settings

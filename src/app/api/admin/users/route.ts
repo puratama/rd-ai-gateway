@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const page = toPositiveInt(request.nextUrl.searchParams.get("page"), DEFAULT_PAGE);
     const limit = Math.min(toPositiveInt(request.nextUrl.searchParams.get("limit"), DEFAULT_LIMIT), MAX_LIMIT);
     const search = request.nextUrl.searchParams.get("search")?.trim();
-    const subscribed = request.nextUrl.searchParams.get("subscribed") === "true";
+    const hasPackage = request.nextUrl.searchParams.get("hasPackage") === "true";
 
     const searchWhere: Prisma.UserWhereInput = search
       ? {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     const where: Prisma.UserWhereInput = {
       ...searchWhere,
-      ...(subscribed ? { subscriptions: { some: { status: "active" } } } : {}),
+      ...(hasPackage ? { packages: { some: { status: "active" } } } : {}),
     };
 
     const [users, total] = await Promise.all([
@@ -57,14 +57,8 @@ export async function GET(request: NextRequest) {
           _count: {
             select: {
               usageRecords: true,
-              subscriptions: true,
               packages: true,
             },
-          },
-          subscriptions: {
-            where: { status: "active" },
-            select: { plan: { select: { name: true } } },
-            take: 1,
           },
           packages: {
             where: { status: "active" },
@@ -88,9 +82,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       users: users.map((user) => {
-        const activeSub = user.subscriptions[0];
         const activePkg = user.packages[0];
-        const activePlan = activeSub?.plan?.name ?? activePkg?.plan?.name ?? null;
+        const activePlan = activePkg?.plan?.name ?? null;
         return {
           id: user.id,
           email: user.email,
@@ -101,7 +94,6 @@ export async function GET(request: NextRequest) {
           createdAt: user.createdAt,
           usageCount: user._count.usageRecords,
           totalTokens: totalTokensByUserId.get(user.id) ?? 0,
-          subscriptionCount: user._count.subscriptions,
           packageCount: user._count.packages,
           activePlan,
         };

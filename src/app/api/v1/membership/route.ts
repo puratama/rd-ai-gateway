@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// GET /api/v1/membership - Check current subscription status
+// GET /api/v1/membership - Check current packages & plan access
 export async function GET(request: NextRequest) {
   try {
     const auth = request.headers.get("authorization")?.replace("Bearer ", "");
@@ -8,17 +8,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { validateServerKey, getSubscriptionByKey, getPlan, loadPlans } = await import("@/lib/server-store");
+    const { validateServerKey, getPlan, loadPlans } = await import("@/lib/server-store");
     const apiKey = await validateServerKey(auth);
     if (!apiKey) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
 
-    const sub = await getSubscriptionByKey(apiKey.id);
+    const { prisma } = await import("@/lib/db");
+    const packages = await prisma.userPackage.findMany({
+      where: { userId: apiKey.userId, status: "active", expiresAt: { gt: new Date() } },
+      include: { plan: true },
+      orderBy: { createdAt: "desc" },
+    });
     const plans = (await loadPlans()).filter((p) => p.isActive);
 
     return NextResponse.json({
-      subscription: sub,
+      packages: packages.map((p) => ({
+        id: p.id,
+        planId: p.planId,
+        tokensRemaining: p.tokensRemaining,
+        tokensTotal: p.tokensTotal,
+        expiresAt: p.expiresAt,
+        plan: p.plan,
+      })),
       plans: plans.map((p) => ({
         id: p.id,
         name: p.name,
@@ -27,14 +39,14 @@ export async function GET(request: NextRequest) {
         billingPeriod: p.billingPeriod,
         features: p.features,
       })),
-      currentPlan: sub ? await getPlan(sub.planId) : await getPlan("free"),
+      currentPlan: packages[0]?.plan ?? (await getPlan("free")),
     });
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
   }
 }
 
-// POST /api/v1/membership - Subscribe to a plan (creates billing record)
+// POST /api/v1/membership - Purchase a plan (creates package + billing record)
 export async function POST(request: NextRequest) {
   try {
     const auth = request.headers.get("authorization")?.replace("Bearer ", "");
@@ -42,7 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { validateServerKey, createSubscription, getPlan } = await import("@/lib/server-store");
+    const { validateServerKey, getPlan } = await import("@/lib/server-store");
     const apiKey = await validateServerKey(auth);
     if (!apiKey) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
@@ -57,9 +69,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (plan.price === 0) {
-      // Free plan - just create subscription immediately
-      const sub = await createSubscription(apiKey.userId, planId);
-      return NextResponse.json({ subscription: sub, plan });
+      // Free plan - create package immediately
+      const { prisma } = await import("@/lib/db");
+      const pkg = await prisma.userPackage.create({
+        data: {
+          userId: apiKey.userId,
+          planId,
+          status: "active",
+          tokensTotal: plan.features.maxTokensPerMonth,
+          tokensRemaining: plan.features.maxTokensPerMonth,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+      return NextResponse.json({ package: pkg, plan });
     }
 
     // For paid plans, create billing record with Midtrans
@@ -68,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     const billingRecord = await createBillingRecord({
       userId: apiKey.userId,
-      type: "subscription",
+      type: "package_purchase",
       amount: plan.price,
       status: "pending",
       midtransOrderId: orderId,

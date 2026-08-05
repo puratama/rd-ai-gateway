@@ -232,7 +232,7 @@ function AdminPlansPageContent() {
                     <th className="px-4 py-3 font-medium">Nama</th>
                     <th className="px-4 py-3 font-medium">Harga</th>
                     <th className="px-4 py-3 text-center font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">Token/Bln</th>
+                    <th className="px-4 py-3 text-right font-medium">Total Token</th>
                     <th className="px-4 py-3 text-center font-medium">Models</th>
                     <th className="w-16 px-4 py-3" />
                   </tr>
@@ -255,7 +255,7 @@ function AdminPlansPageContent() {
                           </span>
                         ) : (
                           <span className="text-xs font-medium">
-                            {fmtRupiah(plan.price)} / {plan.billingPeriod}
+                            {fmtRupiah(plan.price)}
                           </span>
                         )}
                       </td>
@@ -390,8 +390,8 @@ function AdminPlansPageContent() {
                 <DialogTitle>Delete Plan</DialogTitle>
               </div>
               <DialogDescription>
-                Permanently delete this plan. Users with active subscriptions
-                or packages on this plan cannot be removed.
+                Permanently delete this plan. Users with active packages
+                on this plan cannot be removed.
               </DialogDescription>
             </DialogHeader>
             {deleteError && (
@@ -649,7 +649,7 @@ function PlanEditor({
           <SectionHeader>Quota</SectionHeader>
           <div className="rounded-lg border border-border bg-muted/20 p-4">
             <div>
-              <FieldLabel>Max Tokens / Period</FieldLabel>
+              <FieldLabel>Max Tokens</FieldLabel>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -659,7 +659,7 @@ function PlanEditor({
                 className="h-9 bg-background"
               />
               <p className="text-[10px] text-muted-foreground/60 mt-1">
-                Jatah token per {form.billingPeriod || "period"}. Berlaku untuk paket &amp; token plan.
+                Jatah token di paket. Berlaku untuk paket &amp; token plan.
               </p>
             </div>
           </div>
@@ -814,7 +814,7 @@ function PlanEditor({
                   </p>
                 ) : (
                   <p className="text-[10px] text-muted-foreground/60 mt-1">
-                    Hanya model yang dipilih yang diizinkan. Partial match: "gpt" cocok dengan "gpt-4o", dst.
+                    Hanya model yang dipilih yang diizinkan. Partial match: &quot;gpt&quot; cocok dengan &quot;gpt-4o&quot;, dst.
                   </p>
                 )}
               </div>
@@ -832,7 +832,7 @@ function PlanEditor({
             />
             {form.features.highlights.length === 0 ? (
               <p className="text-[10px] text-muted-foreground/60">
-                Belum ada highlight. Tambahkan teks bebas seperti "Full support", "Priority queue", dll.
+                Belum ada highlight. Tambahkan teks bebas seperti &quot;Full support&quot;, &quot;Priority queue&quot;, dll.
               </p>
             ) : (
               <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border/70">
@@ -884,7 +884,7 @@ function PlanEditor({
               <div>
                 <p className="text-sm font-medium">Plan Active</p>
                 <p className="text-xs text-muted-foreground/60">
-                  When inactive, this plan won't be available for purchase.
+                  When inactive, this plan won&apos;t be available for purchase.
                 </p>
               </div>
               <ToggleSwitch

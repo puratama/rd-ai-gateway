@@ -64,8 +64,6 @@ const DICTIONARY: Record<Locale, Record<string, string>> = {
     "pricing_sub": "Mulai gratis, upgrade sesuai kebutuhan.",
     "pricing_free": "Gratis",
     "pricing_custom": "Custom",
-    "pricing_monthly": "/bulan",
-    "pricing_day": "/hari",
     "pricing_popular": "Paling Populer",
     "pricing_best_value": "Best Value",
 

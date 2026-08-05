@@ -17,8 +17,8 @@ import AppShell from "@/components/layout/AppShell";
 
 interface AdminStats {
   overview: { totalKeys: number; activeKeys: number; usedKeys: number; totalRequests: number; totalTokens: number; todayTokens: number; todayRequests: number };
-  revenue: { totalRevenue: number; pendingRevenue: number; completedPayments: number; pendingPayments: number; byType: { subscription: number; package: number; topup: number } };
-  subscriptions: { total: number; active: number; byPlan: Record<string, number> };
+  revenue: { totalRevenue: number; pendingRevenue: number; completedPayments: number; pendingPayments: number; byType: { package: number; topup: number } };
+  packages: { total: number; active: number; byPlan: Record<string, number> };
   providers: Record<string, number>;
   dailyUsage: Record<string, number>;
   topModels: { model: string; tokens: number; requests: number }[];
@@ -156,7 +156,6 @@ function AdminPageContent() {
               <Card>
                 <CardHeader><CardTitle className="text-sm">Revenue by Source</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Subscription</span><span className="text-emerald-500 font-semibold">{formatRupiah(stats.revenue.byType?.subscription ?? 0)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Package Purchase</span><span className="font-semibold">{formatRupiah(stats.revenue.byType?.package ?? 0)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Wallet Topup</span><span className="font-semibold">{formatRupiah(stats.revenue.byType?.topup ?? 0)}</span></div>
                 </CardContent>
@@ -165,11 +164,11 @@ function AdminPageContent() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
-                <CardHeader><CardTitle className="text-sm">Subscriptions</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm">Active Packages</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span>{stats.subscriptions.total}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Active</span><span className="text-emerald-500">{stats.subscriptions.active}</span></div>
-                  {Object.entries(stats.subscriptions.byPlan).map(([planId, count]) => (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span>{stats.packages.total}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Active</span><span className="text-emerald-500">{stats.packages.active}</span></div>
+                  {Object.entries(stats.packages.byPlan).map(([planId, count]) => (
                     <div key={planId} className="flex justify-between">
                       <span className="text-muted-foreground capitalize">{planId}</span>
                       <span>{count}</span>
