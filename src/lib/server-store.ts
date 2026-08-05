@@ -9,3 +9,5 @@ export { getWallet, topupWallet, deductWallet } from "./db/wallet";
 export { createBillingRecord, updateBillingStatus, getBillingByOrderId, getBillingRecord } from "./db/billing";
 export { checkRateLimit, checkModelAccess, loadAppModels, updateAppModel, upsertAppModel } from "./db/quota";
 export { getAggregatorConfig, updateAggregatorConfig, getAdminStats } from "./db/admin";
+export { loadAnnouncements, loadActiveAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "./db/announcements";
+export type { AnnouncementItem } from "./db/announcements";

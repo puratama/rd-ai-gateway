@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import AnnouncementBar from "@/components/AnnouncementBar";
 
 const features = [
   {
@@ -121,43 +122,46 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,color-mix(in_oklch,var(--color-primary)_18%,transparent),transparent_32rem),linear-gradient(180deg,var(--color-background),color-mix(in_oklch,var(--color-background)_82%,var(--color-card)))] text-foreground">
       {/* Navigation */}
-      <nav className="fixed top-0 inset-x-0 z-50 h-16 bg-card/85 backdrop-blur-lg border-b border-border shadow-lg shadow-primary/5">
-        <div className="max-w-6xl mx-auto h-full flex items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+      <div className="fixed top-0 inset-x-0 z-50">
+        <AnnouncementBar />
+        <nav className="h-16 bg-card/85 backdrop-blur-lg border-b border-border shadow-lg shadow-primary/5">
+          <div className="max-w-6xl mx-auto h-full flex items-center justify-between px-6">
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span className="text-lg font-bold">xPerimne</span>
+            </Link>
+
+            <div className="hidden md:flex items-center gap-8">
+              <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
+              <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
             </div>
-            <span className="text-lg font-bold">xPerimne</span>
-          </Link>
 
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {isAuthenticated ? (
-              <Link href="/dashboard">
-                <Button size="sm">Dashboard <ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
-              </Link>
-            ) : (
-              <>
-                <Link href="/login">
-                  <Button variant="ghost" size="sm">Sign In</Button>
+            <div className="flex items-center gap-3">
+              {isAuthenticated ? (
+                <Link href="/dashboard">
+                  <Button size="sm">Dashboard <ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
                 </Link>
-                <Link href="/register">
-                  <Button size="sm">Get Started <ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
-                </Link>
-              </>
-            )}
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="ghost" size="sm">Sign In</Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button size="sm">Get Started <ArrowRight className="w-3.5 h-3.5 ml-1" /></Button>
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </div>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
+      <section className="pt-40 pb-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-6">
             <Sparkles className="w-3.5 h-3.5" />

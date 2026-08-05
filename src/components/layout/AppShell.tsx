@@ -18,9 +18,11 @@ import {
   Box,
   Gauge,
   UserRound,
+  Megaphone,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 import NotificationBell from "@/components/NotificationBell";
+import AnnouncementBar from "@/components/AnnouncementBar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Suspense, useState, useEffect } from "react";
@@ -76,6 +78,7 @@ const adminNavGroups: NavGroup[] = [
   {
     label: 'System',
     items: [
+      { href: '/admin/announcements', label: 'Announcements', icon: Megaphone },
       { href: '/admin/settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -149,6 +152,8 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
     ? settingsTab || "Settings"
     : pathname === "/admin/wallet"
     ? "Wallet"
+    : pathname === "/admin/announcements"
+    ? "Announcements"
     : searchParams.get("tab")?.replace(/-/g, " ") || "Dashboard";
   const userSection = userNavItems.find((item) => pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href)))?.label || siteConfig.brandName;
   const currentSection = variant === "admin" ? adminSection : userSection;
@@ -170,8 +175,9 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
 
   if (variant === "user") {
     return (
-      <div className="h-full overflow-hidden bg-[radial-gradient(circle_at_top_left,color-mix(in_oklch,var(--color-primary)_18%,transparent),transparent_32rem),linear-gradient(180deg,var(--color-background),color-mix(in_oklch,var(--color-background)_82%,var(--color-card)))] text-foreground">
-        <header className="h-16 border-b border-border bg-card/85 shadow-lg shadow-primary/5 backdrop-blur-lg">
+      <div className="h-full overflow-hidden flex flex-col bg-[radial-gradient(circle_at_top_left,color-mix(in_oklch,var(--color-primary)_18%,transparent),transparent_32rem),linear-gradient(180deg,var(--color-background),color-mix(in_oklch,var(--color-background)_82%,var(--color-card)))] text-foreground">
+        <AnnouncementBar />
+        <header className="h-16 shrink-0 border-b border-border bg-card/85 shadow-lg shadow-primary/5 backdrop-blur-lg">
           <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
             <BrandMark href="/dashboard" label={siteConfig.brandName} />
 
@@ -279,7 +285,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
           </div>
         )}
 
-        <main className="h-[calc(100%-4rem)] overflow-hidden">
+        <main className="flex-1 min-h-0 overflow-hidden">
           {children}
         </main>
       </div>
@@ -366,8 +372,6 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
             ))
           )}
         </nav>
-
-        <div className="flex-1" />
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">

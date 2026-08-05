@@ -92,15 +92,17 @@ function StatsCardSkeleton() {
 }
 
 function ChartSkeleton() {
+  // fixed bars so SSR + client render identical markup (Math.random differs across the wire)
+  const heights = [40, 72, 28, 88, 55, 30, 68, 45, 90, 38, 62, 80, 25, 74, 48, 58, 85, 35, 50, 66, 42, 95, 30, 78, 52, 60, 33, 70, 44, 82];
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-4">
       <Skeleton className="h-4 w-40" />
       <div className="flex items-end gap-1 h-32">
-        {Array.from({ length: 30 }).map((_, i) => (
+        {heights.map((h, i) => (
           <div
             key={i}
             className="flex-1 animate-pulse rounded-t bg-muted"
-            style={{ height: `${10 + Math.random() * 60}%` }}
+            style={{ height: `${h}%` }}
           />
         ))}
       </div>

@@ -51,6 +51,22 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Announcement bar entrance animation */
+.announce-enter {
+  animation: announce-in 0.5s ease-out;
+}
+
+@keyframes announce-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Interactive elements */
 button,
 [role="button"],

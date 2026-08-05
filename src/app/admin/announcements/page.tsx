@@ -1,0 +1,327 @@
+"use client";
+
+import { Suspense, useState, useEffect, useCallback } from "react";
+import {
+  Plus,
+  Edit3,
+  Trash2,
+  Megaphone,
+  AlertTriangle,
+} from "lucide-react";
+import AppShell from "@/components/layout/AppShell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+
+interface Announcement {
+  id: string;
+  title: string;
+  description: string;
+  isActive: boolean;
+  createdAt: number;
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+      {children}
+    </label>
+  );
+}
+
+function ToggleSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors",
+        checked ? "bg-emerald-500" : "bg-input"
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+          checked ? "translate-x-4" : "translate-x-0.5"
+        )}
+      />
+    </button>
+  );
+}
+
+function AdminAnnouncementsPageContent() {
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState<{ id?: string; title: string; description: string; isActive: boolean }>({ title: "", description: "", isActive: true });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+
+  const fetchAnnouncements = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/announcements");
+      if (res.ok) {
+        const data = await res.json();
+        setAnnouncements(data.announcements || []);
+      }
+    } catch {
+      setError("Failed to load announcements");
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchAnnouncements(); }, [fetchAnnouncements]);
+
+  const openCreate = () => {
+    setForm({ title: "", description: "", isActive: true });
+    setFormError("");
+    setModalOpen(true);
+  };
+
+  const openEdit = (a: Announcement) => {
+    setForm({ id: a.id, title: a.title, description: a.description, isActive: a.isActive });
+    setFormError("");
+    setModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.title.trim() || !form.description.trim()) {
+      setFormError("Title and description are required");
+      return;
+    }
+    setSaving(true);
+    setFormError("");
+    try {
+      const isNew = !form.id;
+      const res = await fetch("/api/admin/announcements", {
+        method: isNew ? "POST" : "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(isNew ? { title: form.title, description: form.description } : { id: form.id, title: form.title, description: form.description, isActive: form.isActive }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Save failed" }));
+        throw new Error(err.error || "Save failed");
+      }
+      setModalOpen(false);
+      fetchAnnouncements();
+    } catch (e: unknown) {
+      setFormError(e instanceof Error ? e.message : "Save failed");
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/admin/announcements?id=${deletingId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Delete failed" }));
+        throw new Error(err.error || "Delete failed");
+      }
+      setDeletingId(null);
+      fetchAnnouncements();
+    } catch (e: unknown) {
+      setDeleteError(e instanceof Error ? e.message : "Delete failed");
+    }
+  };
+
+  const formatDate = (ts: number) =>
+    new Date(ts).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+
+  return (
+    <AppShell variant="admin">
+      <div className="h-full overflow-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Announcements</h1>
+            <p className="text-sm text-muted-foreground">Manage announcements shown on guest and client pages.</p>
+          </div>
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="w-4 h-4 mr-2" /> New Announcement
+          </Button>
+        </div>
+
+        {error && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <TableSkeleton rows={4} cols={5} />
+        ) : announcements.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <Megaphone className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">No announcements yet.</p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Title</th>
+                    <th className="px-4 py-3 font-medium">Description</th>
+                    <th className="px-4 py-3 text-center font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Created</th>
+                    <th className="w-24 px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {announcements.map((a) => (
+                    <tr key={a.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 font-medium">{a.title}</td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{a.description}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={cn(
+                          "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
+                          a.isActive ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"
+                        )}>
+                          {a.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatDate(a.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon-sm" onClick={() => openEdit(a)}>
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => setDeletingId(a.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Create/Edit Dialog */}
+        <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) setModalOpen(false); }}>
+          <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden">
+            <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <Megaphone className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-base">{form.id ? "Edit Announcement" : "New Announcement"}</DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">
+                  {form.id ? "Update announcement details." : "Announcement appears as a bar above the navbar."}
+                </DialogDescription>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <FieldLabel>Title</FieldLabel>
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="e.g. Maintenance scheduled"
+                  className="h-9 bg-background"
+                />
+              </div>
+              <div>
+                <FieldLabel>Description</FieldLabel>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="e.g. The API will be down for 30 minutes on Saturday."
+                  rows={3}
+                  className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
+              </div>
+              {form.id && (
+                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium">Active</p>
+                    <p className="text-xs text-muted-foreground">Show this announcement on guest and client pages.</p>
+                  </div>
+                  <ToggleSwitch checked={form.isActive} onChange={(v) => setForm({ ...form, isActive: v })} />
+                </div>
+              )}
+              {formError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  {formError}
+                </div>
+              )}
+            </div>
+            <DialogFooter className="border-t border-border px-6 py-4">
+              <DialogClose render={<Button variant="outline">Cancel</Button>} />
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : form.id ? "Save Changes" : "Create"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Dialog */}
+        <Dialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-destructive/10">
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                </div>
+                <DialogTitle>Delete Announcement</DialogTitle>
+              </div>
+              <DialogDescription>
+                Permanently delete this announcement. It will disappear from all pages immediately.
+              </DialogDescription>
+            </DialogHeader>
+            {deleteError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {deleteError}
+              </div>
+            )}
+            <DialogFooter>
+              <DialogClose render={<Button variant="outline">Cancel</Button>} />
+              <Button variant="destructive" onClick={handleDelete}>
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AppShell>
+  );
+}
+
+export default function AdminAnnouncementsPage() {
+  return (
+    <Suspense fallback={
+      <AppShell variant="admin">
+        <div className="flex h-full items-center justify-center">
+          <span className="text-sm text-muted-foreground">Loading...</span>
+        </div>
+      </AppShell>
+    }>
+      <AdminAnnouncementsPageContent />
+    </Suspense>
+  );
+}
