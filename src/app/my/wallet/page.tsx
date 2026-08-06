@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, RefreshCw, Wallet } from "lucide-react";
+import { Plus, ReceiptText, RefreshCw, Wallet } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -186,10 +188,13 @@ export default function WalletPage() {
 
   async function handleRefresh() {
     setError("");
+    setLoading(true);
     try {
-      await loadBalance();
+      await Promise.all([loadBalance(), loadBilling()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load wallet.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -202,7 +207,7 @@ export default function WalletPage() {
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Wallet className="h-4 w-4 text-primary" /> Wallet
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight">Top up wallet</h1>
+              <h1 className="text-3xl font-semibold tracking-tight">My Wallet</h1>
               <p className="text-sm text-muted-foreground">Add balance to keep your API usage running.</p>
             </div>
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="cursor-pointer">
@@ -215,9 +220,13 @@ export default function WalletPage() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Wallet className="h-4 w-4 text-blue-500" /> Current balance
               </div>
-              <div className="mt-3 text-3xl font-semibold tabular-nums">
-                {loading ? "Loading..." : rupiah.format(balance)}
-              </div>
+              {loading ? (
+                <div className="mt-3">
+                  <Skeleton className="h-9 w-44" />
+                </div>
+              ) : (
+                <div className="mt-3 text-3xl font-semibold tabular-nums">{rupiah.format(balance)}</div>
+              )}
               {error && <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
               {message && <p className="mt-4 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground">{message}</p>}
             </CardContent>
@@ -262,9 +271,24 @@ export default function WalletPage() {
               <CardContent className="p-5">
                 <h2 className="text-lg font-semibold">Recent transactions</h2>
                 <div className="mt-4 space-y-3">
-                  {billingLoading ? <p className="text-sm text-muted-foreground">Loading transactions...</p> : null}
+                  {billingLoading ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4">
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-28" />
+                            <Skeleton className="h-3 w-40" />
+                          </div>
+                          <div className="space-y-2 text-right">
+                            <Skeleton className="h-4 w-16" />
+                            <Skeleton className="h-3 w-12 ml-auto" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   {!billingLoading && billing.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">No recent transactions yet.</p>
+                    <EmptyState icon={ReceiptText} title="No recent transactions yet." />
                   ) : null}
                   {billing.slice(0, 5).map((item, index) => (
                     <div key={item.id ?? item.midtransOrderId ?? `${item.createdAt}-${index}`} className="rounded-lg border border-border bg-muted/40 p-4">

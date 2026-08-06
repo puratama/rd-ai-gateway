@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import Select, { type GroupBase, type StylesConfig } from "react-select";
 
 export interface SelectOption {
@@ -116,6 +117,9 @@ interface MultiProps extends CommonProps {
 export type FormSelectProps = SingleProps | MultiProps;
 
 export function FormSelect(props: FormSelectProps) {
+  // react-select generates instanceId from a module-level counter, which is
+  // unstable across SSR vs client hydration. Pin it with a stable React id.
+  const instanceId = useId();
   const common = {
     options: props.options,
     placeholder: props.placeholder ?? "Pilih...",
@@ -125,6 +129,7 @@ export function FormSelect(props: FormSelectProps) {
     noOptionsMessage: () => props.noOptionsMessage ?? "Tidak ada data",
     styles: selectStyles,
     className: props.className,
+    instanceId,
   };
 
   if (props.isMulti) {

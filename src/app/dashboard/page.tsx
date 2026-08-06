@@ -21,6 +21,7 @@ import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardGridSkeleton, StatsCardSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 type UsageData = {
@@ -226,11 +227,11 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border text-center text-muted-foreground">
-                    <BarChart3 className="mb-3 h-10 w-10 opacity-40" />
-                    <p className="text-sm font-medium">Belum ada usage</p>
-                    <p className="mt-1 text-xs">Coba chat atau panggil API pertama kamu.</p>
-                  </div>
+                  <EmptyState
+                    icon={BarChart3}
+                    title="Belum ada usage"
+                    description="Coba chat atau panggil API pertama kamu."
+                  />
                 )}
               </CardContent>
             </Card>

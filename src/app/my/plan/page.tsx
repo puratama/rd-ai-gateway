@@ -14,7 +14,8 @@ import {
 import AppShell from "@/components/layout/AppShell";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { StatsCardSkeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 type UserPackage = {
@@ -116,7 +117,35 @@ export default function MyPlanPage() {
           </header>
 
           {loading ? (
-            <StatsCardSkeleton />
+            <div className="space-y-6">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardContent className="p-5">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="mt-3 h-9 w-32" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardContent className="space-y-3 p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-44" />
+                        </div>
+                        <Skeleton className="h-5 w-16" />
+                      </div>
+                      <Skeleton className="h-2 w-full" />
+                      <Skeleton className="h-3 w-28" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           ) : error ? (
             <Card>
               <CardContent className="py-12 text-center text-sm text-destructive">{error}</CardContent>
@@ -151,11 +180,11 @@ export default function MyPlanPage() {
               <section>
                 <h2 className="mb-3 text-sm font-semibold">Paket Token</h2>
                 {data!.packages.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                      Belum ada paket token. Beli dari halaman Token Plan.
-                    </CardContent>
-                  </Card>
+                  <EmptyState
+                    icon={Coins}
+                    title="Belum ada paket token"
+                    description="Beli dari halaman Token Plan untuk mulai memakai langganan token."
+                  />
                 ) : (
                   <div className="space-y-3">
                     {data!.packages.map((p) => {

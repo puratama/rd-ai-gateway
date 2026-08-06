@@ -11,10 +11,10 @@ import {
   Layers,
   Globe,
   AlertTriangle,
-  Box,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -169,10 +169,7 @@ function PaymentGatewaySection() {
           <span className="text-sm">Loading...</span>
         </div>
       ) : gateways.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Box className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Belum ada payment gateway.</p>
-        </div>
+        <EmptyState icon={Building2} title="Belum ada payment gateway." />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="overflow-x-auto">
@@ -642,10 +639,7 @@ function AggregatorSection() {
           <span className="text-sm">Loading...</span>
         </div>
       ) : aggregators.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Box className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Belum ada aggregator.</p>
-        </div>
+        <EmptyState icon={Layers} title="Belum ada aggregator." />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="overflow-x-auto">

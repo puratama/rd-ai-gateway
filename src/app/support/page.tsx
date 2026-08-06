@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -329,12 +330,15 @@ function SupportPageContent() {
               <ConversationSkeleton />
             </div>
           ) : filteredTickets.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
-              <Inbox className="h-10 w-10 text-muted-foreground/40" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                {tickets.length === 0 ? "No support tickets yet. Create one to get started." : "No tickets match this filter."}
-              </p>
-            </div>
+            <EmptyState
+              icon={Inbox}
+              title={tickets.length === 0 ? "Belum ada tiket" : "Tidak ada tiket"}
+              description={
+                tickets.length === 0
+                  ? "Buat tiket pertama kamu untuk mulai dibantu tim kami."
+                  : "Tidak ada tiket yang cocok dengan filter ini."
+              }
+            />
           ) : (
             <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
               <div className="space-y-2">

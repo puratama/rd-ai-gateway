@@ -8,6 +8,7 @@ import {
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -150,13 +151,16 @@ export default function PlanPage() {
               ))}
             </div>
           ) : plans.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-                <Coins className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm font-medium text-muted-foreground">Belum ada paket tersedia</p>
-                <p className="text-xs text-muted-foreground/70">Belum ada paket token yang aktif dijual.</p>
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={Coins}
+              title="Belum ada paket tersedia"
+              description="Belum ada paket token yang aktif dijual. Admin sedang menyiapkan paket — coba lagi nanti."
+              action={
+                <Button variant="outline" size="sm" onClick={() => void loadCatalog()}>
+                  <RefreshCw className="h-3.5 w-3.5" /> Muat ulang
+                </Button>
+              }
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {plans.map((plan, i) => {

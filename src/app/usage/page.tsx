@@ -15,7 +15,8 @@ import {
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CardGridSkeleton, StatsCardSkeleton } from "@/components/ui/skeleton";
+import { Skeleton, ChartSkeleton, TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
 
@@ -205,10 +206,20 @@ export default function UsagePage() {
             </div>
           )}
 
-          {loading && !usage ? (
+          {loading ? (
             <div className="space-y-3">
-              <CardGridSkeleton count={3} />
-              <StatsCardSkeleton />
+              <div className="grid gap-3 md:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardContent className="p-5">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="mt-3 h-9 w-32" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <ChartSkeleton />
+              <TableSkeleton rows={4} cols={5} />
             </div>
           ) : usage ? (
             <>
@@ -246,7 +257,7 @@ export default function UsagePage() {
                     <span className="text-xs text-muted-foreground">{RANGE_LABEL[range]} · {days.filter((d) => d.tokens > 0).length} hari aktif</span>
                   </div>
                   {days.every((d) => d.tokens === 0) ? (
-                    <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">No usage in this period.</div>
+                    <EmptyState icon={BarChart3} title="No usage in this period." />
                   ) : (
                     <div className="h-72">
                       <Bar data={chartData} options={chartOptions} />

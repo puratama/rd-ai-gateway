@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -195,16 +196,16 @@ export default function KeysPage() {
           {loading ? (
             <TableSkeleton rows={5} cols={6} />
           ) : keys.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30">
-                <Key className="h-8 w-8 text-muted-foreground/30" />
-              </div>
-              <h3 className="text-sm font-medium text-muted-foreground">No API Keys Yet</h3>
-              <p className="mt-1 text-xs text-muted-foreground/60">Create your first API key to start using the gateway</p>
-              <Button size="sm" onClick={() => { setShowCreate(true); setNewKeyName(""); }} className="mt-5">
-                <Plus className="mr-1.5 h-3.5 w-3.5" /> Create API Key
-              </Button>
-            </div>
+            <EmptyState
+              icon={Key}
+              title="No API Keys Yet"
+              description="Create your first API key to start using the gateway"
+              action={
+                <Button size="sm" onClick={() => { setShowCreate(true); setNewKeyName(""); }}>
+                  <Plus className="mr-1.5 h-3.5 w-3.5" /> Create API Key
+                </Button>
+              }
+            />
           ) : (
             <div className="overflow-hidden rounded-xl border border-border bg-card">
               <div className="overflow-x-auto">

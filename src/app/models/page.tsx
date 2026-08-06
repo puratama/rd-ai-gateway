@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { FormSelect } from "@/components/ui/form-select";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchPricingFromDB } from "@/lib/pricing-db";
 import type { ModelPricing } from "@/types";
 
@@ -311,19 +312,20 @@ export default function ModelsPage() {
               ))}
             </div>
           ) : filteredModels.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <Search className="mb-4 h-12 w-12 opacity-20" />
-              <h3 className="text-sm font-medium">No Models Found</h3>
-              <p className="mt-1 text-xs">Try adjusting your filters or search query</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => { setSearch(""); setSelectedProvider("all"); }}
-              >
-                Reset Filters
-              </Button>
-            </div>
+            <EmptyState
+              icon={Search}
+              title="No Models Found"
+              description="Try adjusting your filters or search query"
+              action={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setSearch(""); setSelectedProvider("all"); }}
+                >
+                  Reset Filters
+                </Button>
+              }
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredModels.map((model, idx) => {

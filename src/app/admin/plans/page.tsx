@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -220,10 +221,8 @@ function AdminPlansPageContent() {
         {loading ? (
           <TableSkeleton rows={4} cols={8} />
         ) : plans.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <p className="text-sm">No plans configured.</p>
-          </div>
-                ) : (
+          <EmptyState title="Belum ada plan" description="Belum ada paket token yang dikonfigurasi. Klik 'Tambah' untuk membuat plan pertama." />
+        ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
