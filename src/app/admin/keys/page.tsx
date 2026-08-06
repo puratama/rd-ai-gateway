@@ -6,6 +6,7 @@ import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 interface KeyItem {
@@ -84,10 +85,7 @@ function AdminKeysPageContent() {
         {loading ? (
           <TableSkeleton rows={5} cols={7} />
         ) : keys.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Key className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No API keys found.</p>
-          </div>
+          <EmptyState icon={Key} title="No API keys found." />
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">

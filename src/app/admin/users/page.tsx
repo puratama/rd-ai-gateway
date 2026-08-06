@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, Fragment } from "react";
 import { Search, RefreshCw, Trash2, AlertTriangle, Users, ShieldCheck, ShieldX, ShieldBan, MailCheck, MailX, X, ChevronDown, ChevronRight, Box } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -203,21 +204,14 @@ export default function AdminUsersPage() {
   return (
     <AppShell variant="admin">
       <div className="h-full overflow-auto p-6 space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Users</h1>
             <p className="text-sm text-muted-foreground">Manage roles, status, verification, and monitor user data.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant={hasPackageOnly ? "default" : "outline"} size="sm" onClick={() => setHasPackageOnly(v => !v)} className="cursor-pointer">
-              <Users className="w-4 h-4 mr-2" />
-              Punya Paket
-            </Button>
-            <Button variant="outline" onClick={() => fetchUsers(search, page, limit, hasPackageOnly)} className="cursor-pointer">
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={() => fetchUsers(search, page, limit, hasPackageOnly)} className="cursor-pointer">
+            <RefreshCw className="w-4 h-4" />
+          </Button>
         </div>
 
         <div className="relative max-w-md">
@@ -229,6 +223,12 @@ export default function AdminUsersPage() {
 
         {loading ? (
           <TableSkeleton rows={10} cols={9} />
+        ) : users.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No users found"
+            description={search.trim() ? "Tidak ada user yang cocok dengan pencarian." : "Belum ada user terdaftar."}
+          />
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
@@ -268,9 +268,6 @@ export default function AdminUsersPage() {
                       </td>
                     </tr>
                   ))}
-                  {!loading && users.length === 0 && (
-                    <tr><td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">No users found.</td></tr>
-                  )}
                 </tbody>
               </table>
             </div>

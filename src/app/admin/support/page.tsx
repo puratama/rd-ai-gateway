@@ -1,10 +1,11 @@
 "use client";
 
 import { Suspense, useCallback, useState, useEffect } from "react";
-import { LifeBuoy, Clock, Inbox } from "lucide-react";
+import { LifeBuoy, Clock, Inbox, RefreshCw } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -125,28 +126,36 @@ function AdminSupportPageContent() {
     <AppShell variant="admin">
       <div className="h-full overflow-auto p-6 space-y-6">
         {/* Header */}
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <LifeBuoy className="h-3.5 w-3.5" /> Admin
-            </div>
-            <h1 className="mt-1 text-2xl font-semibold">Support Tickets</h1>
+            <h1 className="text-2xl font-semibold">Support Tickets</h1>
             <p className="text-sm text-muted-foreground">Reply to user support tickets and manage their lifecycle.</p>
           </div>
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" /> Last updated {tickets.length ? formatTime(Math.max(...tickets.map((t) => t.updatedAt))) : "—"}
-          </p>
+          <Button variant="outline" size="sm" onClick={fetchTickets} className="cursor-pointer">
+            <RefreshCw className="w-4 h-4" />
+          </Button>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className={cn("mt-1 text-2xl font-semibold", s.badge)}>{s.value}</p>
-            </div>
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card p-4 animate-pulse">
+                <div className="h-3 w-16 bg-muted rounded" />
+                <div className="mt-1 h-7 w-20 bg-muted rounded" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {stats.map((s) => (
+              <div key={s.label} className="rounded-xl border border-border bg-card p-4">
+                <p className="text-xs text-muted-foreground">{s.label}</p>
+                <p className={cn("mt-1 text-2xl font-semibold", s.badge)}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {error && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
@@ -169,14 +178,35 @@ function AdminSupportPageContent() {
         </div>
 
         {loading ? (
-          <TableSkeleton rows={4} cols={5} />
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
-            <Inbox className="h-10 w-10 text-muted-foreground/40" />
-            <p className="mt-3 text-sm text-muted-foreground">
-              {tickets.length === 0 ? "No support tickets yet." : "No tickets match this filter."}
-            </p>
+          <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-6">
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-border bg-card p-4 animate-pulse">
+                  <div className="flex justify-between">
+                    <div className="h-4 w-2/3 bg-muted rounded" />
+                    <div className="h-5 w-16 bg-muted rounded-full" />
+                  </div>
+                  <div className="mt-2 h-3 w-full bg-muted rounded" />
+                  <div className="mt-1 h-3 w-1/3 bg-muted rounded" />
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3 animate-pulse">
+              <div className="flex justify-between">
+                <div className="h-4 w-1/2 bg-muted rounded" />
+                <div className="h-5 w-20 bg-muted rounded-full" />
+              </div>
+              <div className="h-3 w-2/3 bg-muted rounded" />
+              <div className="h-48 w-full bg-muted rounded" />
+              <div className="h-16 w-full bg-muted rounded" />
+            </div>
           </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            title={tickets.length === 0 ? "No support tickets yet." : "No tickets match this filter."}
+            description={tickets.length === 0 ? "Buat tiket pertama untuk mulai dibantu tim kami." : ""}
+          />
         ) : (
           <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-6">
             {/* Ticket list */}

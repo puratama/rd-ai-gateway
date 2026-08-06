@@ -21,6 +21,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -174,10 +175,16 @@ function AdminAnnouncementsPageContent() {
         {loading ? (
           <TableSkeleton rows={4} cols={5} />
         ) : announcements.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Megaphone className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No announcements yet.</p>
-          </div>
+          <EmptyState
+            icon={Megaphone}
+            title="No announcements yet."
+            description="Buat announcement pertama untuk menampilkan bar di atas navbar."
+            action={
+              <Button size="sm" onClick={openCreate}>
+                <Plus className="w-4 h-4 mr-2" /> New Announcement
+              </Button>
+            }
+          />
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">

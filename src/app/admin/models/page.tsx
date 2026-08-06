@@ -15,6 +15,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { FormSelect } from "@/components/ui/form-select";
 import { toast } from "sonner";
@@ -142,10 +143,7 @@ function AdminModelsPageContent() {
         {loading ? (
           <TableSkeleton rows={6} cols={8} />
         ) : models.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Box className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No models configured</p>
-         </div>
+          <EmptyState icon={Box} title="No models configured" description="Tambahkan model untuk mulai menjual akses ke model AI." />
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">

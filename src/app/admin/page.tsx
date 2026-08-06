@@ -9,8 +9,10 @@ import {
   RefreshCw,
   Package,
   Box,
+  BarChart3,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { CardGridSkeleton, StatsCardSkeleton, ChartSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import AppShell from "@/components/layout/AppShell";
@@ -78,11 +80,11 @@ function AdminPageContent() {
         )}
 
         {!stats && !error && (
-          <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-            <LayoutDashboard className="w-12 h-12 mb-4 opacity-30" />
-            <h3 className="text-sm font-medium mb-1">No Data</h3>
-            <p className="text-xs">Configure INTERNAL_API_KEY to access admin</p>
-          </div>
+          <EmptyState
+            icon={LayoutDashboard}
+            title="No Data"
+            description="Configure INTERNAL_API_KEY to access admin"
+          />
         )}
 
         {stats && (
@@ -145,19 +147,39 @@ function AdminPageContent() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
-                <CardHeader><CardTitle className="text-sm">Revenue</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm">Revenue Summary</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Total Revenue</span><span className="font-semibold">{formatRupiah(stats.revenue.totalRevenue)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="text-amber-500">{formatRupiah(stats.revenue.pendingRevenue)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Completed</span><span className="text-emerald-500">{stats.revenue.completedPayments}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Pending Payments</span><span className="text-amber-500">{stats.revenue.pendingPayments}</span></div>
+                  {stats.revenue.totalRevenue === 0 && stats.revenue.completedPayments === 0 ? (
+                    <EmptyState
+                      icon={CreditCard}
+                      title="No revenue yet"
+                      description="Belum ada pembayaran yang terekam."
+                    />
+                  ) : (
+                    <>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Total Revenue</span><span className="font-semibold">{formatRupiah(stats.revenue.totalRevenue)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="text-amber-500">{formatRupiah(stats.revenue.pendingRevenue)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Completed</span><span className="text-emerald-500">{stats.revenue.completedPayments}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Pending Payments</span><span className="text-amber-500">{stats.revenue.pendingPayments}</span></div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader><CardTitle className="text-sm">Revenue by Source</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Package Purchase</span><span className="font-semibold">{formatRupiah(stats.revenue.byType?.package ?? 0)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Wallet Topup</span><span className="font-semibold">{formatRupiah(stats.revenue.byType?.topup ?? 0)}</span></div>
+                  {(!stats.revenue.byType?.package && !stats.revenue.byType?.topup) || (stats.revenue.byType?.package ?? 0) === 0 && (stats.revenue.byType?.topup ?? 0) === 0 ? (
+                    <EmptyState
+                      icon={TrendingUp}
+                      title="No source data"
+                      description="Belum ada sumber pendapatan teridentifikasi."
+                    />
+                  ) : (
+                    <>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Package Purchase</span><span className="font-semibold">{formatRupiah(stats.revenue.byType?.package ?? 0)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Wallet Topup</span><span className="font-semibold">{formatRupiah(stats.revenue.byType?.topup ?? 0)}</span></div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -166,21 +188,35 @@ function AdminPageContent() {
               <Card>
                 <CardHeader><CardTitle className="text-sm">Active Packages</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span>{stats.packages.total}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Active</span><span className="text-emerald-500">{stats.packages.active}</span></div>
-                  {Object.entries(stats.packages.byPlan).map(([planId, count]) => (
-                    <div key={planId} className="flex justify-between">
-                      <span className="text-muted-foreground capitalize">{planId}</span>
-                      <span>{count}</span>
-                    </div>
-                  ))}
+                  {stats.packages.total === 0 ? (
+                    <EmptyState
+                      icon={Package}
+                      title="No packages active"
+                      description="Tidak ada paket token yang aktif di sistem."
+                    />
+                  ) : (
+                    <>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span>{stats.packages.total}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Active</span><span className="text-emerald-500">{stats.packages.active}</span></div>
+                      {Object.entries(stats.packages.byPlan).map(([planId, count]) => (
+                        <div key={planId} className="flex justify-between">
+                          <span className="text-muted-foreground capitalize">{planId}</span>
+                          <span>{count}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader><CardTitle className="text-sm">Top Models by Usage</CardTitle></CardHeader>
                 <CardContent className="space-y-1 text-xs">
                   {(stats.topModels ?? []).length === 0 ? (
-                    <div className="text-muted-foreground py-2">No usage data yet</div>
+                    <EmptyState
+                      icon={BarChart3}
+                      title="No usage data yet"
+                      description="Belum ada model yang mencatat penggunaan."
+                    />
                   ) : (
                     (stats.topModels ?? []).map((m, i) => {
                       const maxTokens = stats.topModels?.[0]?.tokens ?? 1;
@@ -207,27 +243,35 @@ function AdminPageContent() {
             <Card>
               <CardHeader><CardTitle className="text-sm">Daily Usage (30 days)</CardTitle></CardHeader>
               <CardContent>
-                <div className="flex items-end gap-1 h-32">
-                  {Object.entries(stats.dailyUsage).map(([date, count]) => {
-                    const maxVal = Math.max(...Object.values(stats.dailyUsage), 1);
-                    const height = (count / maxVal) * 100;
-                    const isToday = date === new Date().toISOString().slice(0, 10);
-                    return (
-                      <div key={date} className="flex-1 flex flex-col items-center gap-0.5 group relative">
-                        <div
-                          className={cn(
-                            "w-full rounded-t transition-all",
-                            isToday ? "bg-primary" : "bg-muted hover:bg-muted-foreground/20"
-                          )}
-                          style={{ height: `${Math.max(height, count > 0 ? 4 : 1)}%` }}
-                        />
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50">
-                          {date}: {formatNumber(count)} tokens
+                {Object.values(stats.dailyUsage).every((count) => count === 0) ? (
+                  <EmptyState
+                    icon={BarChart3}
+                    title="No usage in last 30 days"
+                    description="Belum ada aktivitas tokens dalam periode 30 hari terakhir."
+                  />
+                ) : (
+                  <div className="flex items-end gap-1 h-32">
+                    {Object.entries(stats.dailyUsage).map(([date, count]) => {
+                      const maxVal = Math.max(...Object.values(stats.dailyUsage), 1);
+                      const height = (count / maxVal) * 100;
+                      const isToday = date === new Date().toISOString().slice(0, 10);
+                      return (
+                        <div key={date} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+                          <div
+                            className={cn(
+                              "w-full rounded-t transition-all",
+                              isToday ? "bg-primary" : "bg-muted hover:bg-muted-foreground/20"
+                            )}
+                            style={{ height: `${Math.max(height, count > 0 ? 4 : 1)}%` }}
+                          />
+                          <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50">
+                            {date}: {formatNumber(count)} tokens
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
