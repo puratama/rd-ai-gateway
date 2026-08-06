@@ -36,6 +36,7 @@ model User {
   billingRecords BillingRecord[]
   conversations  Conversation[]
   notifications  Notification[]
+  supportTickets SupportTicket[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -194,6 +195,25 @@ model Announcement {
   updatedAt DateTime @updatedAt
 
   @@index([isActive, createdAt])
+}
+
+// ====== Support ======
+
+model SupportTicket {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  subject  String
+  category String
+  priority String @default("normal") // "low" | "normal" | "high"
+  status   String @default("open")  // "open" | "in_progress" | "resolved" | "closed"
+  messages Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
 }
 
 // ====== Notifications ======

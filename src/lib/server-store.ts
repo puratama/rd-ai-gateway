@@ -11,3 +11,5 @@ export { checkRateLimit, checkModelAccess, loadAppModels, updateAppModel, upsert
 export { getAggregatorConfig, updateAggregatorConfig, getAdminStats } from "./db/admin";
 export { loadAnnouncements, loadActiveAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "./db/announcements";
 export type { AnnouncementItem } from "./db/announcements";
+export { loadUserTickets, loadTicket, loadAdminTickets, createTicket, replyAsUser, replyAsAdmin, updateTicketStatus } from "./db/support";
+export type { SupportTicket, SupportMessage } from "./db/support";

@@ -19,6 +19,7 @@ import {
   Gauge,
   UserRound,
   Megaphone,
+  LifeBuoy,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 import NotificationBell from "@/components/NotificationBell";
@@ -46,6 +47,7 @@ const userNavItems: NavItem[] = [
   { href: "/plan", label: "Token Plan", icon: CreditCard },
   { href: "/models", label: "Models", icon: CreditCard },
   { href: "/usage", label: "Usage", icon: BarChart3 },
+  { href: "/support", label: "Support", icon: LifeBuoy },
 ];
 
 interface NavGroup {
@@ -79,6 +81,7 @@ const adminNavGroups: NavGroup[] = [
     label: 'System',
     items: [
       { href: '/admin/announcements', label: 'Announcements', icon: Megaphone },
+      { href: '/admin/support', label: 'Support', icon: LifeBuoy },
       { href: '/admin/settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -154,6 +157,8 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
     ? "Wallet"
     : pathname === "/admin/announcements"
     ? "Announcements"
+    : pathname === "/admin/support"
+    ? "Support"
     : searchParams.get("tab")?.replace(/-/g, " ") || "Dashboard";
   const userSection = userNavItems.find((item) => pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href)))?.label || siteConfig.brandName;
   const currentSection = variant === "admin" ? adminSection : userSection;
