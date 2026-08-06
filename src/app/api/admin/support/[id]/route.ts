@@ -25,10 +25,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!message) {
       return NextResponse.json({ error: "message is required" }, { status: 400 });
     }
-    const ticket = await replyAsAdmin(id, message);
+    const ticket = await loadTicket(id);
     if (!ticket) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
+    if (ticket.status === "closed") {
+      return NextResponse.json({ error: "Ticket is closed" }, { status: 400 });
+    }
+    const updated = await replyAsAdmin(id, message);
     // notify the ticket owner
     await prisma.notification.create({
       data: {
@@ -38,7 +42,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         message: `Your support ticket "${ticket.subject}" has a new reply.`,
       },
     });
-    return NextResponse.json({ ticket });
+    return NextResponse.json({ ticket: updated });
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
   }

@@ -7,6 +7,7 @@ import { ArrowRight, Lock, Mail, User, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,12 +15,10 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     try {
       const res = await fetch("/api/auth/register", {
@@ -33,9 +32,10 @@ export default function RegisterPage() {
 
       localStorage.setItem("xperimne-api-key", typeof data.apiKey === "string" ? data.apiKey : data.apiKey?.key || "");
       localStorage.setItem("xperimne-user", JSON.stringify(data.user));
+      toast.success("Account created");
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setLoading(false);
     }

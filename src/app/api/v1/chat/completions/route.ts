@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
       if (!balanceCheck.ok) {
         return new Response(
-          JSON.stringify({ error: balanceCheck.reason, upgradeUrl: "/wallet" }),
+          JSON.stringify({ error: balanceCheck.reason, upgradeUrl: "/my/wallet" }),
           { status: 402, headers: { "Content-Type": "application/json" } }
         );
       }

@@ -51,6 +51,15 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Paint dark immediately on load — avoid white canvas/border flash before the
+   theme CSS applies (html has no default background, browser canvas is white) */
+@layer base {
+  html {
+    background-color: var(--color-background);
+    color-scheme: dark;
+  }
+}
+
 /* Announcement bar entrance animation */
 .announce-enter {
   animation: announce-in 0.5s ease-out;

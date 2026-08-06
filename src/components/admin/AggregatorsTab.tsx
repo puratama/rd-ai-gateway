@@ -15,6 +15,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface AggregatorItem {
   id: string;
@@ -61,10 +62,12 @@ export default function AggregatorsTab() {
   const handleDelete = async () => {
     if (!deletingId) return;
     try {
-      await fetch(`/api/admin/aggregators?id=${deletingId}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/aggregators?id=${deletingId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
       setDeletingId(null);
       fetchAggregators();
-    } catch { setError("Failed to delete"); }
+      toast.success("Aggregator deleted");
+    } catch { toast.error("Failed to delete"); }
   };
 
   const handleTestConnection = async (id: string) => {

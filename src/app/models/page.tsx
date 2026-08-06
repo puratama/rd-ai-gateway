@@ -131,26 +131,21 @@ export default function ModelsPage() {
           </header>
 
           {/* Stats bar */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: "Total Models", value: pricingData.length, icon: Layers },
-              { label: "Providers", value: providers.length, icon: Layers },
-              { label: "Cheapest Prompt", value: `${formatPrice(getMinPrice(pricingData))}/1M`, icon: DollarSign },
-              { label: "Most Expensive", value: `${formatPrice(getMaxPrice(pricingData))}/1M`, icon: DollarSign },
-            ].map((stat, i) => {
+              { label: "Total Models", value: pricingData.length, icon: Layers, tone: "text-blue-500" },
+              { label: "Providers", value: providers.length, icon: Layers, tone: "text-violet-500" },
+              { label: "Cheapest Prompt", value: `${formatPrice(getMinPrice(pricingData))}/1M`, icon: DollarSign, tone: "text-emerald-500" },
+              { label: "Most Expensive", value: `${formatPrice(getMaxPrice(pricingData))}/1M`, icon: DollarSign, tone: "text-amber-500" },
+            ].map((stat) => {
               const Icon = stat.icon;
               return (
                 <Card key={stat.label}>
                   <CardContent className="p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                        <Icon className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">{stat.label}</p>
-                        <p className={cn("text-sm font-semibold", loading && "animate-pulse text-muted-foreground")}>{stat.value}</p>
-                      </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Icon className={cn("h-4 w-4", stat.tone)} /> {stat.label}
                     </div>
+                    <div className={cn("mt-3 text-3xl font-semibold", loading && "animate-pulse text-muted-foreground")}>{stat.value}</div>
                   </CardContent>
                 </Card>
               );

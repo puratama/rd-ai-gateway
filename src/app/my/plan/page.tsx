@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { StatsCardSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -99,18 +99,21 @@ export default function MyPlanPage() {
   }, []);
 
   return (
-    <AppShell>
+    <AppShell variant="user">
       <div className="h-full overflow-y-auto">
-        <div className="mx-auto max-w-6xl p-4 sm:p-6">
-          <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+          <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-xl font-bold">My Plan</h1>
+              <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <Coins className="h-4 w-4 text-primary" /> Token Plan
+              </div>
+              <h1 className="text-3xl font-semibold tracking-tight">My Plan</h1>
               <p className="text-sm text-muted-foreground">Paket token dan saldo Anda.</p>
             </div>
             <Link href="/plan" className={cn(buttonVariants(), "gap-2")}>
               <CreditCard className="h-4 w-4" /> Beli Token
             </Link>
-          </div>
+          </header>
 
           {loading ? (
             <StatsCardSkeleton />
@@ -121,27 +124,25 @@ export default function MyPlanPage() {
           ) : (
             <div className="space-y-6">
               {/* Ringkasan */}
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Saldo Wallet</CardTitle>
-                    <Wallet className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-semibold tabular-nums">{fmtRupiah(data!.balance)}</p>
-                    <Link href="/wallet" className={cn(buttonVariants({ variant: "link", size: "sm" }), "gap-1 px-0 text-xs")}>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Wallet className="h-4 w-4 text-blue-500" /> Saldo Wallet
+                    </div>
+                    <div className="mt-3 text-3xl font-semibold tabular-nums">{fmtRupiah(data!.balance)}</div>
+                    <Link href="/my/wallet" className={cn(buttonVariants({ variant: "link", size: "sm" }), "gap-1 px-0 text-xs")}>
                       Top up <ArrowRight className="h-3 w-3" />
                     </Link>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Paket Aktif</CardTitle>
-                    <Coins className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-semibold tabular-nums">{data!.packages.length}</p>
-                    <p className="text-xs text-muted-foreground">total paket token Anda</p>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Coins className="h-4 w-4 text-emerald-500" /> Paket Aktif
+                    </div>
+                    <div className="mt-3 text-3xl font-semibold tabular-nums">{data!.packages.length}</div>
+                    <p className="mt-1 text-xs text-muted-foreground">total paket token Anda</p>
                   </CardContent>
                 </Card>
               </div>

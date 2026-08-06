@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type BalanceResponse = { balance: number };
 type TopupResponse = { transaction?: { token: string; redirectUrl?: string; provider?: string; orderId?: string }; billing?: Record<string, unknown> };
@@ -152,7 +153,7 @@ export default function WalletPage() {
       const data = (await response.json()) as TopupResponse;
 
       if (!data.transaction) {
-        setMessage("No payment session returned. Please try again.");
+        toast.error("No payment session returned. Please try again.");
         return;
       }
 
@@ -177,7 +178,7 @@ export default function WalletPage() {
         onClose: () => goToCallback("cancelled", orderId, "midtrans"),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start top up.");
+      toast.error(err instanceof Error ? err.message : "Failed to start top up.");
     } finally {
       setTopupLoading(false);
     }
@@ -211,13 +212,11 @@ export default function WalletPage() {
 
           <Card>
             <CardContent className="p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Current balance</p>
-                  <div className="mt-2 text-4xl font-semibold tracking-tight">
-                    {loading ? "Loading..." : rupiah.format(balance)}
-                  </div>
-                </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Wallet className="h-4 w-4 text-blue-500" /> Current balance
+              </div>
+              <div className="mt-3 text-3xl font-semibold tabular-nums">
+                {loading ? "Loading..." : rupiah.format(balance)}
               </div>
               {error && <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
               {message && <p className="mt-4 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground">{message}</p>}

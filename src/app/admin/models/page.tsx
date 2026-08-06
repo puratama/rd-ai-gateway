@@ -17,6 +17,7 @@ import {
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { FormSelect } from "@/components/ui/form-select";
+import { toast } from "sonner";
 
 interface AggregatorItem {
   id: string;
@@ -85,7 +86,6 @@ function AdminModelsPageContent() {
   const [editing, setEditing] = useState<AppModelItem | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState("");
 
   const fetchModels = useCallback(async () => {
     setLoading(true);
@@ -108,11 +108,13 @@ function AdminModelsPageContent() {
   const handleDeleteModel = async () => {
     if (!deletingId) return;
     try {
-      await fetch(`/api/admin/models?id=${deletingId}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/models?id=${deletingId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete model");
       setDeletingId(null);
       fetchModels();
+      toast.success("Model deleted");
     } catch {
-      setError("Failed to delete model");
+      toast.error("Failed to delete model");
     }
   };
 
@@ -136,12 +138,6 @@ function AdminModelsPageContent() {
             <Plus className="w-4 h-4 mr-2" /> Add Model
          </Button>
        </div>
-
-        {error && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-         </div>
-        )}
 
         {loading ? (
           <TableSkeleton rows={6} cols={8} />

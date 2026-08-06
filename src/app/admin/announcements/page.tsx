@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Announcement {
   id: string;
@@ -76,7 +77,6 @@ function AdminAnnouncementsPageContent() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState("");
 
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
@@ -126,15 +126,15 @@ function AdminAnnouncementsPageContent() {
       }
       setModalOpen(false);
       fetchAnnouncements();
+      toast.success(isNew ? "Announcement created" : "Announcement updated");
     } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : "Save failed");
+      toast.error(e instanceof Error ? e.message : "Save failed");
     }
     setSaving(false);
   };
 
   const handleDelete = async () => {
     if (!deletingId) return;
-    setDeleteError("");
     try {
       const res = await fetch(`/api/admin/announcements?id=${deletingId}`, { method: "DELETE" });
       if (!res.ok) {
@@ -143,8 +143,9 @@ function AdminAnnouncementsPageContent() {
       }
       setDeletingId(null);
       fetchAnnouncements();
+      toast.success("Announcement deleted");
     } catch (e: unknown) {
-      setDeleteError(e instanceof Error ? e.message : "Delete failed");
+      toast.error(e instanceof Error ? e.message : "Delete failed");
     }
   };
 
@@ -294,11 +295,6 @@ function AdminAnnouncementsPageContent() {
                 Permanently delete this announcement. It will disappear from all pages immediately.
               </DialogDescription>
             </DialogHeader>
-            {deleteError && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                {deleteError}
-              </div>
-            )}
             <DialogFooter>
               <DialogClose render={<Button variant="outline">Cancel</Button>} />
               <Button variant="destructive" onClick={handleDelete}>

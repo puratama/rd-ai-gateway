@@ -61,12 +61,6 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
-                  {error}
-                </div>
-              )}
-
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium">Email</label>
                 <div className="relative">

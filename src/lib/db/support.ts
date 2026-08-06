@@ -104,7 +104,13 @@ async function appendMessage(id: string, message: SupportMessage) {
 }
 
 export async function replyAsUser(id: string, body: string) {
-  return appendMessage(id, { authorRole: "user", body, createdAt: Date.now() });
+  const ticket = await appendMessage(id, { authorRole: "user", body, createdAt: Date.now() });
+  // auto-reopen: user replied to a resolved ticket
+  if (ticket && ticket.status === "resolved") {
+    await prisma.supportTicket.update({ where: { id }, data: { status: "in_progress" } });
+    ticket.status = "in_progress";
+  }
+  return ticket;
 }
 
 export async function replyAsAdmin(id: string, body: string) {

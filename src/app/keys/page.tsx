@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface ApiKeyItem {
   id: string;
@@ -75,11 +76,12 @@ export default function KeysPage() {
       });
       if (res.ok) {
         await fetchKeys();
+        toast.success("API key created");
       } else {
-        setError("Failed to create key");
+        toast.error("Failed to create key");
       }
     } catch {
-      setError("Failed to create API key");
+      toast.error("Failed to create API key");
     }
     setNewKeyName("");
     setShowCreate(false);
@@ -94,11 +96,12 @@ export default function KeysPage() {
       });
       if (res.ok) {
         await fetchKeys();
+        toast.success("API key regenerated");
       } else {
-        setError("Failed to regenerate key");
+        toast.error("Failed to regenerate key");
       }
     } catch {
-      setError("Failed to regenerate API key");
+      toast.error("Failed to regenerate API key");
     }
   }, [fetchKeys]);
 
@@ -111,11 +114,12 @@ export default function KeysPage() {
       });
       if (res.ok) {
         await fetchKeys();
+        toast.success("API key updated");
       } else {
-        setError("Failed to update key");
+        toast.error("Failed to update key");
       }
     } catch {
-      setError("Failed to update API key");
+      toast.error("Failed to update API key");
     }
     setEditingId(null);
   }, [fetchKeys]);
@@ -126,11 +130,12 @@ export default function KeysPage() {
       if (res.ok) {
         setConfirmDelete(null);
         await fetchKeys();
+        toast.success("API key deleted");
       } else {
-        setError("Failed to delete key");
+        toast.error("Failed to delete key");
       }
     } catch {
-      setError("Failed to delete API key");
+      toast.error("Failed to delete API key");
     }
   }, [fetchKeys]);
 

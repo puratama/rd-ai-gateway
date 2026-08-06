@@ -47,7 +47,6 @@ const userNavItems: NavItem[] = [
   { href: "/plan", label: "Token Plan", icon: CreditCard },
   { href: "/models", label: "Models", icon: CreditCard },
   { href: "/usage", label: "Usage", icon: BarChart3 },
-  { href: "/support", label: "Support", icon: LifeBuoy },
 ];
 
 interface NavGroup {
@@ -197,7 +196,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                       "rounded-full px-3 py-2 text-sm font-medium transition-colors",
                       active
                         ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                        : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
                     )}
                   >
                     {item.label}
@@ -211,7 +210,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
               <div className="hidden sm:block">
                 <DropdownMenu>
                   <DropdownMenuTrigger render={
-                    <Button variant="ghost" size="sm" className="gap-1.5 pl-1 pr-2">
+                    <Button variant="ghost" size="sm" className="gap-1.5 pl-1 pr-2 hover:bg-primary/10 hover:text-primary">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
                         <UserRound />
                       </span>
@@ -219,7 +218,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                       <ChevronDown className="h-3.5 w-3.5" />
                     </Button>
                   } />
-                  <DropdownMenuContent align="end" className="w-64 p-2">
+                  <DropdownMenuContent align="end" className="w-64 space-y-1 p-2">
                     <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
                         <UserRound />
@@ -232,17 +231,20 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
 
                     <DropdownMenuSeparator className="my-2" />
                     {user?.role === "superadmin" && (
-                      <DropdownMenuItem onClick={() => router.push("/admin")} className="flex items-center gap-2 rounded-lg cursor-pointer">
+                      <DropdownMenuItem onClick={() => router.push("/admin")} className="flex items-center gap-2 rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary">
                         <Gauge className="h-4 w-4" /> Admin Dashboard
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem onClick={() => router.push("/wallet")} className="flex items-center gap-2 rounded-lg cursor-pointer">
-                      <Wallet className="h-4 w-4" /> Wallet
+                    <DropdownMenuItem onClick={() => router.push("/my/wallet")} className="flex items-center gap-2 rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary">
+                      <Wallet className="h-4 w-4" /> My Wallet
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push("/my/plan")} className="flex items-center gap-2 rounded-lg cursor-pointer">
+                    <DropdownMenuItem onClick={() => router.push("/my/plan")} className="flex items-center gap-2 rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary">
                       <CreditCard className="h-4 w-4" /> My Plan
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2 rounded-lg cursor-pointer">
+                    <DropdownMenuItem onClick={() => router.push("/support")} className="flex items-center gap-2 rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary">
+                      <LifeBuoy className="h-4 w-4" /> Support
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2 rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary">
                       <Settings className="h-4 w-4" /> Settings
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="my-2" />
@@ -272,7 +274,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                     onClick={() => setMobileOpen(false)}
                     className={cn(
                       "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                      active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
                     )}
                   >
                     <Icon className="h-4 w-4" /> {item.label}
@@ -405,7 +407,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
             <div>
               <DropdownMenu>
                 <DropdownMenuTrigger render={
-                  <Button variant="ghost" size="sm" className="gap-1.5 pl-1 pr-2">
+                  <Button variant="ghost" size="sm" className="gap-1.5 pl-1 pr-2 hover:bg-primary/10 hover:text-primary">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
                       <UserRound />
                     </span>
@@ -413,7 +415,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                     <ChevronDown className="w-3.5 h-3.5" />
                   </Button>
                 } />
-                <DropdownMenuContent align="end" className="w-64 p-2">
+                <DropdownMenuContent align="end" className="w-64 space-y-1 p-2">
                   <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
                       <UserRound />
@@ -424,10 +426,10 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                     </div>
                   </div>
                   <DropdownMenuSeparator className="my-2" />
-                  <DropdownMenuItem onClick={() => router.push("/dashboard")} className="flex items-center gap-2 rounded-lg cursor-pointer">
+                  <DropdownMenuItem onClick={() => router.push("/dashboard")} className="flex items-center gap-2 rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary">
                     <Gauge className="h-4 w-4" /> Client Dashboard
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2 rounded-lg cursor-pointer">
+                  <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2 rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary">
                     <Settings className="h-4 w-4" /> Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="my-2" />

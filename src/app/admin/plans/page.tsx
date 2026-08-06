@@ -26,6 +26,7 @@ import {
 
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface PlanItem {
   id: string;
@@ -162,7 +163,6 @@ function AdminPlansPageContent() {
   const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState("");
 
   const fetchPlans = useCallback(async () => {
     setLoading(true);
@@ -184,7 +184,6 @@ function AdminPlansPageContent() {
 
   const handleDeletePlan = async () => {
     if (!deletingPlanId) return;
-    setDeleteError("");
     try {
       const res = await fetch(`/api/admin/plans?id=${deletingPlanId}`, { method: "DELETE" });
       if (!res.ok) {
@@ -193,8 +192,9 @@ function AdminPlansPageContent() {
       }
       setDeletingPlanId(null);
       fetchPlans();
+      toast.success("Plan deleted");
     } catch (e: unknown) {
-      setDeleteError(e instanceof Error ? e.message : "Failed to delete plan");
+      toast.error(e instanceof Error ? e.message : "Failed to delete plan");
     }
   };
 
@@ -363,6 +363,7 @@ function AdminPlansPageContent() {
                 setEditingPlan(null);
                 setShowCreate(false);
                 fetchPlans();
+                toast.success(isNew ? "Plan created" : "Plan updated");
               }}
               onClose={() => {
                 setEditingPlan(null);
@@ -377,7 +378,6 @@ function AdminPlansPageContent() {
           onOpenChange={(open) => {
             if (!open) {
               setDeletingPlanId(null);
-              setDeleteError("");
             }
           }}
         >
@@ -394,11 +394,6 @@ function AdminPlansPageContent() {
                 on this plan cannot be removed.
               </DialogDescription>
             </DialogHeader>
-            {deleteError && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                {deleteError}
-              </div>
-            )}
             <DialogFooter>
               <DialogClose render={<Button variant="outline">Cancel</Button>} />
               <Button variant="destructive" onClick={handleDeletePlan}>

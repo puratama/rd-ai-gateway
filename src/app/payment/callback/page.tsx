@@ -142,7 +142,7 @@ function PaymentCallbackContent() {
   useEffect(() => {
     if (confirming) return;
     if (secondsLeft <= 0) {
-      router.replace("/wallet");
+      router.replace("/my/wallet");
       return;
     }
     const timer = window.setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
@@ -203,11 +203,11 @@ function PaymentCallbackContent() {
                   : `Kembali ke wallet dalam ${secondsLeft} detik`}
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-                <Button onClick={() => router.replace("/wallet")} className="gap-2">
+                <Button onClick={() => router.replace("/my/wallet")} className="gap-2">
                   <Wallet className="h-4 w-4" /> Ke Wallet Sekarang
                 </Button>
                 {status !== "success" && (
-                  <Button variant="outline" onClick={() => router.replace("/wallet")}>
+                  <Button variant="outline" onClick={() => router.replace("/my/wallet")}>
                     Coba Top Up Lagi
                   </Button>
                 )}

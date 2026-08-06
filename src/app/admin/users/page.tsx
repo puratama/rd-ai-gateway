@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { FormSelect } from "@/components/ui/form-select";
+import { toast } from "sonner";
 
 interface AdminUser {
   id: string;
@@ -159,8 +160,9 @@ export default function AdminUsersPage() {
       if (!res.ok) throw new Error("Failed to delete user");
       setDeletingUserId(null);
       fetchUsers(search, page, limit, hasPackageOnly);
+      toast.success("User deleted");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete user");
+      toast.error(err instanceof Error ? err.message : "Failed to delete user");
     }
   };
 
@@ -172,13 +174,14 @@ export default function AdminUsersPage() {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error || "Failed to update user");
+      toast.error(data.error || "Failed to update user");
       return;
     }
     if (modalUser?.id === id) {
       setModalUser((prev) => prev ? { ...prev, ...patch as Partial<UserDetail> } : prev);
     }
     fetchUsers(search, page, limit, hasPackageOnly);
+    toast.success("User updated");
   };
 
   const openModal = async (id: string) => {

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Link from "next/link";
+import { toast } from "sonner";
 
 interface CatalogPlan {
   id: string;
@@ -55,7 +56,6 @@ export default function PlanPage() {
   const [buying, setBuying] = useState<string | null>(null);
   const [confirmPlan, setConfirmPlan] = useState<CatalogPlan | null>(null);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
 
   const loadBalance = async () => {
     try {
@@ -86,7 +86,6 @@ export default function PlanPage() {
   const buy = async (planId: string) => {
     setBuying(planId);
     setError("");
-    setMessage("");
     try {
       const res = await fetch("/api/packages/purchase", {
         method: "POST",
@@ -97,10 +96,10 @@ export default function PlanPage() {
         const err = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(err?.error ?? "Gagal membeli paket");
       }
-      setMessage("Paket berhasil dibeli.");
+      toast.success("Paket berhasil dibeli.");
       await loadBalance();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Gagal membeli paket");
+      toast.error(e instanceof Error ? e.message : "Gagal membeli paket");
     } finally {
       setBuying(null);
     }
@@ -124,7 +123,7 @@ export default function PlanPage() {
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Wallet className="h-4 w-4" /> Saldo: {fmtRupiah(balance)}
               </span>
-              <Link href="/wallet">
+              <Link href="/my/wallet">
                 <Button variant="outline" size="sm">Top up</Button>
               </Link>
               <Button variant="outline" size="sm" onClick={() => void loadCatalog()}>
@@ -135,9 +134,6 @@ export default function PlanPage() {
 
           {error && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
-          )}
-          {message && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600">{message}</div>
           )}
 
           {/* Katalog */}

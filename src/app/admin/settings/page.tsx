@@ -36,6 +36,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type SettingsTabId = "payment" | "aggregator";
 
@@ -881,22 +882,22 @@ function AggregatorSection() {
           <AggregatorForm
             aggregator={editing}
             onSave={async (data) => {
-              if (editing) {
-                await fetch("/api/admin/aggregators", {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ id: editing.id, ...data }),
-                });
-              } else {
-                await fetch("/api/admin/aggregators", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(data),
-                });
-              }
+              const res = editing
+                ? await fetch("/api/admin/aggregators", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: editing.id, ...data }),
+                  })
+                : await fetch("/api/admin/aggregators", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                  });
+              if (!res.ok) throw new Error("Save failed");
               setShowCreate(false);
               setEditing(null);
               fetchAggregators();
+              toast.success(editing ? "Aggregator updated" : "Aggregator created");
             }}
             onClose={() => {
               setShowCreate(false);

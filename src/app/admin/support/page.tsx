@@ -1,11 +1,12 @@
 "use client";
 
 import { Suspense, useCallback, useState, useEffect } from "react";
-import { LifeBuoy } from "lucide-react";
+import { LifeBuoy, Clock, Inbox } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Message {
   authorRole: "user" | "admin";
@@ -26,19 +27,17 @@ interface Ticket {
   updatedAt: number;
 }
 
-const statusOptions = ["open", "in_progress", "resolved", "closed"];
 const statusColors: Record<string, string> = {
   open: "bg-amber-500/15 text-amber-500",
   in_progress: "bg-blue-500/15 text-blue-500",
   resolved: "bg-emerald-500/15 text-emerald-500",
   closed: "bg-muted text-muted-foreground",
 };
-const priorityColors: Record<string, string> = {
-  low: "bg-muted text-muted-foreground",
-  normal: "bg-blue-500/15 text-blue-500",
-  high: "bg-destructive/15 text-destructive",
-};
 const filterTabs = ["all", "open", "in_progress", "resolved"] as const;
+
+function titleCase(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 function formatTime(ts: number) {
   return new Date(ts).toLocaleString("id-ID", {
@@ -53,7 +52,6 @@ function AdminSupportPageContent() {
   const [filter, setFilter] = useState<(typeof filterTabs)[number]>("all");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
-  const [replyError, setReplyError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const fetchTickets = useCallback(async () => {
@@ -78,10 +76,16 @@ function AdminSupportPageContent() {
   const filtered = filter === "all" ? tickets : tickets.filter((t) => t.status === filter);
   const activeTicket = tickets.find((t) => t.id === activeId) || null;
 
+  const stats = [
+    { label: "Total", value: tickets.length, badge: "text-foreground" },
+    { label: "Open", value: tickets.filter((t) => t.status === "open").length, badge: "text-amber-500" },
+    { label: "In Progress", value: tickets.filter((t) => t.status === "in_progress").length, badge: "text-blue-500" },
+    { label: "Resolved", value: tickets.filter((t) => t.status === "resolved").length, badge: "text-emerald-500" },
+  ];
+
   const handleReply = async () => {
     if (!activeId || !reply.trim()) return;
     setSaving(true);
-    setReplyError("");
     try {
       const res = await fetch(`/api/admin/support/${activeId}`, {
         method: "POST",
@@ -94,34 +98,61 @@ function AdminSupportPageContent() {
       }
       setReply("");
       await fetchTickets();
+      toast.success("Reply sent");
     } catch (e: unknown) {
-      setReplyError(e instanceof Error ? e.message : "Failed to send");
+      toast.error(e instanceof Error ? e.message : "Failed to send");
     }
     setSaving(false);
   };
 
   const handleStatus = async (status: string) => {
     if (!activeId) return;
-    const res = await fetch(`/api/admin/support/${activeId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (res.ok) await fetchTickets();
+    try {
+      const res = await fetch(`/api/admin/support/${activeId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      await fetchTickets();
+      toast.success(`Status set to ${titleCase(status)}`);
+    } catch {
+      toast.error("Failed to update status");
+    }
   };
 
   return (
     <AppShell variant="admin">
       <div className="h-full overflow-auto p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Support Tickets</h1>
-          <p className="text-sm text-muted-foreground">Reply to user support tickets.</p>
+        {/* Header */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <LifeBuoy className="h-3.5 w-3.5" /> Admin
+            </div>
+            <h1 className="mt-1 text-2xl font-semibold">Support Tickets</h1>
+            <p className="text-sm text-muted-foreground">Reply to user support tickets and manage their lifecycle.</p>
+          </div>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" /> Last updated {tickets.length ? formatTime(Math.max(...tickets.map((t) => t.updatedAt))) : "—"}
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {stats.map((s) => (
+            <div key={s.label} className="rounded-xl border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className={cn("mt-1 text-2xl font-semibold", s.badge)}>{s.value}</p>
+            </div>
+          ))}
         </div>
 
         {error && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
         )}
 
+        {/* Filters */}
         <div className="flex gap-1 rounded-lg border border-border bg-muted/30 p-1 w-fit">
           {filterTabs.map((f) => (
             <button
@@ -132,7 +163,7 @@ function AdminSupportPageContent() {
                 filter === f ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {f === "all" ? "All" : f.replace("_", " ")}
+              {f === "all" ? "All" : titleCase(f)}
             </button>
           ))}
         </div>
@@ -140,12 +171,15 @@ function AdminSupportPageContent() {
         {loading ? (
           <TableSkeleton rows={4} cols={5} />
         ) : filtered.length === 0 ? (
-          <div className="text-center py-14 text-muted-foreground">
-            <LifeBuoy className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No tickets in this view.</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+            <Inbox className="h-10 w-10 text-muted-foreground/40" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              {tickets.length === 0 ? "No support tickets yet." : "No tickets match this filter."}
+            </p>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-[320px_1fr] gap-6">
+          <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-6">
+            {/* Ticket list */}
             <div className="space-y-2">
               {filtered.map((t) => (
                 <button
@@ -159,69 +193,67 @@ function AdminSupportPageContent() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-sm truncate">{t.subject}</span>
                     <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", statusColors[t.status] || "")}>
-                      {t.status.replace("_", " ")}
+                      {titleCase(t.status)}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">{t.userEmail} · {t.category}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{t.priority} · updated {formatTime(t.updatedAt)}</p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {t.userEmail} <span className="mx-2">·</span> {titleCase(t.category)} <span className="mx-2">·</span> {titleCase(t.priority)} Priority
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">updated {formatTime(t.updatedAt)}</p>
                 </button>
               ))}
             </div>
 
+            {/* Conversation panel */}
             <div className="rounded-xl border border-border bg-card p-4">
               {!activeTicket ? (
-                <p className="text-sm text-muted-foreground text-center py-16">Select a ticket to view the conversation.</p>
+                <div className="flex h-full flex-col items-center justify-center py-20 text-center">
+                  <Inbox className="h-10 w-10 text-muted-foreground/40" />
+                  <p className="mt-3 text-sm text-muted-foreground">Select a ticket to view the conversation.</p>
+                </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{activeTicket.subject}</span>
-                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", priorityColors[activeTicket.priority] || "")}>
-                          {activeTicket.priority}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+                    <div className="w-full">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold truncate">{activeTicket.subject}</span>
+                        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", statusColors[activeTicket.status] || "")}>
+                          {titleCase(activeTicket.status)}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {activeTicket.userEmail} {activeTicket.userName ? `(${activeTicket.userName})` : ""} · {activeTicket.category}
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {activeTicket.userEmail} <span className="mx-2">·</span> {titleCase(activeTicket.category)} <span className="mx-2">·</span> {titleCase(activeTicket.priority)} Priority
                       </p>
                     </div>
-                    <select
-                      value={activeTicket.status}
-                      onChange={(e) => handleStatus(e.target.value)}
-                      className="h-8 rounded-lg border border-input bg-background px-2 text-xs outline-none"
-                    >
-                      {statusOptions.map((s) => (
-                        <option key={s} value={s}>{s === "in_progress" ? "In progress" : s}</option>
-                      ))}
-                    </select>
                   </div>
 
                   <div className="space-y-3 max-h-[45vh] overflow-auto pr-1">
                     {activeTicket.messages.map((m, i) => (
-                      <div key={i} className={cn("max-w-[85%] rounded-xl px-3 py-2 text-sm", m.authorRole === "admin" ? "bg-primary/10 ml-auto" : "bg-muted/40")}>
-                        <div className={cn("text-[11px] font-medium mb-1", m.authorRole === "admin" ? "text-primary" : "text-muted-foreground")}>
-                          {m.authorRole === "admin" ? "Support team" : activeTicket.userEmail} · {formatTime(m.createdAt)}
+                      <div key={i} className={cn("max-w-[85%] w-fit break-words rounded-xl border px-3 py-2 text-sm", m.authorRole === "admin" ? "border-primary/25 bg-primary/15 ml-auto" : "border-border/70 bg-muted/60")}>
+                        <div className={cn("mb-1 text-[11px] font-medium", m.authorRole === "admin" ? "text-primary" : "text-muted-foreground")}>
+                          {m.authorRole === "admin" ? "Support team" : activeTicket.userEmail} <span className="mx-2">·</span> {formatTime(m.createdAt)}
                         </div>
                         <p className="whitespace-pre-wrap">{m.body}</p>
                       </div>
                     ))}
                   </div>
 
-                  <div className="pt-2 border-t border-border">
-                    {replyError && <div className="mb-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive">{replyError}</div>}
-                    <textarea
-                      value={reply}
-                      onChange={(e) => { setReply(e.target.value); setReplyError(""); }}
-                      placeholder="Write reply..."
-                      rows={3}
-                      className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                    />
-                    <div className="flex gap-2 mt-2">
-                      <Button size="sm" onClick={handleReply} disabled={!reply.trim() || saving}>{saving ? "Sending..." : "Send Reply"}</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleStatus("resolved")}>Mark Resolved</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleStatus("closed")}>Close</Button>
+                  {activeTicket.status !== "closed" && (
+                    <div className="border-t border-border pt-4">
+                      <textarea
+                        value={reply}
+                        onChange={(e) => { setReply(e.target.value); }}
+                        placeholder="Write reply..."
+                        rows={3}
+                        className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button size="sm" onClick={handleReply} disabled={!reply.trim() || saving}>{saving ? "Sending..." : "Send Reply"}</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleStatus("resolved")}>Mark Resolved</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleStatus("closed")}>Mark Closed</Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
