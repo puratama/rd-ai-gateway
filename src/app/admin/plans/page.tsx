@@ -6,14 +6,16 @@ import {
   Plus,
   Edit3,
   Trash2,
-  RefreshCw,
   AlertTriangle,
   CreditCard,
   GripVertical,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
+import { FormSection, FormPanel } from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -77,53 +79,6 @@ const fmtRupiah = (n: number) =>
   }).format(n);
 
 const formatNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
-
-function ToggleSwitch({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        checked ? "bg-emerald-500" : "bg-input"
-      )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform",
-          checked ? "translate-x-4" : "translate-x-0.5"
-        )}
-      />
-    </button>
-  );
-}
-
-function SectionHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 mb-3">
-      <div className="h-5 w-0.5 rounded-full bg-primary/60" />
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {children}
-      </span>
-    </div>
-  );
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
-      {children}
-    </label>
-  );
-}
 
 function AddManualItem({
   placeholder,
@@ -577,10 +532,10 @@ function PlanEditor({
 
         {/* ── General ── */}
         <section>
-          <SectionHeader>General</SectionHeader>
-          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+          <FormSection>General</FormSection>
+          <FormPanel className="space-y-3">
             <div>
-              <FieldLabel>Plan Name</FieldLabel>
+              <Label>Plan Name</Label>
               <Input
                 value={form.name || ""}
                 onChange={(e) => update("name", e.target.value)}
@@ -589,7 +544,7 @@ function PlanEditor({
               />
             </div>
             <div>
-              <FieldLabel>Description</FieldLabel>
+              <Label>Description</Label>
               <Input
                 value={form.description || ""}
                 onChange={(e) => update("description", e.target.value)}
@@ -597,16 +552,16 @@ function PlanEditor({
                 className="h-9 bg-background"
               />
             </div>
-          </div>
+          </FormPanel>
         </section>
 
         {/* ── Pricing ── */}
         <section>
-          <SectionHeader>Pricing (IDR)</SectionHeader>
-          <div className="rounded-lg border border-border bg-muted/20 p-4">
+          <FormSection>Pricing (IDR)</FormSection>
+          <FormPanel>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>Price</FieldLabel>
+                <Label>Price</Label>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -620,7 +575,7 @@ function PlanEditor({
                 </p>
               </div>
               <div>
-                <FieldLabel>Billing Period</FieldLabel>
+                <Label>Billing Period</Label>
                 <FormSelect
                   options={[
                     { value: "daily", label: "Daily" },
@@ -635,15 +590,15 @@ function PlanEditor({
                 />
               </div>
             </div>
-          </div>
+          </FormPanel>
         </section>
 
         {/* ── Quota ── */}
         <section>
-          <SectionHeader>Quota</SectionHeader>
-          <div className="rounded-lg border border-border bg-muted/20 p-4">
+          <FormSection>Quota</FormSection>
+          <FormPanel>
             <div>
-              <FieldLabel>Max Tokens</FieldLabel>
+              <Label>Max Tokens</Label>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -656,13 +611,13 @@ function PlanEditor({
                 Jatah token di paket. Berlaku untuk paket &amp; token plan.
               </p>
             </div>
-          </div>
+          </FormPanel>
         </section>
 
         {/* ── Features ── */}
         <section>
-          <SectionHeader>Features</SectionHeader>
-          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-4">
+          <FormSection>Features</FormSection>
+          <FormPanel className="space-y-4">
             {[
               {
                 key: "streaming" as const,
@@ -683,19 +638,19 @@ function PlanEditor({
                   <p className="text-sm font-medium">{f.title}</p>
                   <p className="text-xs text-muted-foreground/60">{f.desc}</p>
                 </div>
-                <ToggleSwitch
+                <Switch
                   checked={form.features[f.key]}
                   onChange={(v) => updateFeatures(f.key, v)}
                 />
               </div>
             ))}
-          </div>
+          </FormPanel>
         </section>
 
         {/* ── Access ── */}
         <section>
-          <SectionHeader>Access</SectionHeader>
-          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+          <FormSection>Access</FormSection>
+          <FormPanel className="space-y-3">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-medium">Semua Provider</p>
@@ -705,16 +660,16 @@ function PlanEditor({
                     : "Matikan untuk membatasi ke provider tertentu."}
                 </p>
               </div>
-              <ToggleSwitch
+              <Switch
                 checked={form.features.allProviders}
                 onChange={(v) => updateFeatures("allProviders", v)}
               />
             </div>
             {!form.features.allProviders && (
               <div>
-                <FieldLabel>
+                <Label>
                   Allowed Providers <span className="text-red-500">*</span>
-                </FieldLabel>
+                </Label>
                 <FormSelect
                   isMulti
                   options={(catalog?.providers ?? []).map((p) => ({
@@ -751,16 +706,16 @@ function PlanEditor({
                     : "Matikan untuk membatasi ke model tertentu."}
                 </p>
               </div>
-              <ToggleSwitch
+              <Switch
                 checked={form.features.allModels}
                 onChange={(v) => updateFeatures("allModels", v)}
               />
             </div>
             {!form.features.allModels && (
               <div>
-                <FieldLabel>
+                <Label>
                   Allowed Models <span className="text-red-500">*</span>
-                </FieldLabel>
+                </Label>
                 <FormSelect
                   isMulti
                   options={(catalog?.models ?? []).map((m) => ({
@@ -813,13 +768,13 @@ function PlanEditor({
                 )}
               </div>
             )}
-          </div>
+          </FormPanel>
         </section>
 
         {/* ── Highlights ── */}
         <section>
-          <SectionHeader>Highlights</SectionHeader>
-          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+          <FormSection>Highlights</FormSection>
+          <FormPanel className="space-y-3">
             <AddManualItem
               placeholder='Tambah keunggulan (mis. "Full support")…'
               onAdd={(v) => addToList("highlights", v)}
@@ -867,13 +822,13 @@ function PlanEditor({
                 ))}
               </ul>
             )}
-          </div>
+          </FormPanel>
         </section>
 
         {/* ── Status ── */}
         <section>
-          <SectionHeader>Status</SectionHeader>
-          <div className="rounded-lg border border-border bg-muted/20 p-4">
+          <FormSection>Status</FormSection>
+          <FormPanel>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-medium">Plan Active</p>
@@ -881,12 +836,12 @@ function PlanEditor({
                   When inactive, this plan won&apos;t be available for purchase.
                 </p>
               </div>
-              <ToggleSwitch
+              <Switch
                 checked={form.isActive !== false}
                 onChange={(v) => update("isActive", v)}
               />
             </div>
-          </div>
+          </FormPanel>
         </section>
       </div>
 

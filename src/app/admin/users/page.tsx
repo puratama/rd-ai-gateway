@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, Fragment } from "react";
-import { Search, RefreshCw, Trash2, AlertTriangle, Users, ShieldCheck, ShieldX, ShieldBan, MailCheck, MailX, X, ChevronDown, ChevronRight, Box } from "lucide-react";
+import { Search, RefreshCw, Trash2, AlertTriangle, Users, MailCheck, MailX } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -433,7 +433,7 @@ export default function AdminUsersPage() {
                           {modalUser.usageRecords.slice(0, 10).map((r) => (
                             <tr key={r.id}>
                               <td className="px-3 py-1.5 text-muted-foreground">{fmtDate(r.createdAt)}</td>
-                              <td className="px-3 py-1.5 font-medium truncate max-w-[140px]">{r.model}</td>
+                              <td className="px-3 py-1.5 font-medium truncate max-w-35">{r.model}</td>
                               <td className="px-3 py-1.5 text-right tabular-nums">{r.totalTokens.toLocaleString()}</td>
                               <td className="px-3 py-1.5 capitalize">{r.source}</td>
                             </tr>

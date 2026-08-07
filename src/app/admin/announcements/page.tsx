@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -31,42 +33,6 @@ interface Announcement {
   description: string;
   isActive: boolean;
   createdAt: number;
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
-      {children}
-    </label>
-  );
-}
-
-function ToggleSwitch({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors",
-        checked ? "bg-emerald-500" : "bg-input"
-      )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-          checked ? "translate-x-4" : "translate-x-0.5"
-        )}
-      />
-    </button>
-  );
 }
 
 function AdminAnnouncementsPageContent() {
@@ -246,7 +212,7 @@ function AdminAnnouncementsPageContent() {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <FieldLabel>Title</FieldLabel>
+                <Label>Title</Label>
                 <Input
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -255,7 +221,7 @@ function AdminAnnouncementsPageContent() {
                 />
               </div>
               <div>
-                <FieldLabel>Description</FieldLabel>
+                <Label>Description</Label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -270,7 +236,7 @@ function AdminAnnouncementsPageContent() {
                     <p className="text-sm font-medium">Active</p>
                     <p className="text-xs text-muted-foreground">Show this announcement on guest and client pages.</p>
                   </div>
-                  <ToggleSwitch checked={form.isActive} onChange={(v) => setForm({ ...form, isActive: v })} />
+                  <Switch checked={form.isActive} onChange={(v) => setForm({ ...form, isActive: v })} />
                 </div>
               )}
               {formError && (

@@ -1,10 +1,9 @@
 "use client";
 
 import { Suspense, useCallback, useState, useEffect } from "react";
-import { LifeBuoy, Clock, Inbox, RefreshCw } from "lucide-react";
+import { Inbox, RefreshCw } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
-import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -259,7 +258,7 @@ function AdminSupportPageContent() {
 
                   <div className="space-y-3 max-h-[45vh] overflow-auto pr-1">
                     {activeTicket.messages.map((m, i) => (
-                      <div key={i} className={cn("max-w-[85%] w-fit break-words rounded-xl border px-3 py-2 text-sm", m.authorRole === "admin" ? "border-primary/25 bg-primary/15 ml-auto" : "border-border/70 bg-muted/60")}>
+                      <div key={i} className={cn("max-w-[85%] w-fit wrap-break-word rounded-xl border px-3 py-2 text-sm", m.authorRole === "admin" ? "border-primary/25 bg-primary/15 ml-auto" : "border-border/70 bg-muted/60")}>
                         <div className={cn("mb-1 text-[11px] font-medium", m.authorRole === "admin" ? "text-primary" : "text-muted-foreground")}>
                           {m.authorRole === "admin" ? "Support team" : activeTicket.userEmail} <span className="mx-2">·</span> {formatTime(m.createdAt)}
                         </div>

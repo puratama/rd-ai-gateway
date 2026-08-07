@@ -5,6 +5,9 @@ import { Plus, Edit3, Trash2, Box, AlertTriangle } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { FormSection, FormPanel } from "@/components/ui/form";
 import {
   Dialog,
   DialogContent,
@@ -51,34 +54,6 @@ interface ModelForm {
   sellPricePer1kPrompt: number | null;
   sellPricePer1kCompletion: number | null;
   isActive: boolean;
-}
-
-function ToggleSwitch({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        checked ? "bg-emerald-500" : "bg-input"
-      )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform",
-          checked ? "translate-x-4" : "translate-x-0.5"
-        )}
-      />
-    </button>
-  );
 }
 
 function AdminModelsPageContent() {
@@ -446,21 +421,16 @@ function ModelForm({
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
         {/* ── Source ── */}
         <section>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-5 w-0.5 rounded-full bg-primary/60" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Source
-            </span>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+          <FormSection>Source</FormSection>
+          <FormPanel className="space-y-3">
             <p className="text-xs text-muted-foreground/70">
               Pick an aggregator and model to auto-fill the fields below, or type manually.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+                <Label>
                   Aggregator
-                </label>
+                </Label>
                 <FormSelect
                   options={[
                     { value: "", label: loadingAggregators ? "Loading..." : "Select aggregator" },
@@ -492,9 +462,9 @@ function ModelForm({
                 )}
               </div>
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+                <Label>
                   Provider Model
-                </label>
+                </Label>
                 <FormSelect
                   options={[
                     {
@@ -547,22 +517,17 @@ function ModelForm({
                 )}
               </div>
             </div>
-          </div>
+          </FormPanel>
         </section>
 
         {/* ── General ── */}
         <section>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-5 w-0.5 rounded-full bg-primary/60" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              General
-            </span>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+          <FormSection>General</FormSection>
+          <FormPanel className="space-y-3">
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+              <Label>
                 Provider
-              </label>
+              </Label>
               <Input
                 value={form.provider}
                 onChange={(e) => update("provider", e.target.value)}
@@ -571,9 +536,9 @@ function ModelForm({
               />
             </div>
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+              <Label>
                 Provider Model ID
-              </label>
+              </Label>
               <Input
                 value={form.providerModelId}
                 onChange={(e) => update("providerModelId", e.target.value)}
@@ -585,9 +550,9 @@ function ModelForm({
               </p>
             </div>
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+              <Label>
                 Public Model ID
-              </label>
+              </Label>
               <Input
                 value={form.modelId}
                 onChange={(e) => update("modelId", e.target.value)}
@@ -599,9 +564,9 @@ function ModelForm({
               </p>
             </div>
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+              <Label>
                 Display Name
-              </label>
+              </Label>
               <Input
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
@@ -609,23 +574,18 @@ function ModelForm({
                 className="h-9 bg-background"
               />
             </div>
-          </div>
+          </FormPanel>
         </section>
 
         {/* ── Pricing ── */}
         <section>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-5 w-0.5 rounded-full bg-primary/60" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Pricing (IDR)
-            </span>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/20 p-4">
+          <FormSection>Pricing (IDR)</FormSection>
+          <FormPanel>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+                <Label>
                   Sell/1M Prompt
-                </label>
+                </Label>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -636,9 +596,9 @@ function ModelForm({
                 />
               </div>
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">
+                <Label>
                   Sell/1M Completion
-                </label>
+                </Label>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -649,18 +609,13 @@ function ModelForm({
                 />
               </div>
             </div>
-          </div>
+          </FormPanel>
         </section>
 
         {/* ── Status ── */}
         <section>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-5 w-0.5 rounded-full bg-primary/60" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Status
-            </span>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/20 p-4">
+          <FormSection>Status</FormSection>
+          <FormPanel>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">Model Active</p>
@@ -668,12 +623,12 @@ function ModelForm({
                   When inactive, this model won't be available for API requests.
                 </p>
               </div>
-              <ToggleSwitch
+              <Switch
                 checked={form.isActive}
                 onChange={(v) => update("isActive", v)}
               />
             </div>
-          </div>
+          </FormPanel>
         </section>
       </div>
 

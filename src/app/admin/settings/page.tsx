@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Plus,
   Edit3,
@@ -21,16 +21,23 @@ import {
 import type { SiteSettings } from "@/lib/site-settings";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FormSelect, type SelectOption } from "@/components/ui/form-select";
+import { FormSection, FormPanel } from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +50,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type SettingsTabId = "payment" | "aggregator" | "site";
+type SettingsTabId = "site" | "payment" | "aggregator";
 
 export default function AdminSettingsPage() {
   return (
@@ -55,21 +62,13 @@ export default function AdminSettingsPage() {
 
 function AdminSettingsContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const tabParam = searchParams.get("tab") as SettingsTabId | null;
-  const [activeTab, setActiveTab] = useState<SettingsTabId>(tabParam || "payment");
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(tabParam || "site");
 
   useEffect(() => {
     const current = searchParams.get("tab") as SettingsTabId | null;
     if (current && current !== activeTab) setActiveTab(current);
   }, []);
-
-  const handleTabChange = (tab: SettingsTabId) => {
-    setActiveTab(tab);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", tab);
-    router.replace(`/admin/settings?${params.toString()}`, { scroll: false });
-  };
 
   return (
     <AppShell variant="admin">
@@ -84,9 +83,9 @@ function AdminSettingsContent() {
         <div className="inline-flex gap-1 rounded-xl border border-border bg-card p-1">
           {(
             [
+              { id: "site" as const, label: "Site", icon: Globe },
               { id: "payment" as const, label: "Payment Gateway", icon: Building2 },
               { id: "aggregator" as const, label: "Aggregator", icon: Layers },
-              { id: "site" as const, label: "Site", icon: Globe },
             ]
           ).map((tab) => {
             const Icon = tab.icon;
@@ -108,9 +107,9 @@ function AdminSettingsContent() {
           })}
         </div>
 
+        {activeTab === "site" && <SiteSettingsSection />}
         {activeTab === "payment" && <PaymentGatewaySection />}
         {activeTab === "aggregator" && <AggregatorSection />}
-        {activeTab === "site" && <SiteSettingsSection />}
       </div>
     </AppShell>
   );
@@ -204,121 +203,108 @@ function PaymentGatewaySection() {
       )}
 
       {loading ? (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="animate-pulse">
-              <div className="h-11 bg-muted/50" />
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-12 border-t border-border flex items-center gap-4 px-4">
-                  <div className="h-4 w-20 bg-muted rounded" />
-                  <div className="h-4 w-32 bg-muted rounded" />
-                  <div className="h-4 w-16 bg-muted rounded" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : gateways.length === 0 ? (
+        <TableSkeleton rows={4} cols={7} />
+      ) : gateways.length === 0 ? (
         <EmptyState icon={Building2} title="Belum ada payment gateway." />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Provider</th>
-                  <th className="px-4 py-3 font-medium">Nama</th>
-                  <th className="px-4 py-3 font-medium">Environment</th>
-                  <th className="px-4 py-3 font-medium">Server Key</th>
-                  <th className="px-4 py-3 font-medium">Client Key</th>
-                  <th className="px-4 py-3 text-center font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {gateways.map((g) => (
-                  <tr key={g.id} className="hover:bg-muted/40">
-                    <td className="px-4 py-3">
+          <Table>
+            <TableHeader className="bg-muted/50 text-muted-foreground">
+              <TableRow>
+                <TableHead className="px-4 font-medium">Provider</TableHead>
+                <TableHead className="px-4 font-medium">Nama</TableHead>
+                <TableHead className="px-4 font-medium">Environment</TableHead>
+                <TableHead className="px-4 font-medium">Server Key</TableHead>
+                <TableHead className="px-4 font-medium">Client Key</TableHead>
+                <TableHead className="px-4 text-center font-medium">Status</TableHead>
+                <TableHead className="px-4 font-medium">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {gateways.map((g) => (
+                <TableRow key={g.id}>
+                  <TableCell className="px-4 py-3">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                        g.provider === "midtrans"
+                          ? "bg-blue-500/10 text-blue-400"
+                          : "bg-violet-500/10 text-violet-400"
+                      )}
+                    >
+                      {PROVIDER_LABELS[g.provider] || g.provider}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 font-medium">{g.name}</TableCell>
+                  <TableCell className="px-4 py-3 capitalize text-muted-foreground">
+                    {g.environment}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <span
+                      className={
+                        g.hasServerKey
+                          ? "text-emerald-400 text-xs"
+                          : "text-muted-foreground text-xs"
+                      }
+                    >
+                      {g.hasServerKey ? "••••••••" : "None"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <span
+                      className={
+                        g.hasClientKey
+                          ? "text-emerald-400 text-xs"
+                          : "text-muted-foreground text-xs"
+                      }
+                    >
+                      {g.hasClientKey ? "••••••••" : "None"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-center">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                        g.isActive
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
-                          g.provider === "midtrans"
-                            ? "bg-blue-500/10 text-blue-400"
-                            : "bg-violet-500/10 text-violet-400"
+                          "h-1.5 w-1.5 rounded-full",
+                          g.isActive ? "bg-emerald-400" : "bg-muted-foreground"
                         )}
+                      />
+                      {g.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => {
+                          setEditing(g);
+                          setShowCreate(true);
+                        }}
                       >
-                        {PROVIDER_LABELS[g.provider] || g.provider}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-medium">{g.name}</td>
-                    <td className="px-4 py-3 capitalize text-muted-foreground">
-                      {g.environment}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={
-                          g.hasServerKey
-                            ? "text-emerald-400 text-xs"
-                            : "text-muted-foreground text-xs"
-                        }
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeletingId(g.id)}
                       >
-                        {g.hasServerKey ? "••••••••" : "None"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={
-                          g.hasClientKey
-                            ? "text-emerald-400 text-xs"
-                            : "text-muted-foreground text-xs"
-                        }
-                      >
-                        {g.hasClientKey ? "••••••••" : "None"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                          g.isActive
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "h-1.5 w-1.5 rounded-full",
-                            g.isActive ? "bg-emerald-400" : "bg-muted-foreground"
-                          )}
-                        />
-                        {g.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => {
-                            setEditing(g);
-                            setShowCreate(true);
-                          }}
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => setDeletingId(g.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -332,17 +318,22 @@ function PaymentGatewaySection() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editing ? "Edit Gateway" : "Add Gateway"}
-            </DialogTitle>
-            <DialogDescription>
-              {editing
-                ? "Update konfigurasi payment gateway."
-                : "Tambah payment gateway baru."}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+          <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+              <Building2 className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <DialogTitle className="text-base">
+                {editing ? "Edit Gateway" : "Add Gateway"}
+              </DialogTitle>
+              <DialogDescription className="text-xs mt-0.5">
+                {editing
+                  ? "Update konfigurasi payment gateway."
+                  : "Tambah payment gateway baru."}
+              </DialogDescription>
+            </div>
+          </div>
           <GatewayForm
             gateway={editing}
             onSave={async (data) => {
@@ -427,6 +418,17 @@ function GatewayForm({
 
   const keyLabels = PROVIDER_KEY_LABELS[form.provider] || PROVIDER_KEY_LABELS.midtrans;
 
+  const providerOptions: SelectOption[] = [
+    { value: "midtrans", label: "Midtrans" },
+    { value: "xendit", label: "Xendit" },
+  ];
+  const envOptions: SelectOption[] = [
+    { value: "sandbox", label: "Sandbox" },
+    { value: "production", label: "Production" },
+  ];
+  const findOpt = (opts: SelectOption[], v: string) =>
+    opts.find((o) => o.value === v) ?? null;
+
   const handleSave = async () => {
     setSaving(true);
     setFormError("");
@@ -447,145 +449,135 @@ function GatewayForm({
   };
 
   return (
-    <>
-      <div className="space-y-4">
+    <div className="flex flex-col max-h-[70vh]">
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
         {formError && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
             {formError}
           </div>
         )}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Provider
-            </label>
-            <Select
-              value={form.provider}
-              onValueChange={(v) =>
-                setForm((p) => ({
-                  ...p,
-                  provider: v || "midtrans",
-                  name: gateway ? p.name : (v ? PROVIDER_LABELS[v] || v : ""),
-                }))
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="midtrans">Midtrans</SelectItem>
-                <SelectItem value="xendit">Xendit</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Nama
-            </label>
-            <Input
-              value={form.name}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, name: e.target.value }))
-              }
-              placeholder={`e.g. ${PROVIDER_LABELS[form.provider]}`}
-            />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">
-            {keyLabels.server}
-          </label>
-          <Input
-            type="password"
-            value={form.serverKey}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, serverKey: e.target.value }))
-            }
-            placeholder={
-              gateway
-                ? "Kosongkan untuk tidak mengubah"
-                : form.provider === "midtrans"
-                ? "SB-Mid-server-..."
-                : "xnd_..."
-            }
-          />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">
-            {keyLabels.client}
-          </label>
-          <Input
-            type="password"
-            value={form.clientKey}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, clientKey: e.target.value }))
-            }
-            placeholder={
-              gateway
-                ? "Kosongkan untuk tidak mengubah"
-                : form.provider === "midtrans"
-                ? "SB-Mid-client-..."
-                : "Token verifikasi callback"
-            }
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Environment
-            </label>
-            <Select
-              value={form.environment}
-              onValueChange={(v) =>
-                setForm((p) => ({ ...p, environment: v || "sandbox" }))
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sandbox">Sandbox</SelectItem>
-                <SelectItem value="production">Production</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1.5">
-              Status
-            </label>
-            <Select
-              value={form.isActive ? "active" : "inactive"}
-              onValueChange={(v) =>
-                setForm((p) => ({ ...p, isActive: v === "active" }))
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Aktif</SelectItem>
-                <SelectItem value="inactive">Nonaktif</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+
+        {/* ── General ── */}
+        <section>
+          <FormSection>General</FormSection>
+          <FormPanel>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Provider</Label>
+                <FormSelect
+                  options={providerOptions}
+                  value={findOpt(providerOptions, form.provider)}
+                  onChange={(v) =>
+                    setForm((p) => ({
+                      ...p,
+                      provider: v || "midtrans",
+                      name: gateway ? p.name : (v ? PROVIDER_LABELS[v] || v : ""),
+                    }))
+                  }
+                  isClearable={false}
+                  isSearchable={false}
+                />
+              </div>
+              <div>
+                <Label>Nama</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  placeholder={`e.g. ${PROVIDER_LABELS[form.provider]}`}
+                  className="h-9 bg-background"
+                />
+              </div>
+            </div>
+          </FormPanel>
+        </section>
+
+        {/* ── Credentials ── */}
+        <section>
+          <FormSection>Credentials</FormSection>
+          <FormPanel className="space-y-3">
+            <div>
+              <Label>{keyLabels.server}</Label>
+              <Input
+                type="password"
+                value={form.serverKey}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, serverKey: e.target.value }))
+                }
+                placeholder={
+                  gateway
+                    ? "Kosongkan untuk tidak mengubah"
+                    : form.provider === "midtrans"
+                    ? "SB-Mid-server-..."
+                    : "xnd_..."
+                }
+                className="h-9 bg-background"
+              />
+            </div>
+            <div>
+              <Label>{keyLabels.client}</Label>
+              <Input
+                type="password"
+                value={form.clientKey}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, clientKey: e.target.value }))
+                }
+                placeholder={
+                  gateway
+                    ? "Kosongkan untuk tidak mengubah"
+                    : form.provider === "midtrans"
+                    ? "SB-Mid-client-..."
+                    : "Token verifikasi callback"
+                }
+                className="h-9 bg-background"
+              />
+            </div>
+          </FormPanel>
+        </section>
+
+        {/* ── Environment & Status ── */}
+        <section>
+          <FormSection>Environment &amp; Status</FormSection>
+          <FormPanel className="space-y-4">
+            <div>
+              <Label>Environment</Label>
+              <FormSelect
+                options={envOptions}
+                value={findOpt(envOptions, form.environment)}
+                onChange={(v) =>
+                  setForm((p) => ({ ...p, environment: v || "sandbox" }))
+                }
+                isClearable={false}
+                isSearchable={false}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Gateway Active</p>
+                <p className="text-xs text-muted-foreground/60">
+                  Saat nonaktif, gateway tidak dipakai untuk transaksi.
+                </p>
+              </div>
+              <Switch
+                checked={form.isActive}
+                onChange={(v) => setForm((p) => ({ ...p, isActive: v }))}
+              />
+            </div>
+          </FormPanel>
+        </section>
       </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
+
+      {/* ── Footer ── */}
+      <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
+        <Button variant="outline" size="sm" onClick={onClose}>
           Batal
         </Button>
-        <Button
-          onClick={handleSave}
-          disabled={saving || !form.name}
-        >
-          {saving
-            ? "Menyimpan..."
-            : gateway
-            ? "Update"
-            : "Tambah"}
+        <Button size="sm" onClick={handleSave} disabled={saving || !form.name}>
+          {saving ? "Menyimpan..." : gateway ? "Update" : "Tambah"}
         </Button>
-      </DialogFooter>
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -728,134 +720,121 @@ function AggregatorSection() {
       )}
 
       {loading ? (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="animate-pulse">
-              <div className="h-11 bg-muted/50" />
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-12 border-t border-border flex items-center gap-4 px-4">
-                  <div className="h-4 w-32 bg-muted rounded" />
-                  <div className="h-4 w-48 bg-muted rounded" />
-                  <div className="h-4 w-20 bg-muted rounded" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : aggregators.length === 0 ? (
+        <TableSkeleton rows={4} cols={5} />
+      ) : aggregators.length === 0 ? (
         <EmptyState icon={Layers} title="Belum ada aggregator." />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Nama</th>
-                  <th className="px-4 py-3 font-medium">Base URL</th>
-                  <th className="px-4 py-3 font-medium">API Key</th>
-                  <th className="px-4 py-3 text-center font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {aggregators.map((a) => (
-                  <tr key={a.id} className="hover:bg-muted/40">
-                    <td className="px-4 py-3 font-medium">{a.name}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {a.baseUrl}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={
-                          a.hasApiKey
-                            ? "text-emerald-400 text-xs"
-                            : "text-muted-foreground text-xs"
-                        }
-                      >
-                        {a.hasApiKey ? "••••••••" : "None"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
+          <Table>
+            <TableHeader className="bg-muted/50 text-muted-foreground">
+              <TableRow>
+                <TableHead className="px-4 font-medium">Nama</TableHead>
+                <TableHead className="px-4 font-medium">Base URL</TableHead>
+                <TableHead className="px-4 font-medium">API Key</TableHead>
+                <TableHead className="px-4 text-center font-medium">Status</TableHead>
+                <TableHead className="px-4 font-medium">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {aggregators.map((a) => (
+                <TableRow key={a.id}>
+                  <TableCell className="px-4 py-3 font-medium">{a.name}</TableCell>
+                  <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                    {a.baseUrl}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <span
+                      className={
+                        a.hasApiKey
+                          ? "text-emerald-400 text-xs"
+                          : "text-muted-foreground text-xs"
+                      }
+                    >
+                      {a.hasApiKey ? "••••••••" : "None"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-center">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                        a.isActive
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          "h-1.5 w-1.5 rounded-full",
                           a.isActive
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : "bg-muted text-muted-foreground"
+                            ? "bg-emerald-400"
+                            : "bg-muted-foreground"
                         )}
+                      />
+                      {a.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <div className="flex gap-1 items-center">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleShowUsage(a)}
+                        title="Lihat Penggunaan"
                       >
+                        <BarChart3 className="h-3.5 w-3.5" />
+                      </Button>
+                      {testResults[a.id] && (
                         <span
                           className={cn(
-                            "h-1.5 w-1.5 rounded-full",
-                            a.isActive
-                              ? "bg-emerald-400"
-                              : "bg-muted-foreground"
+                            "text-[10px] mr-1",
+                            testResults[a.id].ok
+                              ? "text-emerald-400"
+                              : "text-destructive"
+                          )}
+                        >
+                          {testResults[a.id].ok
+                            ? `${testResults[a.id].latency}ms`
+                            : "Fail"}
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleTestConnection(a.id)}
+                        disabled={testingId === a.id}
+                        title="Test Connection"
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "h-3.5 w-3.5",
+                            testingId === a.id && "animate-spin"
                           )}
                         />
-                        {a.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1 items-center">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => handleShowUsage(a)}
-                          title="Lihat Penggunaan"
-                        >
-                          <BarChart3 className="h-3.5 w-3.5" />
-                        </Button>
-                        {testResults[a.id] && (
-                          <span
-                            className={cn(
-                              "text-[10px] mr-1",
-                              testResults[a.id].ok
-                                ? "text-emerald-400"
-                                : "text-destructive"
-                            )}
-                          >
-                            {testResults[a.id].ok
-                              ? `${testResults[a.id].latency}ms`
-                              : "Fail"}
-                          </span>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => handleTestConnection(a.id)}
-                          disabled={testingId === a.id}
-                          title="Test Connection"
-                        >
-                          <RefreshCw
-                            className={cn(
-                              "h-3.5 w-3.5",
-                              testingId === a.id && "animate-spin"
-                            )}
-                          />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => {
-                            setEditing(a);
-                            setShowCreate(true);
-                          }}
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => setDeletingId(a.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => {
+                          setEditing(a);
+                          setShowCreate(true);
+                        }}
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeletingId(a.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -869,17 +848,22 @@ function AggregatorSection() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editing ? "Edit Aggregator" : "Add Aggregator"}
-            </DialogTitle>
-            <DialogDescription>
-              {editing
-                ? "Update pengaturan aggregator."
-                : "Tambah koneksi aggregator baru."}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+          <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+              <Layers className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <DialogTitle className="text-base">
+                {editing ? "Edit Aggregator" : "Add Aggregator"}
+              </DialogTitle>
+              <DialogDescription className="text-xs mt-0.5">
+                {editing
+                  ? "Update pengaturan aggregator."
+                  : "Tambah koneksi aggregator baru."}
+              </DialogDescription>
+            </div>
+          </div>
           <AggregatorForm
             aggregator={editing}
             onSave={async (data) => {
@@ -971,28 +955,26 @@ function AggregatorSection() {
               </div>
               {usageData.details.length > 0 ? (
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50 text-left text-muted-foreground">
-                        <tr>
-                          <th className="px-4 py-3 font-medium">Model</th>
-                          <th className="px-4 py-3 font-medium">Provider</th>
-                          <th className="px-4 py-3 text-right font-medium">Requests</th>
-                          <th className="px-4 py-3 text-right font-medium">Tokens</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {usageData.details.map((d, i) => (
-                          <tr key={i} className="hover:bg-muted/40">
-                            <td className="px-4 py-3 font-medium">{d.model}</td>
-                            <td className="px-4 py-3 text-muted-foreground">{d.provider}</td>
-                            <td className="px-4 py-3 text-right">{d.requests.toLocaleString()}</td>
-                            <td className="px-4 py-3 text-right">{d.totalTokens.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table>
+                    <TableHeader className="bg-muted/50 text-muted-foreground">
+                      <TableRow>
+                        <TableHead className="px-4 font-medium">Model</TableHead>
+                        <TableHead className="px-4 font-medium">Provider</TableHead>
+                        <TableHead className="px-4 text-right font-medium">Requests</TableHead>
+                        <TableHead className="px-4 text-right font-medium">Tokens</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {usageData.details.map((d, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="px-4 py-3 font-medium">{d.model}</TableCell>
+                          <TableCell className="px-4 py-3 text-muted-foreground">{d.provider}</TableCell>
+                          <TableCell className="px-4 py-3 text-right">{d.requests.toLocaleString()}</TableCell>
+                          <TableCell className="px-4 py-3 text-right">{d.totalTokens.toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               ) : (
                 <p className="py-4 text-center text-sm text-muted-foreground">Tidak ada data penggunaan model.</p>
@@ -1040,66 +1022,87 @@ function AggregatorForm({
   };
 
   return (
-    <>
-      <div className="space-y-4">
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">
-            Nama
-          </label>
-          <Input
-            value={form.name}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, name: e.target.value }))
-            }
-            placeholder="e.g., My Aggregator"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">
-            Base URL
-          </label>
-          <Input
-            value={form.baseUrl}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, baseUrl: e.target.value }))
-            }
-            placeholder="https://api.aggregator.com/v1"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1.5">
-            API Key
-          </label>
-          <Input
-            type="password"
-            value={form.apiKey}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, apiKey: e.target.value }))
-            }
-            placeholder={
-              aggregator
-                ? "Kosongkan untuk tidak mengubah"
-                : "sk-..."
-            }
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={form.isActive}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, isActive: e.target.checked }))
-            }
-            className="rounded border-input accent-primary"
-          />
-          <span className="text-sm text-muted-foreground">Aktif</span>
-        </div>
+    <div className="flex flex-col max-h-[70vh]">
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        {/* ── General ── */}
+        <section>
+          <FormSection>General</FormSection>
+          <FormPanel className="space-y-3">
+            <div>
+              <Label>Nama</Label>
+              <Input
+                value={form.name}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
+                placeholder="e.g., My Aggregator"
+                className="h-9 bg-background"
+              />
+            </div>
+            <div>
+              <Label>Base URL</Label>
+              <Input
+                value={form.baseUrl}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, baseUrl: e.target.value }))
+                }
+                placeholder="https://api.aggregator.com/v1"
+                className="h-9 bg-background"
+              />
+            </div>
+          </FormPanel>
+        </section>
+
+        {/* ── Credentials ── */}
+        <section>
+          <FormSection>Credentials</FormSection>
+          <FormPanel>
+            <div>
+              <Label>API Key</Label>
+              <Input
+                type="password"
+                value={form.apiKey}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, apiKey: e.target.value }))
+                }
+                placeholder={
+                  aggregator
+                    ? "Kosongkan untuk tidak mengubah"
+                    : "sk-..."
+                }
+                className="h-9 bg-background"
+              />
+            </div>
+          </FormPanel>
+        </section>
+
+        {/* ── Status ── */}
+        <section>
+          <FormSection>Status</FormSection>
+          <FormPanel>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Aggregator Active</p>
+                <p className="text-xs text-muted-foreground/60">
+                  Saat nonaktif, koneksi ini tidak dipakai.
+                </p>
+              </div>
+              <Switch
+                checked={form.isActive}
+                onChange={(v) => setForm((p) => ({ ...p, isActive: v }))}
+              />
+            </div>
+          </FormPanel>
+        </section>
       </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
+
+      {/* ── Footer ── */}
+      <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
+        <Button variant="outline" size="sm" onClick={onClose}>
           Batal
         </Button>
         <Button
+          size="sm"
           onClick={handleSave}
           disabled={saving || !form.name || !form.baseUrl}
         >
@@ -1109,8 +1112,8 @@ function AggregatorForm({
             ? "Update"
             : "Tambah"}
         </Button>
-      </DialogFooter>
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -1127,32 +1130,10 @@ function SiteField({
 }) {
   return (
     <div>
-      <label className="text-xs text-muted-foreground block mb-1.5">{label}</label>
+      <Label>{label}</Label>
       {children}
       {hint && <p className="mt-1 text-[11px] text-muted-foreground/70">{hint}</p>}
     </div>
-  );
-}
-
-function SiteTextArea({
-  value,
-  onChange,
-  rows = 3,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  rows?: number;
-  placeholder?: string;
-}) {
-  return (
-    <textarea
-      value={value}
-      rows={rows}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 md:text-sm"
-    />
   );
 }
 
@@ -1213,9 +1194,10 @@ function SiteSettingsSection() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl animate-pulse space-y-4">
-        <div className="h-40 rounded-xl border border-border bg-card" />
-        <div className="h-40 rounded-xl border border-border bg-card" />
+      <div className="grid grid-cols-1 gap-4 animate-pulse lg:grid-cols-2">
+        <div className="h-80 rounded-xl border border-border bg-card lg:col-span-2" />
+        <div className="h-56 rounded-xl border border-border bg-card" />
+        <div className="h-56 rounded-xl border border-border bg-card" />
       </div>
     );
   }
@@ -1229,7 +1211,7 @@ function SiteSettingsSection() {
   }
 
   return (
-    <div className="max-w-3xl space-y-4 animate-in fade-in duration-200">
+    <div className="w-full space-y-4 animate-in fade-in duration-200">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Site Settings</h2>
@@ -1249,129 +1231,153 @@ function SiteSettingsSection() {
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Palette className="h-4 w-4 text-primary" /> Branding
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/40">
-              {form.logoUrl.trim() ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={form.logoUrl}
-                  alt="logo preview"
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <Image className="h-5 w-5 text-muted-foreground/50" />
-              )}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Palette className="h-4 w-4 text-primary" /> Branding
+            </CardTitle>
+            <CardDescription>
+              Identitas visual situs: nama, logo, favicon, dan deskripsi.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/40">
+                {form.logoUrl.trim() ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={form.logoUrl}
+                    alt="logo preview"
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <Image className="h-5 w-5 text-muted-foreground/50" />
+                )}
+              </div>
+              <div className="grid flex-1 grid-cols-1 gap-3">
+                <SiteField label="Nama Situs">
+                  <Input
+                    value={form.siteName}
+                    onChange={(e) => set("siteName", e.target.value)}
+                    placeholder="Nama situs"
+                    className="h-9 bg-background"
+                  />
+                </SiteField>
+              </div>
             </div>
-            <div className="grid flex-1 grid-cols-1 gap-3">
-              <SiteField label="Nama Situs">
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <SiteField label="Tagline (ID)">
                 <Input
-                  value={form.siteName}
-                  onChange={(e) => set("siteName", e.target.value)}
-                  placeholder="Nama situs"
+                  value={form.tagline.id}
+                  onChange={(e) => setNested("tagline", "id", e.target.value)}
+                  className="h-9 bg-background"
+                />
+              </SiteField>
+              <SiteField label="Tagline (EN)">
+                <Input
+                  value={form.tagline.en}
+                  onChange={(e) => setNested("tagline", "en", e.target.value)}
+                  className="h-9 bg-background"
                 />
               </SiteField>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <SiteField label="Tagline (ID)">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <SiteField label="Deskripsi Situs (ID)">
+                <Textarea
+                  value={form.description.id}
+                  onChange={(e) => setNested("description", "id", e.target.value)}
+                  className="bg-background"
+                />
+              </SiteField>
+              <SiteField label="Deskripsi Situs (EN)">
+                <Textarea
+                  value={form.description.en}
+                  onChange={(e) => setNested("description", "en", e.target.value)}
+                  className="bg-background"
+                />
+              </SiteField>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <SiteField label="Logo URL" hint="URL gambar. Dipakai di navbar & footer.">
+                <Input
+                  value={form.logoUrl}
+                  onChange={(e) => set("logoUrl", e.target.value)}
+                  placeholder="https://.../logo.png"
+                  className="h-9 bg-background"
+                />
+              </SiteField>
+              <SiteField label="Favicon URL" hint="Tampil di tab browser (ikon situs).">
+                <Input
+                  value={form.faviconUrl}
+                  onChange={(e) => set("faviconUrl", e.target.value)}
+                  placeholder="https://.../favicon.ico"
+                  className="h-9 bg-background"
+                />
+              </SiteField>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <FileText className="h-4 w-4 text-primary" /> Meta & SEO
+            </CardTitle>
+            <CardDescription>
+              Metadata untuk mesin pencari dan social share.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <SiteField label="Meta Title">
               <Input
-                value={form.tagline.id}
-                onChange={(e) => setNested("tagline", "id", e.target.value)}
+                value={form.metaTitle}
+                onChange={(e) => set("metaTitle", e.target.value)}
+                className="h-9 bg-background"
               />
             </SiteField>
-            <SiteField label="Tagline (EN)">
-              <Input
-                value={form.tagline.en}
-                onChange={(e) => setNested("tagline", "en", e.target.value)}
+            <SiteField label="Meta Description">
+              <Textarea
+                value={form.metaDescription}
+                onChange={(e) => set("metaDescription", e.target.value)}
+                className="bg-background"
               />
             </SiteField>
-          </div>
+          </CardContent>
+        </Card>
 
-          <SiteField label="Deskripsi Situs (ID)">
-            <SiteTextArea
-              value={form.description.id}
-              onChange={(v) => setNested("description", "id", v)}
-            />
-          </SiteField>
-          <SiteField label="Deskripsi Situs (EN)">
-            <SiteTextArea
-              value={form.description.en}
-              onChange={(v) => setNested("description", "en", v)}
-            />
-          </SiteField>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <SiteField label="Logo URL" hint="URL gambar. Dipakai di navbar & footer.">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Link2 className="h-4 w-4 text-primary" /> Links
+            </CardTitle>
+            <CardDescription>
+              Tautan eksternal yang dipakai di seluruh situs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <SiteField label="Support URL" hint="Tautan bantuan / kontak dukungan.">
               <Input
-                value={form.logoUrl}
-                onChange={(e) => set("logoUrl", e.target.value)}
-                placeholder="https://.../logo.png"
+                value={form.supportUrl}
+                onChange={(e) => set("supportUrl", e.target.value)}
+                placeholder="https://t.me/..."
+                className="h-9 bg-background"
               />
             </SiteField>
-            <SiteField label="Favicon URL" hint="Tampil di tab browser (ikon situs).">
+            <SiteField label="Base URL" hint="Endpoint API gateway (mis. https://api.site.com/v1).">
               <Input
-                value={form.faviconUrl}
-                onChange={(e) => set("faviconUrl", e.target.value)}
-                placeholder="https://.../favicon.ico"
+                value={form.baseUrl}
+                onChange={(e) => set("baseUrl", e.target.value)}
+                placeholder="https://api.example.com/v1"
+                className="h-9 bg-background"
               />
             </SiteField>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <FileText className="h-4 w-4 text-primary" /> Meta & SEO
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <SiteField label="Meta Title">
-            <Input
-              value={form.metaTitle}
-              onChange={(e) => set("metaTitle", e.target.value)}
-            />
-          </SiteField>
-          <SiteField label="Meta Description">
-            <SiteTextArea
-              value={form.metaDescription}
-              onChange={(v) => set("metaDescription", v)}
-            />
-          </SiteField>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Link2 className="h-4 w-4 text-primary" /> Links
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <SiteField label="Support URL" hint="Tautan bantuan / kontak dukungan.">
-            <Input
-              value={form.supportUrl}
-              onChange={(e) => set("supportUrl", e.target.value)}
-              placeholder="https://t.me/..."
-            />
-          </SiteField>
-          <SiteField label="Base URL" hint="Endpoint API gateway (mis. https://api.site.com/v1).">
-            <Input
-              value={form.baseUrl}
-              onChange={(e) => set("baseUrl", e.target.value)}
-              placeholder="https://api.example.com/v1"
-            />
-          </SiteField>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
