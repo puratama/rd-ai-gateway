@@ -1,0 +1,74 @@
+import "server-only";
+import { cache } from "react";
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { siteConfig } from "@/lib/site-config";
+
+export interface SiteSettings {
+  siteName: string;
+  tagline: { id: string; en: string };
+  description: { id: string; en: string };
+  logoUrl: string;
+  faviconUrl: string;
+  metaTitle: string;
+  metaDescription: string;
+  supportUrl: string;
+  baseUrl: string;
+}
+
+export const SITE_SETTINGS_DEFAULTS: SiteSettings = {
+  siteName: siteConfig.brandName,
+  tagline: siteConfig.tagline,
+  description: siteConfig.description,
+  logoUrl: "",
+  faviconUrl: "",
+  metaTitle: `${siteConfig.brandName} AI Gateway - Premium AI Models. One API.`,
+  metaDescription: siteConfig.description.en,
+  supportUrl: siteConfig.supportUrl,
+  baseUrl: siteConfig.baseUrl,
+};
+
+const STORAGE_KEY = "site";
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** Merged site settings (DB overrides defaults). Cached per request; falls back to defaults if DB is unavailable. */
+export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
+  try {
+    const row = await prisma.siteSetting.findUnique({
+      where: { key: STORAGE_KEY },
+    });
+    if (row && isRecord(row.value)) {
+      return {
+        ...SITE_SETTINGS_DEFAULTS,
+        tagline: { ...SITE_SETTINGS_DEFAULTS.tagline },
+        description: { ...SITE_SETTINGS_DEFAULTS.description },
+        ...row.value,
+      };
+    }
+  } catch {
+    // DB unavailable -> defaults keep the site renderable.
+  }
+  return SITE_SETTINGS_DEFAULTS;
+});
+
+/** Persist settings (merged over current stored value). */
+export async function saveSiteSettings(
+  next: Partial<SiteSettings>
+): Promise<SiteSettings> {
+  const current = await getSiteSettings();
+  const merged: SiteSettings = {
+    ...current,
+    ...next,
+    tagline: { ...current.tagline, ...(next.tagline ?? {}) },
+    description: { ...current.description, ...(next.description ?? {}) },
+  };
+  await prisma.siteSetting.upsert({
+    where: { key: STORAGE_KEY },
+    create: { key: STORAGE_KEY, value: merged as unknown as Prisma.InputJsonValue },
+    update: { value: merged as unknown as Prisma.InputJsonValue },
+  });
+  return merged;
+}

@@ -14,6 +14,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import AnnouncementBar from "@/components/AnnouncementBar";
+import { useSiteConfig } from "@/lib/use-site-config";
+
+function BrandLogo({ size = "md" }: { size?: "md" | "lg" }) {
+  const siteCfg = useSiteConfig();
+  const box = size === "lg" ? "h-9 w-9 rounded-xl" : "h-8 w-8 rounded-lg";
+  const icon = size === "lg" ? "h-4 w-4" : "h-4 w-4";
+  return siteCfg.logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={siteCfg.logoUrl} alt={siteCfg.siteName} className={`${box} object-contain`} />
+  ) : (
+    <div className={`${box} bg-gradient-to-br from-primary to-accent flex items-center justify-center`}>
+      <svg className={`${icon} text-white`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    </div>
+  );
+}
 
 const features = [
   {
@@ -95,6 +112,7 @@ function planToTier(p: PlanRaw): PricingTier {
 }
 
 export default function LandingPage() {
+  const siteCfg = useSiteConfig();
   const [pricingTiers, setPricingTiers] = useState<PricingTier[]>(FALLBACK_TIERS);
   const [modelCount, setModelCount] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -127,12 +145,8 @@ export default function LandingPage() {
         <nav className="h-16 bg-card/85 backdrop-blur-lg border-b border-border shadow-lg shadow-primary/5">
           <div className="max-w-6xl mx-auto h-full flex items-center justify-between px-6">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <span className="text-lg font-bold">xPerimne</span>
+              <BrandLogo />
+              <span className="text-lg font-bold">{siteCfg.siteName}</span>
             </Link>
 
             <div className="hidden md:flex items-center gap-8">
@@ -317,12 +331,8 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-6xl gap-10 py-14 md:grid-cols-[1.2fr_.8fr_.8fr]">
           <div className="space-y-5">
             <Link href="/" className="inline-flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20">
-                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <span className="text-lg font-semibold tracking-tight">xPerimne</span>
+              <BrandLogo size="lg" />
+              <span className="text-lg font-semibold tracking-tight">{siteCfg.siteName}</span>
             </Link>
             <p className="max-w-sm text-sm leading-6 text-muted-foreground">
               One gateway for model routing, wallet usage, and API access — built for teams that ship AI products without provider sprawl.

@@ -22,6 +22,7 @@ import {
   LifeBuoy,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
+import { useSiteConfig } from "@/lib/use-site-config";
 import NotificationBell from "@/components/NotificationBell";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import { Button } from "@/components/ui/button";
@@ -91,17 +92,26 @@ interface AppShellProps {
   variant?: "user" | "admin";
 }
 
-function BrandMark({ href, label, compact = false }: { href: string; label: string; compact?: boolean }) {
+function BrandMark({ href, label, compact = false, logoUrl = "" }: { href: string; label: string; compact?: boolean; logoUrl?: string }) {
   return (
     <Link href={href} className="flex items-center gap-2.5">
-      <div className={cn(
-        "flex items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20",
-        compact ? "h-7 w-7" : "h-8 w-8"
-      )}>
-        <svg className={compact ? "h-3.5 w-3.5 text-white" : "h-4 w-4 text-white"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      </div>
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logoUrl}
+          alt={label}
+          className={cn("object-contain rounded-lg", compact ? "h-7 w-7" : "h-8 w-8")}
+        />
+      ) : (
+        <div className={cn(
+          "flex items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20",
+          compact ? "h-7 w-7" : "h-8 w-8"
+        )}>
+          <svg className={compact ? "h-3.5 w-3.5 text-white" : "h-4 w-4 text-white"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+      )}
       <span className={compact ? "text-sm font-semibold" : "text-lg font-bold tracking-tight"}>{label}</span>
     </Link>
   );
@@ -123,6 +133,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<{ id: string; name: string | null; email: string; role: string } | null>(null);
   const [wallet, setWallet] = useState<{ balance: number } | null>(null);
+  const siteCfg = useSiteConfig();
 
   useEffect(() => {
     void (async () => {
@@ -140,7 +151,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
   }, []);
 
   const logoHref = variant === "admin" ? "/admin" : "/dashboard";
-  const logoLabel = variant === "admin" ? "Admin" : siteConfig.brandName;
+  const logoLabel = variant === "admin" ? "Admin" : (siteCfg.siteName || siteConfig.brandName);
   const settingsTab = pathname === "/admin/settings" ? searchParams.get("tab")?.replace(/-/g, " ") : null;
   const adminSection = pathname === "/admin/users"
     ? "Users"
@@ -183,7 +194,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
         <AnnouncementBar />
         <header className="h-16 shrink-0 border-b border-border bg-card/85 shadow-lg shadow-primary/5 backdrop-blur-lg">
           <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-            <BrandMark href="/dashboard" label={siteConfig.brandName} />
+            <BrandMark href="/dashboard" label={siteCfg.siteName || siteConfig.brandName} logoUrl={siteCfg.logoUrl} />
 
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Client navigation">
               {userNavItems.map((item) => {
@@ -316,13 +327,18 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
         )}
       >
         <div className="h-14 flex items-center justify-between px-4 border-b border-border shrink-0">
-          {!collapsed ? <BrandMark href={logoHref} label={logoLabel} compact /> : (
+          {!collapsed ? <BrandMark href={logoHref} label={logoLabel} compact logoUrl={siteCfg.logoUrl} /> : (
             <Link href={logoHref} className="mx-auto">
-              <div className="w-7 h-7 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
+              {siteCfg.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={siteCfg.logoUrl} alt={logoLabel} className="w-7 h-7 rounded-lg object-contain" />
+              ) : (
+                <div className="w-7 h-7 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+              )}
             </Link>
           )}
           <Button variant="ghost" size="icon-sm" className="hidden lg:flex" onClick={() => setCollapsed(!collapsed)}>
@@ -386,7 +402,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
           <Button variant="ghost" size="icon-sm" onClick={() => setMobileOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-          <BrandMark href={logoHref} label={logoLabel} compact />
+          <BrandMark href={logoHref} label={logoLabel} compact logoUrl={siteCfg.logoUrl} />
         </header>
 
         <header className="hidden h-14 shrink-0 items-center justify-between border-b border-border bg-card/80 px-6 backdrop-blur-sm lg:flex">

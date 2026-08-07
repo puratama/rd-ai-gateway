@@ -13,7 +13,12 @@ import {
   Globe,
   AlertTriangle,
   BarChart3,
+  Image,
+  Link2,
+  FileText,
+  Palette,
 } from "lucide-react";
+import type { SiteSettings } from "@/lib/site-settings";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type SettingsTabId = "payment" | "aggregator";
+type SettingsTabId = "payment" | "aggregator" | "site";
 
 export default function AdminSettingsPage() {
   return (
@@ -81,6 +86,7 @@ function AdminSettingsContent() {
             [
               { id: "payment" as const, label: "Payment Gateway", icon: Building2 },
               { id: "aggregator" as const, label: "Aggregator", icon: Layers },
+              { id: "site" as const, label: "Site", icon: Globe },
             ]
           ).map((tab) => {
             const Icon = tab.icon;
@@ -104,6 +110,7 @@ function AdminSettingsContent() {
 
         {activeTab === "payment" && <PaymentGatewaySection />}
         {activeTab === "aggregator" && <AggregatorSection />}
+        {activeTab === "site" && <SiteSettingsSection />}
       </div>
     </AppShell>
   );
@@ -1104,6 +1111,268 @@ function AggregatorForm({
         </Button>
       </DialogFooter>
     </>
+  );
+}
+
+// ─── Site Settings ─────────────────────────────────────────────────────────
+
+function SiteField({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="text-xs text-muted-foreground block mb-1.5">{label}</label>
+      {children}
+      {hint && <p className="mt-1 text-[11px] text-muted-foreground/70">{hint}</p>}
+    </div>
+  );
+}
+
+function SiteTextArea({
+  value,
+  onChange,
+  rows = 3,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  placeholder?: string;
+}) {
+  return (
+    <textarea
+      value={value}
+      rows={rows}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 md:text-sm"
+    />
+  );
+}
+
+function SiteSettingsSection() {
+  const [form, setForm] = useState<SiteSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const fetchSettings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/settings/site");
+      if (res.ok) setForm(await res.json());
+    } catch {
+      setError("Failed to load site settings");
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  const set = (field: keyof SiteSettings, value: string) =>
+    setForm((prev) =>
+      prev ? ({ ...prev, [field]: value } as SiteSettings) : prev
+    );
+  const setNested = (
+    group: "tagline" | "description",
+    locale: "id" | "en",
+    value: string
+  ) =>
+    setForm((prev) =>
+      prev
+        ? { ...prev, [group]: { ...prev[group], [locale]: value } }
+        : prev
+    );
+
+  const handleSave = async () => {
+    if (!form) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/settings/site", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      setForm(await res.json());
+      toast.success("Site settings updated");
+    } catch {
+      setError("Failed to save site settings");
+    }
+    setSaving(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl animate-pulse space-y-4">
+        <div className="h-40 rounded-xl border border-border bg-card" />
+        <div className="h-40 rounded-xl border border-border bg-card" />
+      </div>
+    );
+  }
+
+  if (!form) {
+    return (
+      <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+        {error || "Gagal memuat pengaturan situs."}
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl space-y-4 animate-in fade-in duration-200">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Site Settings</h2>
+          <p className="text-xs text-muted-foreground">
+            Nama situs, branding, dan metadata diterapkan di seluruh situs.
+          </p>
+        </div>
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-4 h-4 mr-2" />
+          {saving ? "Menyimpan..." : "Simpan"}
+        </Button>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Palette className="h-4 w-4 text-primary" /> Branding
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/40">
+              {form.logoUrl.trim() ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.logoUrl}
+                  alt="logo preview"
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <Image className="h-5 w-5 text-muted-foreground/50" />
+              )}
+            </div>
+            <div className="grid flex-1 grid-cols-1 gap-3">
+              <SiteField label="Nama Situs">
+                <Input
+                  value={form.siteName}
+                  onChange={(e) => set("siteName", e.target.value)}
+                  placeholder="Nama situs"
+                />
+              </SiteField>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <SiteField label="Tagline (ID)">
+              <Input
+                value={form.tagline.id}
+                onChange={(e) => setNested("tagline", "id", e.target.value)}
+              />
+            </SiteField>
+            <SiteField label="Tagline (EN)">
+              <Input
+                value={form.tagline.en}
+                onChange={(e) => setNested("tagline", "en", e.target.value)}
+              />
+            </SiteField>
+          </div>
+
+          <SiteField label="Deskripsi Situs (ID)">
+            <SiteTextArea
+              value={form.description.id}
+              onChange={(v) => setNested("description", "id", v)}
+            />
+          </SiteField>
+          <SiteField label="Deskripsi Situs (EN)">
+            <SiteTextArea
+              value={form.description.en}
+              onChange={(v) => setNested("description", "en", v)}
+            />
+          </SiteField>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <SiteField label="Logo URL" hint="URL gambar. Dipakai di navbar & footer.">
+              <Input
+                value={form.logoUrl}
+                onChange={(e) => set("logoUrl", e.target.value)}
+                placeholder="https://.../logo.png"
+              />
+            </SiteField>
+            <SiteField label="Favicon URL" hint="Tampil di tab browser (ikon situs).">
+              <Input
+                value={form.faviconUrl}
+                onChange={(e) => set("faviconUrl", e.target.value)}
+                placeholder="https://.../favicon.ico"
+              />
+            </SiteField>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <FileText className="h-4 w-4 text-primary" /> Meta & SEO
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <SiteField label="Meta Title">
+            <Input
+              value={form.metaTitle}
+              onChange={(e) => set("metaTitle", e.target.value)}
+            />
+          </SiteField>
+          <SiteField label="Meta Description">
+            <SiteTextArea
+              value={form.metaDescription}
+              onChange={(v) => set("metaDescription", v)}
+            />
+          </SiteField>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Link2 className="h-4 w-4 text-primary" /> Links
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SiteField label="Support URL" hint="Tautan bantuan / kontak dukungan.">
+            <Input
+              value={form.supportUrl}
+              onChange={(e) => set("supportUrl", e.target.value)}
+              placeholder="https://t.me/..."
+            />
+          </SiteField>
+          <SiteField label="Base URL" hint="Endpoint API gateway (mis. https://api.site.com/v1).">
+            <Input
+              value={form.baseUrl}
+              onChange={(e) => set("baseUrl", e.target.value)}
+              placeholder="https://api.example.com/v1"
+            />
+          </SiteField>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

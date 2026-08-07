@@ -274,6 +274,14 @@ model AggregatorConfig {
   updatedAt DateTime @updatedAt
 }
 
+// ====== Site Settings (key-value) ======
+
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
 // ====== Payment Gateway Config ======
 
 model PaymentGatewayConfig {
