@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Plus,
@@ -17,6 +17,7 @@ import {
   Link2,
   FileText,
   Palette,
+  Upload,
 } from "lucide-react";
 import type { SiteSettings } from "@/lib/site-settings";
 import AppShell from "@/components/layout/AppShell";
@@ -1137,6 +1138,85 @@ function SiteField({
   );
 }
 
+function ImageUrlField({
+  label,
+  hint,
+  value,
+  uploadType,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  uploadType: "logo" | "favicon";
+  placeholder?: string;
+  onChange: (v: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (inputRef.current) inputRef.current.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("type", uploadType);
+      fd.append("file", file);
+      const res = await fetch("/api/admin/settings/upload", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload gagal");
+      onChange(data.url);
+      toast.success(`${label} berhasil diupload`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload gagal");
+    }
+    setUploading(false);
+  };
+
+  return (
+    <div>
+      <Label>{label}</Label>
+      <div className="flex gap-2">
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="h-9 bg-background"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 shrink-0"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Upload className="h-3.5 w-3.5" />
+          {uploading ? "Uploading..." : "Upload"}
+        </Button>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        accept={
+          uploadType === "favicon"
+            ? ".png,.ico,.svg,.webp"
+            : ".png,.jpg,.jpeg,.webp,.svg"
+        }
+        onChange={handleFile}
+      />
+      {hint && <p className="mt-1 text-[11px] text-muted-foreground/70">{hint}</p>}
+    </div>
+  );
+}
+
 function SiteSettingsSection() {
   const [form, setForm] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1302,22 +1382,22 @@ function SiteSettingsSection() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <SiteField label="Logo URL" hint="URL gambar. Dipakai di navbar & footer.">
-                <Input
-                  value={form.logoUrl}
-                  onChange={(e) => set("logoUrl", e.target.value)}
-                  placeholder="https://.../logo.png"
-                  className="h-9 bg-background"
-                />
-              </SiteField>
-              <SiteField label="Favicon URL" hint="Tampil di tab browser (ikon situs).">
-                <Input
-                  value={form.faviconUrl}
-                  onChange={(e) => set("faviconUrl", e.target.value)}
-                  placeholder="https://.../favicon.ico"
-                  className="h-9 bg-background"
-                />
-              </SiteField>
+              <ImageUrlField
+                label="Logo URL"
+                hint="URL gambar. Dipakai di navbar & footer."
+                value={form.logoUrl}
+                uploadType="logo"
+                placeholder="https://.../logo.png"
+                onChange={(v) => set("logoUrl", v)}
+              />
+              <ImageUrlField
+                label="Favicon URL"
+                hint="Tampil di tab browser (ikon situs)."
+                value={form.faviconUrl}
+                uploadType="favicon"
+                placeholder="https://.../favicon.ico"
+                onChange={(v) => set("faviconUrl", v)}
+              />
             </div>
           </CardContent>
         </Card>

@@ -41,6 +41,9 @@ yarn-error.log*
 # server data store (auto-generated)
 /data
 
+# uploaded assets
+/public/uploads
+
 # vercel
 .vercel
 
