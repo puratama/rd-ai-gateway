@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Plus,
@@ -17,7 +17,6 @@ import {
   Link2,
   FileText,
   Palette,
-  Upload,
 } from "lucide-react";
 import type { SiteSettings } from "@/lib/site-settings";
 import AppShell from "@/components/layout/AppShell";
@@ -50,6 +49,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { ImageUploadField } from "@/components/ui/image-upload-field";
 
 type SettingsTabId = "site" | "payment" | "aggregator";
 
@@ -1138,84 +1138,11 @@ function SiteField({
   );
 }
 
-function ImageUrlField({
-  label,
-  hint,
-  value,
-  uploadType,
-  placeholder,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  value: string;
-  uploadType: "logo" | "favicon";
-  placeholder?: string;
-  onChange: (v: string) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (inputRef.current) inputRef.current.value = "";
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("type", uploadType);
-      fd.append("file", file);
-      const res = await fetch("/api/admin/settings/upload", {
-        method: "POST",
-        body: fd,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload gagal");
-      onChange(data.url);
-      toast.success(`${label} berhasil diupload`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload gagal");
-    }
-    setUploading(false);
-  };
-
-  return (
-    <div>
-      <Label>{label}</Label>
-      <div className="flex gap-2">
-        <Input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="h-9 bg-background"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-9 shrink-0"
-          disabled={uploading}
-          onClick={() => inputRef.current?.click()}
-        >
-          <Upload className="h-3.5 w-3.5" />
-          {uploading ? "Uploading..." : "Upload"}
-        </Button>
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
-        className="hidden"
-        accept={
-          uploadType === "favicon"
-            ? ".png,.ico,.svg,.webp"
-            : ".png,.jpg,.jpeg,.webp,.svg"
-        }
-        onChange={handleFile}
-      />
-      {hint && <p className="mt-1 text-[11px] text-muted-foreground/70">{hint}</p>}
-    </div>
-  );
-}
+const LOGO_MODE_OPTIONS: SelectOption[] = [
+  { value: "logo", label: "Hanya Logo" },
+  { value: "logo-name", label: "Logo + Nama" },
+  { value: "name", label: "Hanya Nama" },
+];
 
 function SiteSettingsSection() {
   const [form, setForm] = useState<SiteSettings | null>(null);
@@ -1241,16 +1168,6 @@ function SiteSettingsSection() {
   const set = (field: keyof SiteSettings, value: string) =>
     setForm((prev) =>
       prev ? ({ ...prev, [field]: value } as SiteSettings) : prev
-    );
-  const setNested = (
-    group: "tagline" | "description",
-    locale: "id" | "en",
-    value: string
-  ) =>
-    setForm((prev) =>
-      prev
-        ? { ...prev, [group]: { ...prev[group], [locale]: value } }
-        : prev
     );
 
   const handleSave = async () => {
@@ -1347,58 +1264,55 @@ function SiteSettingsSection() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <SiteField label="Tagline (ID)">
-                <Input
-                  value={form.tagline.id}
-                  onChange={(e) => setNested("tagline", "id", e.target.value)}
-                  className="h-9 bg-background"
-                />
-              </SiteField>
-              <SiteField label="Tagline (EN)">
-                <Input
-                  value={form.tagline.en}
-                  onChange={(e) => setNested("tagline", "en", e.target.value)}
-                  className="h-9 bg-background"
-                />
-              </SiteField>
-            </div>
+            <SiteField label="Tagline">
+              <Input
+                value={form.tagline}
+                onChange={(e) => set("tagline", e.target.value)}
+                className="h-9 bg-background"
+              />
+            </SiteField>
+
+            <SiteField label="Deskripsi Situs">
+              <Textarea
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                className="bg-background"
+              />
+            </SiteField>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <SiteField label="Deskripsi Situs (ID)">
-                <Textarea
-                  value={form.description.id}
-                  onChange={(e) => setNested("description", "id", e.target.value)}
-                  className="bg-background"
-                />
-              </SiteField>
-              <SiteField label="Deskripsi Situs (EN)">
-                <Textarea
-                  value={form.description.en}
-                  onChange={(e) => setNested("description", "en", e.target.value)}
-                  className="bg-background"
-                />
-              </SiteField>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <ImageUrlField
+              <ImageUploadField
                 label="Logo URL"
                 hint="URL gambar. Dipakai di navbar & footer."
                 value={form.logoUrl}
                 uploadType="logo"
                 placeholder="https://.../logo.png"
+                accept=".png,.jpg,.jpeg,.webp,.svg"
                 onChange={(v) => set("logoUrl", v)}
               />
-              <ImageUrlField
+              <ImageUploadField
                 label="Favicon URL"
                 hint="Tampil di tab browser (ikon situs)."
                 value={form.faviconUrl}
                 uploadType="favicon"
                 placeholder="https://.../favicon.ico"
+                accept=".png,.ico,.svg,.webp"
                 onChange={(v) => set("faviconUrl", v)}
               />
             </div>
+
+            <SiteField
+              label="Mode Logo"
+              hint="logo: hanya logo (lebar otomatis, h-8). logo-name: logo + nama. name: hanya nama."
+            >
+              <FormSelect
+                options={LOGO_MODE_OPTIONS}
+                value={LOGO_MODE_OPTIONS.find((o) => o.value === form.logoMode) ?? LOGO_MODE_OPTIONS[0]}
+                onChange={(v) => set("logoMode", v ?? "logo-name")}
+                isClearable={false}
+                isSearchable={false}
+              />
+            </SiteField>
           </CardContent>
         </Card>
 
@@ -1438,15 +1352,7 @@ function SiteSettingsSection() {
               Tautan eksternal yang dipakai di seluruh situs.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
-            <SiteField label="Support URL" hint="Tautan bantuan / kontak dukungan.">
-              <Input
-                value={form.supportUrl}
-                onChange={(e) => set("supportUrl", e.target.value)}
-                placeholder="https://t.me/..."
-                className="h-9 bg-background"
-              />
-            </SiteField>
+          <CardContent className="grid grid-cols-1 gap-4">
             <SiteField label="Base URL" hint="Endpoint API gateway (mis. https://api.site.com/v1).">
               <Input
                 value={form.baseUrl}
