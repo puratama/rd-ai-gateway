@@ -15,7 +15,8 @@ import {
   X,
   Wallet,
   Users,
-  Box,
+  Server,
+  Cpu,
   Gauge,
   UserRound,
   Megaphone,
@@ -75,7 +76,8 @@ const adminNavGroups: NavGroup[] = [
   {
     label: 'Product',
     items: [
-      { href: '/admin/models', label: 'Models', icon: Box },
+      { href: '/admin/providers', label: 'Providers', icon: Server },
+      { href: '/admin/models', label: 'Models', icon: Cpu },
       { href: '/admin/plans', label: 'Plans', icon: CreditCard },
     ],
   },
@@ -160,6 +162,8 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
     ? settingsTab || "Settings"
     : pathname === "/admin/wallet"
     ? "Wallet"
+    : pathname === "/admin/providers"
+    ? "Providers"
     : pathname === "/admin/announcements"
     ? "Announcements"
     : pathname === "/admin/support"
