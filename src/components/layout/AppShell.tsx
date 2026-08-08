@@ -22,10 +22,12 @@ import {
   LifeBuoy,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
-import { useSiteConfig } from "@/lib/use-site-config";
+import { useSiteConfig, type PublicSiteConfig } from "@/lib/use-site-config";
 import NotificationBell from "@/components/NotificationBell";
 import AnnouncementBar from "@/components/AnnouncementBar";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Suspense, useState, useEffect } from "react";
 import {
@@ -44,9 +46,9 @@ interface NavItem {
 
 const userNavItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/keys", label: "API Keys", icon: Key },
   { href: "/plan", label: "Token Plan", icon: CreditCard },
   { href: "/models", label: "Models", icon: CreditCard },
+  { href: "/keys", label: "API Keys", icon: Key },
   { href: "/usage", label: "Usage", icon: BarChart3 },
 ];
 
@@ -92,27 +94,20 @@ interface AppShellProps {
   variant?: "user" | "admin";
 }
 
-function BrandMark({ href, label, compact = false, logoUrl = "" }: { href: string; label: string; compact?: boolean; logoUrl?: string }) {
+function BrandMark({ href, siteCfg }: { href: string; siteCfg: PublicSiteConfig }) {
+  const name = siteCfg.siteName || siteConfig.brandName;
+  if (!siteCfg.loaded) {
+    return (
+      <div className="flex items-center gap-2.5">
+        <Skeleton className="h-8 w-8 rounded-lg" />
+        <Skeleton className="h-5 w-20" />
+      </div>
+    );
+  }
   return (
     <Link href={href} className="flex items-center gap-2.5">
-      {logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={logoUrl}
-          alt={label}
-          className={cn("object-contain rounded-lg", compact ? "h-7 w-7" : "h-8 w-8")}
-        />
-      ) : (
-        <div className={cn(
-          "flex items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20",
-          compact ? "h-7 w-7" : "h-8 w-8"
-        )}>
-          <svg className={compact ? "h-3.5 w-3.5 text-white" : "h-4 w-4 text-white"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        </div>
-      )}
-      <span className={compact ? "text-sm font-semibold" : "text-lg font-bold tracking-tight"}>{label}</span>
+      {siteCfg.logoMode !== "name" && <BrandLogo siteCfg={siteCfg} />}
+      {siteCfg.logoMode !== "logo" && <span className="text-lg font-bold tracking-tight">{name}</span>}
     </Link>
   );
 }
@@ -151,7 +146,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
   }, []);
 
   const logoHref = variant === "admin" ? "/admin" : "/dashboard";
-  const logoLabel = variant === "admin" ? "Admin" : (siteCfg.siteName || siteConfig.brandName);
+  const logoLabel = siteCfg.siteName || siteConfig.brandName;
   const settingsTab = pathname === "/admin/settings" ? searchParams.get("tab")?.replace(/-/g, " ") : null;
   const adminSection = pathname === "/admin/users"
     ? "Users"
@@ -194,7 +189,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
         <AnnouncementBar />
         <header className="h-16 shrink-0 border-b border-border bg-card/85 shadow-lg shadow-primary/5 backdrop-blur-lg">
           <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-            <BrandMark href="/dashboard" label={siteCfg.siteName || siteConfig.brandName} logoUrl={siteCfg.logoUrl} />
+            <BrandMark href="/dashboard" siteCfg={siteCfg} />
 
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Client navigation">
               {userNavItems.map((item) => {
@@ -327,18 +322,9 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
         )}
       >
         <div className="h-14 flex items-center justify-between px-4 border-b border-border shrink-0">
-          {!collapsed ? <BrandMark href={logoHref} label={logoLabel} compact logoUrl={siteCfg.logoUrl} /> : (
+          {!collapsed ? <BrandMark href={logoHref} siteCfg={siteCfg} /> : (
             <Link href={logoHref} className="mx-auto">
-              {siteCfg.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={siteCfg.logoUrl} alt={logoLabel} className="w-7 h-7 rounded-lg object-contain" />
-              ) : (
-                <div className="w-7 h-7 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-              )}
+              <BrandLogo siteCfg={siteCfg} />
             </Link>
           )}
           <Button variant="ghost" size="icon-sm" className="hidden lg:flex" onClick={() => setCollapsed(!collapsed)}>
@@ -402,12 +388,16 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
           <Button variant="ghost" size="icon-sm" onClick={() => setMobileOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-          <BrandMark href={logoHref} label={logoLabel} compact logoUrl={siteCfg.logoUrl} />
+          <BrandMark href={logoHref} siteCfg={siteCfg} />
         </header>
 
         <header className="hidden h-14 shrink-0 items-center justify-between border-b border-border bg-card/80 px-6 backdrop-blur-sm lg:flex">
           <nav className="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
-            <Link href={logoHref} className="font-medium text-muted-foreground hover:text-foreground">{logoLabel}</Link>
+            {siteCfg.loaded ? (
+              <Link href={logoHref} className="font-medium text-muted-foreground hover:text-foreground">{logoLabel}</Link>
+            ) : (
+              <Skeleton className="h-4 w-16" />
+            )}
             <span className="text-muted-foreground">/</span>
             {(pathname === "/admin/settings" && settingsTab) ? (
               <>

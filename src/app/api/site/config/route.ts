@@ -10,7 +10,7 @@ export async function GET() {
       description: s.description,
       logoUrl: s.logoUrl,
       faviconUrl: s.faviconUrl,
-      supportUrl: s.supportUrl,
+      logoMode: s.logoMode,
       baseUrl: s.baseUrl,
     });
   } catch (error: unknown) {

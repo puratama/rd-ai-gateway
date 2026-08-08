@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSiteConfig } from "@/lib/use-site-config";
 import {
   ArrowRight,
   BarChart3,
@@ -20,7 +21,7 @@ import {
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CardGridSkeleton, StatsCardSkeleton } from "@/components/ui/skeleton";
+import { CardGridSkeleton, StatsCardSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,11 @@ type UsageData = {
 type UserData = {
   name?: string;
   email?: string;
+};
+
+type ApiKeyRow = {
+  key: string;
+  isActive: boolean;
 };
 
 function getApiKey(): string {
@@ -65,24 +71,43 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(true);
+  const [keysLoaded, setKeysLoaded] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
-  const [baseUrl, setBaseUrl] = useState("");
+  const siteCfg = useSiteConfig();
 
   useEffect(() => {
-    setBaseUrl(window.location.origin);
-  }, []);
-
-  useEffect(() => {
-    const key = getApiKey();
+    let active = true;
     const stored = getStoredUser();
-    setApiKey(key);
     setUser(stored);
-    if (!key) { setLoading(false); return; }
 
-    fetch("/api/user/usage", { headers: { Authorization: `Bearer ${key}` } })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setUsage(data))
-      .finally(() => setLoading(false));
+    (async () => {
+      // Ambil key aktif dari DB (session auth, tanpa Bearer)
+      let key = "";
+      try {
+        const res = await fetch("/api/user/keys");
+        if (res.ok) {
+          const data = await res.json();
+          const keys: ApiKeyRow[] = data.keys ?? [];
+          const activeKey = keys.find((k) => k.isActive) ?? keys[0];
+          key = activeKey?.key || "";
+        }
+      } catch {}
+
+      if (!active) return;
+      // Fallback localStorage jika DB tidak punya key
+      if (!key) key = getApiKey();
+      setApiKey(key);
+      setKeysLoaded(true);
+
+      if (!key) { setLoading(false); return; }
+      try {
+        const res = await fetch("/api/user/usage", { headers: { Authorization: `Bearer ${key}` } });
+        if (res.ok && active) setUsage(await res.json());
+      } catch {}
+      if (active) setLoading(false);
+    })();
+
+    return () => { active = false; };
   }, []);
 
   const dailyMax = useMemo(() => Math.max(...(usage?.byDay.map((d) => d.tokens) || [1]), 1), [usage]);
@@ -134,7 +159,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {[
-                    { label: "Base URL", value: `${baseUrl}/api/v1`, id: "base" },
+                    { label: "Base URL", value: siteCfg.baseUrl, id: "base" },
                     { label: "API Key", value: apiKey || "Generate key dari halaman API Keys", id: "key", masked: maskedKey },
                   ].map((item) => (
                     <div key={item.id} className="rounded-2xl border border-border bg-muted/30 p-3">
@@ -145,7 +170,11 @@ export default function DashboardPage() {
                           {copied === item.id ? "Disalin" : "Salin"}
                         </Button>
                       </div>
-                      <code className="break-all text-xs text-foreground/90">{item.masked || item.value}</code>
+                      {(item.id === "base" && !siteCfg.loaded) || (item.id === "key" && !keysLoaded) ? (
+                        <Skeleton className="h-4 w-full" />
+                      ) : (
+                        <code className="break-all text-xs text-foreground/90">{item.masked || item.value}</code>
+                      )}
                     </div>
                   ))}
                 </CardContent>

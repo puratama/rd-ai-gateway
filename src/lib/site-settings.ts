@@ -6,13 +6,13 @@ import { siteConfig } from "@/lib/site-config";
 
 export interface SiteSettings {
   siteName: string;
-  tagline: { id: string; en: string };
-  description: { id: string; en: string };
+  tagline: string;
+  description: string;
   logoUrl: string;
   faviconUrl: string;
+  logoMode: "logo" | "logo-name" | "name";
   metaTitle: string;
   metaDescription: string;
-  supportUrl: string;
   baseUrl: string;
 }
 
@@ -22,9 +22,9 @@ export const SITE_SETTINGS_DEFAULTS: SiteSettings = {
   description: siteConfig.description,
   logoUrl: "",
   faviconUrl: "",
+  logoMode: "logo-name",
   metaTitle: `${siteConfig.brandName} AI Gateway - Premium AI Models. One API.`,
-  metaDescription: siteConfig.description.en,
-  supportUrl: siteConfig.supportUrl,
+  metaDescription: siteConfig.description,
   baseUrl: siteConfig.baseUrl,
 };
 
@@ -43,8 +43,6 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
     if (row && isRecord(row.value)) {
       return {
         ...SITE_SETTINGS_DEFAULTS,
-        tagline: { ...SITE_SETTINGS_DEFAULTS.tagline },
-        description: { ...SITE_SETTINGS_DEFAULTS.description },
         ...row.value,
       };
     }
@@ -62,8 +60,8 @@ export async function saveSiteSettings(
   const merged: SiteSettings = {
     ...current,
     ...next,
-    tagline: { ...current.tagline, ...(next.tagline ?? {}) },
-    description: { ...current.description, ...(next.description ?? {}) },
+    tagline: next.tagline ?? current.tagline,
+    description: next.description ?? current.description,
   };
   await prisma.siteSetting.upsert({
     where: { key: STORAGE_KEY },

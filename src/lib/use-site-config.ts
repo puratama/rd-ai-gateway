@@ -5,11 +5,12 @@ import { siteConfig } from "@/lib/site-config";
 
 export interface PublicSiteConfig {
   siteName: string;
-  tagline: { id: string; en: string };
-  description: { id: string; en: string };
+  tagline: string;
+  description: string;
   logoUrl: string;
-  supportUrl: string;
+  logoMode: "logo" | "logo-name" | "name";
   baseUrl: string;
+  loaded: boolean;
 }
 
 const FALLBACK: PublicSiteConfig = {
@@ -17,8 +18,9 @@ const FALLBACK: PublicSiteConfig = {
   tagline: siteConfig.tagline,
   description: siteConfig.description,
   logoUrl: "",
-  supportUrl: siteConfig.supportUrl,
+  logoMode: "logo-name",
   baseUrl: siteConfig.baseUrl,
+  loaded: false,
 };
 
 export function useSiteConfig(): PublicSiteConfig {
@@ -29,9 +31,24 @@ export function useSiteConfig(): PublicSiteConfig {
     fetch("/api/site/config")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d && active) setCfg(d);
+        if (!d || !active) return;
+        // API same-origin di project ini → pakai origin browser.
+        // Admin override hanya jika beda domain (API terpisah).
+        const origin = window.location.origin;
+        try {
+          d.baseUrl =
+            new URL(d.baseUrl).origin === origin
+              ? `${origin}/api/v1`
+              : d.baseUrl;
+        } catch {
+          d.baseUrl = `${origin}/api/v1`;
+        }
+        setCfg({ ...d, loaded: true });
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (active) setCfg((prev) => ({ ...prev, loaded: true }));
+      });
     return () => {
       active = false;
     };

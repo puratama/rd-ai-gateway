@@ -13,24 +13,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import AnnouncementBar from "@/components/AnnouncementBar";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useSiteConfig } from "@/lib/use-site-config";
-
-function BrandLogo({ size = "md" }: { size?: "md" | "lg" }) {
-  const siteCfg = useSiteConfig();
-  const box = size === "lg" ? "h-9 w-9 rounded-xl" : "h-8 w-8 rounded-lg";
-  const icon = size === "lg" ? "h-4 w-4" : "h-4 w-4";
-  return siteCfg.logoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={siteCfg.logoUrl} alt={siteCfg.siteName} className={`${box} object-contain`} />
-  ) : (
-    <div className={`${box} bg-gradient-to-br from-primary to-accent flex items-center justify-center`}>
-      <svg className={`${icon} text-white`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    </div>
-  );
-}
 
 const features = [
   {
@@ -116,8 +102,13 @@ export default function LandingPage() {
   const [pricingTiers, setPricingTiers] = useState<PricingTier[]>(FALLBACK_TIERS);
   const [modelCount, setModelCount] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [health, setHealth] = useState<"ok" | "degraded" | "down" | "checking">("checking");
 
   useEffect(() => {
+    fetch("/api/health")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setHealth(d?.status ?? "down"))
+      .catch(() => setHealth("down"));
     fetch("/api/plans")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
@@ -145,8 +136,17 @@ export default function LandingPage() {
         <nav className="h-16 bg-card/85 backdrop-blur-lg border-b border-border shadow-lg shadow-primary/5">
           <div className="max-w-6xl mx-auto h-full flex items-center justify-between px-6">
             <Link href="/" className="flex items-center gap-2.5">
-              <BrandLogo />
-              <span className="text-lg font-bold">{siteCfg.siteName}</span>
+              {siteCfg.loaded ? (
+                <>
+                  {siteCfg.logoMode !== "name" && <BrandLogo siteCfg={siteCfg} />}
+                  {siteCfg.logoMode !== "logo" && <span className="text-lg font-bold">{siteCfg.siteName}</span>}
+                </>
+              ) : (
+                <>
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-5 w-24" />
+                </>
+              )}
             </Link>
 
             <div className="hidden md:flex items-center gap-8">
@@ -179,7 +179,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-6">
             <Sparkles className="w-3.5 h-3.5" />
-            Now with GPT-4o, Claude 4, and Gemini 2.5
+            {siteCfg.loaded ? siteCfg.tagline : <Skeleton className="h-4 w-40" />}
           </div>
 
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight mb-6">
@@ -189,10 +189,16 @@ export default function LandingPage() {
             </span>
           </h1>
 
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Stop juggling multiple API keys and providers. xPerimne gives you a single endpoint to access
-            every major AI model — with pay-as-you-go pricing and automatic failover.
-          </p>
+          {siteCfg.loaded ? (
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+              {siteCfg.description}
+            </p>
+          ) : (
+            <div className="max-w-2xl mx-auto mb-10 space-y-2">
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-5 w-4/5" />
+            </div>
+          )}
 
           <div className="flex items-center justify-center gap-4 mb-12">
             <Link href={isAuthenticated ? "/dashboard" : "/register"}>
@@ -331,15 +337,31 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-6xl gap-10 py-14 md:grid-cols-[1.2fr_.8fr_.8fr]">
           <div className="space-y-5">
             <Link href="/" className="inline-flex items-center gap-3">
-              <BrandLogo size="lg" />
-              <span className="text-lg font-semibold tracking-tight">{siteCfg.siteName}</span>
+              {siteCfg.loaded ? (
+                <>
+                  {siteCfg.logoMode !== "name" && <BrandLogo size="lg" siteCfg={siteCfg} />}
+                  {siteCfg.logoMode !== "logo" && <span className="text-lg font-semibold tracking-tight">{siteCfg.siteName}</span>}
+                </>
+              ) : (
+                <>
+                  <Skeleton className="h-9 w-9 rounded-xl" />
+                  <Skeleton className="h-5 w-24" />
+                </>
+              )}
             </Link>
-            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-              One gateway for model routing, wallet usage, and API access — built for teams that ship AI products without provider sprawl.
-            </p>
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_14px_var(--color-accent)]" />
-              API gateway online
+            {siteCfg.loaded ? (
+              <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+                {siteCfg.description}
+              </p>
+            ) : (
+              <div className="max-w-sm space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+            )}
+            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${health === "ok" ? "border-primary/20 bg-primary/10 text-primary" : health === "degraded" ? "border-amber-500/30 bg-amber-500/10 text-amber-500" : "border-destructive/30 bg-destructive/10 text-destructive"}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${health === "ok" ? "bg-accent shadow-[0_0_14px_var(--color-accent)]" : health === "degraded" ? "bg-amber-400" : "bg-destructive"}`} />
+              {health === "checking" ? "Checking status…" : health === "ok" ? "API gateway online" : health === "degraded" ? "API gateway degraded" : "API gateway offline"}
             </div>
           </div>
 

@@ -10,9 +10,9 @@ const ALLOWED_KEYS = new Set([
   "description",
   "logoUrl",
   "faviconUrl",
+  "logoMode",
   "metaTitle",
   "metaDescription",
-  "supportUrl",
   "baseUrl",
 ]);
 

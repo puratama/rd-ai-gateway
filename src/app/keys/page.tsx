@@ -6,6 +6,8 @@ import {
   Sparkles, Terminal, Clock, Activity, ChevronDown, Globe, Edit3,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
+import { useSiteConfig } from "@/lib/use-site-config";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,9 +49,7 @@ export default function KeysPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showKey, setShowKey] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [baseUrl, setBaseUrl] = useState("");
-
-  useEffect(() => { setBaseUrl(window.location.origin); }, []);
+  const siteCfg = useSiteConfig();
 
   const fetchKeys = useCallback(async () => {
     startTransition(() => setLoading(true));
@@ -182,10 +182,19 @@ export default function KeysPage() {
                   <p className="text-sm font-semibold text-foreground">Base URL</p>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Use this base URL with any OpenAI-compatible SDK:</p>
                   <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted/30 p-3">
-                    <code className="flex-1 font-mono text-xs text-primary" suppressHydrationWarning>{baseUrl}/api/v1</code>
-                    <Button variant="ghost" size="icon-sm" onClick={() => copyToClipboard(`${baseUrl}/api/v1`, "baseurl")}>
-                      {copiedId === "baseurl" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                    </Button>
+                    {siteCfg.loaded ? (
+                      <>
+                        <code className="flex-1 font-mono text-xs text-primary" suppressHydrationWarning>{siteCfg.baseUrl}</code>
+                        <Button variant="ghost" size="icon-sm" onClick={() => copyToClipboard(`${siteCfg.baseUrl}`, "baseurl")}>
+                          {copiedId === "baseurl" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Skeleton className="h-4 flex-1" />
+                        <Skeleton className="h-7 w-7 rounded-md" />
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -317,7 +326,7 @@ export default function KeysPage() {
 {`import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "${baseUrl}/api/v1",
+  baseURL: "${siteCfg.baseUrl}",
   apiKey: "${keys.find((k) => k.isActive)?.key.slice(0, 12) || "xpgw_"}...",
 });
 
