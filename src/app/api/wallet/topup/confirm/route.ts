@@ -53,6 +53,26 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // QRIS merchant (static) has no PSP callback/status API — payment can only
+    // be confirmed manually by an admin. Flag it for review, never auto-fulfill.
+    if (billing.provider === "qris") {
+      const note = typeof body.proofNote === "string" ? body.proofNote.slice(0, 500) : null;
+      const proofImage = typeof body.proofImage === "string" ? body.proofImage.slice(0, 500) : null;
+      const pending = await prisma.billingRecord.update({
+        where: { id: billing.id },
+        data: {
+          status: "pending_confirmation",
+          ...(note ? { proofNote: note } : {}),
+          ...(proofImage ? { proofImage } : {}),
+        },
+      });
+      const wallet = await prisma.wallet.findUnique({ where: { userId } });
+      return NextResponse.json({
+        status: pending.status,
+        balance: wallet ? Number(wallet.balance) : 0,
+      });
+    }
+
     // Optional: verify with Midtrans if still pending
     let shouldFulfill = false;
     try {

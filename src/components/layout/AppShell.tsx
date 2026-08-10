@@ -71,6 +71,7 @@ const adminNavGroups: NavGroup[] = [
       { href: '/admin/users', label: 'Users', icon: Users },
       { href: '/admin/keys', label: 'API Keys', icon: Key },
       { href: '/admin/wallet', label: 'Wallet', icon: Wallet },
+      { href: '/admin/payments', label: 'Verif. Pembayaran', icon: CreditCard },
     ],
   },
   {
@@ -162,6 +163,8 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
     ? settingsTab || "Settings"
     : pathname === "/admin/wallet"
     ? "Wallet"
+    : pathname === "/admin/payments"
+    ? "Verif. Pembayaran"
     : pathname === "/admin/providers"
     ? "Providers"
     : pathname === "/admin/announcements"

@@ -170,7 +170,9 @@ model BillingRecord {
 
   type   String // "topup" | "package_purchase" | "subscription"
   amount Decimal // IDR
-  status String  @default("pending") // pending | paid | failed | expired
+  status String  @default("pending") // pending | pending_confirmation | paid | failed | expired
+
+  provider String? // "midtrans" | "xendit" | "qris" — payment channel used
 
   midtransOrderId String? @unique
   midtransToken   String?
@@ -178,6 +180,11 @@ model BillingRecord {
 
   planId      String?
   description String?
+
+  // Manual verification (QRIS merchant): user proof + admin decision
+  proofNote  String?
+  proofImage String?
+  verifiedAt DateTime?
 
   paidAt    DateTime?
   createdAt DateTime  @default(now())

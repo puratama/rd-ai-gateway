@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       await prisma.billingRecord.update({
         where: { id: billing.id },
         data: {
+          provider: transaction.provider,
           midtransToken: transaction.token,
           midtransUrl: transaction.redirectUrl,
         },

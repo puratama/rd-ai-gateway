@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Copy, Download, Plus, ReceiptText, RefreshCw, Wallet } from "lucide-react";
+import { CheckCircle2, Clock, Download, Image as ImageIcon, Plus, QrCode, ReceiptText, RefreshCw, Wallet } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
@@ -79,6 +81,11 @@ export default function WalletPage() {
     expiresAt: string;
   } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [proofNote, setProofNote] = useState("");
+  const [proofImage, setProofImage] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const proofInputRef = useRef<HTMLInputElement>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const numericAmount = useMemo(() => Number(amount), [amount]);
@@ -242,16 +249,6 @@ export default function WalletPage() {
     }
   }
 
-  async function handleCopyPayload() {
-    if (!qrisPayment?.maskedPayload) return;
-    try {
-      await navigator.clipboard.writeText(qrisPayment.maskedPayload);
-      toast.success("Payload QRIS disalin");
-    } catch {
-      toast.error("Gagal menyalin payload");
-    }
-  }
-
   async function handleRefresh() {
     setError("");
     setLoading(true);
@@ -264,6 +261,23 @@ export default function WalletPage() {
     }
   }
 
+  async function uploadProof(file: File) {
+    if (uploading) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    setUploading(true);
+    try {
+      const res = await fetch("/api/wallet/topup/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload gagal");
+      setProofImage(data.url);
+      toast.success("Bukti transfer diupload");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload gagal");
+    }
+    setUploading(false);
+  }
+
   async function handleQrisConfirm() {
     if (!qrisPayment) return;
     setConfirmLoading(true);
@@ -272,7 +286,11 @@ export default function WalletPage() {
       const response = await fetch("/api/wallet/topup/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: qrisPayment.orderId }),
+        body: JSON.stringify({
+          orderId: qrisPayment.orderId,
+          ...(proofNote ? { proofNote } : {}),
+          ...(proofImage ? { proofImage } : {}),
+        }),
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: "Gagal konfirmasi." }));
@@ -284,6 +302,9 @@ export default function WalletPage() {
         setBalance(data.balance ?? balance);
         setQrisPayment(null);
         await loadBilling();
+      } else if (data.status === "pending_confirmation") {
+        setSubmitted(true);
+        setMessage("Pembayaran diterima. Saldo akan masuk setelah admin memverifikasi bukti transfer Anda.");
       } else {
         setMessage("Pembayaran belum terkonfirmasi. Jika sudah membayar, coba lagi dalam beberapa saat.");
       }
@@ -415,17 +436,42 @@ export default function WalletPage() {
           <Dialog
             open={Boolean(qrisPayment)}
             onOpenChange={(open) => {
-              if (!open) setQrisPayment(null);
+              if (!open) {
+                setQrisPayment(null);
+                setProofNote("");
+                setProofImage("");
+                setSubmitted(false);
+              }
             }}
           >
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Bayar lewat QRIS</DialogTitle>
-                <DialogDescription>
-                  Scan QR lalu bayar sebelum masa berlaku habis. Setelah membayar, klik konfirmasi.
-                </DialogDescription>
-              </DialogHeader>
-              {qrisPayment && (
+            <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+              <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <QrCode className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base">Bayar lewat QRIS</DialogTitle>
+                  <DialogDescription className="text-xs mt-0.5">
+                    Scan QR lalu bayar sebelum masa berlaku habis. Setelah membayar, klik konfirmasi.
+                  </DialogDescription>
+                </div>
+              </div>
+              <div className="max-h-[70vh] overflow-y-auto p-6">
+              {qrisPayment && submitted ? (
+                <div className="flex flex-col items-center gap-3 py-6 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10">
+                    <CheckCircle2 className="h-7 w-7 text-emerald-500" />
+                  </div>
+                  <h3 className="text-base font-semibold">Bukti Pembayaran Terkirim</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {message ||
+                      "Bukti pembayaran diterima. Admin akan memverifikasi bukti transfer Anda. Saldo masuk setelah disetujui."}
+                  </p>
+                  <Button className="mt-2 w-full" onClick={() => setQrisPayment(null)}>
+                    Tutup
+                  </Button>
+                </div>
+              ) : qrisPayment && (
                 <div className="flex flex-col items-center gap-3">
                   <div className="flex w-full items-center justify-between text-xs">
                     <span className="font-medium">{qrisPayment.merchantName ?? "Merchant"}</span>
@@ -452,30 +498,74 @@ export default function WalletPage() {
                     <p className="text-sm font-medium">{rupiah.format(qrisPayment.amount)}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">Order: {qrisPayment.orderId}</p>
                   </div>
-                  <div className="grid w-full grid-cols-2 gap-2">
-                    <a
-                      href={qrisPayment.qrDataUrl}
-                      download={`QRIS-${(qrisPayment.merchantName ?? "Merchant").replace(/\s+/g, "-")}-${qrisPayment.amount}.png`}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
-                    >
-                      <Download className="h-4 w-4" /> Download
-                    </a>
-                    <Button
-                      variant="outline"
-                      onClick={handleCopyPayload}
-                      disabled={!qrisPayment.maskedPayload}
-                    >
-                      <Copy className="h-4 w-4" /> Copy
-                    </Button>
-                  </div>
+                  <a
+                    href={qrisPayment.qrDataUrl}
+                    download={`QRIS-${(qrisPayment.merchantName ?? "Merchant").replace(/\s+/g, "-")}-${qrisPayment.amount}.png`}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
+                  >
+                    <Download className="h-4 w-4" /> Download
+                  </a>
                   {qrisExpired ? (
                     <p className="text-xs text-destructive">
                       QR telah kedaluwarsa. Tutup lalu buat ulang top-up.
                     </p>
                   ) : (
-                    <Button className="w-full" onClick={handleQrisConfirm} disabled={confirmLoading}>
-                      {confirmLoading ? "Memverifikasi..." : "Saya Sudah Bayar"}
-                    </Button>
+                    <>
+                      <div className="w-full space-y-2 rounded-lg border border-border bg-muted/30 p-3 text-left">
+                        <Label className="text-xs">Bukti transfer (opsional)</Label>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => proofInputRef.current?.click()}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") proofInputRef.current?.click();
+                          }}
+                          className="flex h-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-border bg-muted/40 hover:border-primary/50"
+                        >
+                          {proofImage ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={proofImage} alt="Bukti transfer" className="max-h-14 max-w-full object-contain" />
+                          ) : (
+                            <>
+                              <ImageIcon className="h-4 w-4 text-muted-foreground/60" />
+                              <span className="text-[11px] text-muted-foreground">
+                                {uploading ? "Mengupload..." : "Klik untuk upload screenshot"}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          ref={proofInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (proofInputRef.current) proofInputRef.current.value = "";
+                            if (file) uploadProof(file);
+                          }}
+                        />
+                        <Textarea
+                          value={proofNote}
+                          onChange={(e) => setProofNote(e.target.value)}
+                          placeholder="Catatan (contoh: sudah transfer via bank)"
+                          rows={2}
+                          className="h-auto min-h-0 text-xs"
+                        />
+                      </div>
+                      <p className="w-full text-center text-[11px] text-muted-foreground">
+                        Pastikan Anda sudah membayar sebelum mengirim konfirmasi.
+                      </p>
+                      <Button className="w-full" onClick={handleQrisConfirm} disabled={confirmLoading}>
+                        {confirmLoading ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin" /> Memverifikasi...
+                          </>
+                        ) : (
+                          "Saya Sudah Bayar"
+                        )}
+                      </Button>
+                    </>
                   )}
                   <Button
                     type="button"
@@ -488,6 +578,7 @@ export default function WalletPage() {
                   </Button>
                 </div>
               )}
+              </div>
             </DialogContent>
           </Dialog>
         </div>
