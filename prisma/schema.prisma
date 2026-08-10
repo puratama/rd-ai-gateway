@@ -296,3 +296,15 @@ model PaymentGatewayConfig {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// ====== QRIS Custom (static QRIS masking) ======
+
+model QrisConfig {
+  id        String  @id @default(cuid())
+  name      String
+  payload   String // static QRIS EMV string, e.g. "000201010211..."
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
