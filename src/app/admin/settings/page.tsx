@@ -119,6 +119,7 @@ interface GatewayItem {
   name: string;
   hasServerKey: boolean;
   hasClientKey: boolean;
+  hasQrisPayload: boolean;
   environment: string;
   isActive: boolean;
 }
@@ -126,11 +127,13 @@ interface GatewayItem {
 const PROVIDER_LABELS: Record<string, string> = {
   midtrans: "Midtrans",
   xendit: "Xendit",
+  qris: "QRIS Merchant",
 };
 
 const PROVIDER_KEY_LABELS: Record<string, { server: string; client: string }> = {
   midtrans: { server: "Server Key", client: "Client Key" },
   xendit: { server: "Secret Key", client: "Callback Token" },
+  qris: { server: "Payload QRIS Statis", client: "Callback Token (opsional)" },
 };
 
 function PaymentGatewaySection() {
@@ -238,12 +241,12 @@ function PaymentGatewaySection() {
                   <TableCell className="px-4 py-3">
                     <span
                       className={
-                        g.hasServerKey
+                        (g.provider === "qris" ? g.hasQrisPayload : g.hasServerKey)
                           ? "text-emerald-400 text-xs"
                           : "text-muted-foreground text-xs"
                       }
                     >
-                      {g.hasServerKey ? "••••••••" : "None"}
+                      {(g.provider === "qris" ? g.hasQrisPayload : g.hasServerKey) ? "••••••••" : "None"}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-3">
@@ -417,6 +420,7 @@ function GatewayForm({
   const providerOptions: SelectOption[] = [
     { value: "midtrans", label: "Midtrans" },
     { value: "xendit", label: "Xendit" },
+    { value: "qris", label: "QRIS Merchant" },
   ];
   const envOptions: SelectOption[] = [
     { value: "sandbox", label: "Sandbox" },
@@ -434,8 +438,13 @@ function GatewayForm({
       environment: form.environment,
       isActive: form.isActive,
     };
-    if (form.serverKey) data.serverKey = form.serverKey;
-    if (form.clientKey) data.clientKey = form.clientKey;
+    if (form.provider === "qris") {
+      if (form.serverKey) data.qrisPayload = form.serverKey;
+      if (form.clientKey) data.clientKey = form.clientKey;
+    } else {
+      if (form.serverKey) data.serverKey = form.serverKey;
+      if (form.clientKey) data.clientKey = form.clientKey;
+    }
     try {
       await onSave(data);
     } catch (e: unknown) {
@@ -493,42 +502,82 @@ function GatewayForm({
         <section>
           <FormSection>Credentials</FormSection>
           <FormPanel className="space-y-3">
-            <div>
-              <Label>{keyLabels.server}</Label>
-              <Input
-                type="password"
-                value={form.serverKey}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, serverKey: e.target.value }))
-                }
-                placeholder={
-                  gateway
-                    ? "Kosongkan untuk tidak mengubah"
-                    : form.provider === "midtrans"
-                    ? "SB-Mid-server-..."
-                    : "xnd_..."
-                }
-                className="h-9 bg-background"
-              />
-            </div>
-            <div>
-              <Label>{keyLabels.client}</Label>
-              <Input
-                type="password"
-                value={form.clientKey}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, clientKey: e.target.value }))
-                }
-                placeholder={
-                  gateway
-                    ? "Kosongkan untuk tidak mengubah"
-                    : form.provider === "midtrans"
-                    ? "SB-Mid-client-..."
-                    : "Token verifikasi callback"
-                }
-                className="h-9 bg-background"
-              />
-            </div>
+            {form.provider === "qris" ? (
+              <>
+                <div>
+                  <Label>{keyLabels.server}</Label>
+                  <Textarea
+                    value={form.serverKey}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, serverKey: e.target.value }))
+                    }
+                    placeholder={
+                      gateway ? "Kosongkan untuk tidak mengubah" : "0002010102112637..."
+                    }
+                    rows={4}
+                    className="bg-background font-mono text-xs"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground/70">
+                    String EMVCo "000201..." milik merchant. Akan di-mask: tag 01 jadi dinamis (12) dan tag 54 berisi nominal, CRC16 dihitung ulang. Peringatan: QR statis yang di-mask tidak dijamin diterima semua bank/e-wallet.
+                  </p>
+                </div>
+                <div>
+                  <Label>{keyLabels.client}</Label>
+                  <Input
+                    type="password"
+                    value={form.clientKey}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, clientKey: e.target.value }))
+                    }
+                    placeholder={
+                      gateway
+                        ? "Kosongkan untuk tidak mengubah"
+                        : "Token verifikasi webhook (opsional)"
+                    }
+                    className="h-9 bg-background"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <Label>{keyLabels.server}</Label>
+                  <Input
+                    type="password"
+                    value={form.serverKey}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, serverKey: e.target.value }))
+                    }
+                    placeholder={
+                      gateway
+                        ? "Kosongkan untuk tidak mengubah"
+                        : form.provider === "midtrans"
+                        ? "SB-Mid-server-..."
+                        : "xnd_..."
+                    }
+                    className="h-9 bg-background"
+                  />
+                </div>
+                <div>
+                  <Label>{keyLabels.client}</Label>
+                  <Input
+                    type="password"
+                    value={form.clientKey}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, clientKey: e.target.value }))
+                    }
+                    placeholder={
+                      gateway
+                        ? "Kosongkan untuk tidak mengubah"
+                        : form.provider === "midtrans"
+                        ? "SB-Mid-client-..."
+                        : "Token verifikasi callback"
+                    }
+                    className="h-9 bg-background"
+                  />
+                </div>
+              </>
+            )}
           </FormPanel>
         </section>
 
@@ -536,18 +585,20 @@ function GatewayForm({
         <section>
           <FormSection>Environment &amp; Status</FormSection>
           <FormPanel className="space-y-4">
-            <div>
-              <Label>Environment</Label>
-              <FormSelect
-                options={envOptions}
-                value={findOpt(envOptions, form.environment)}
-                onChange={(v) =>
-                  setForm((p) => ({ ...p, environment: v || "sandbox" }))
-                }
-                isClearable={false}
-                isSearchable={false}
-              />
-            </div>
+            {form.provider !== "qris" && (
+              <div>
+                <Label>Environment</Label>
+                <FormSelect
+                  options={envOptions}
+                  value={findOpt(envOptions, form.environment)}
+                  onChange={(v) =>
+                    setForm((p) => ({ ...p, environment: v || "sandbox" }))
+                  }
+                  isClearable={false}
+                  isSearchable={false}
+                />
+              </div>
+            )}
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-medium">Gateway Active</p>

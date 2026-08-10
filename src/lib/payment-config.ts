@@ -3,13 +3,14 @@
 
 import type { prisma } from "./db";
 
-type PaymentProvider = "midtrans" | "xendit";
+type PaymentProvider = "midtrans" | "xendit" | "qris";
 
 export interface PaymentConfig {
   serverKey: string;
   clientKey: string;
   environment: "sandbox" | "production";
   isActive: boolean;
+  qrisPayload?: string;
 }
 
 /**
@@ -27,13 +28,14 @@ export async function getPaymentConfig(
     });
 
     if (!gateway) return null;
-    if (!gateway.serverKeyEnc && !gateway.clientKeyEnc) return null;
+    if (!gateway.serverKeyEnc && !gateway.clientKeyEnc && !gateway.qrisPayload) return null;
 
     return {
       serverKey: gateway.serverKeyEnc || "",
       clientKey: gateway.clientKeyEnc || "",
       environment: (gateway.environment as "sandbox" | "production") || "sandbox",
       isActive: gateway.isActive,
+      qrisPayload: gateway.qrisPayload ?? undefined,
     };
   } catch {
     return null;

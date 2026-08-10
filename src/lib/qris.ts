@@ -7,6 +7,8 @@
 //
 // Caveat: rewriting a static merchant QRIS is NOT guaranteed to be
 // accepted by all banks/e-wallets on scan. Admin UI warns about this.
+// Also: a static-masked QRIS is NOT registered with the bank backend, so
+// there is no webhook — payment status comes from manual confirm.
 
 export interface QrisTlv {
   tag: string;
@@ -92,6 +94,8 @@ export function maskQris(payload: string, amount: number): string {
 
   // strip old CRC, recompute
   const stripped = entries.filter((t) => t.tag !== "63");
+  // EMVCo tags should appear in ascending order; keep valid when 54 was appended
+  stripped.sort((a, b) => Number(a.tag) - Number(b.tag));
   const body = buildQris(stripped);
   return body + `6304${crc16ccitt(body).toString(16).toUpperCase().padStart(4, "0")}`;
 }
@@ -99,5 +103,26 @@ export function maskQris(payload: string, amount: number): string {
 /** Render a QRIS payload into a PNG data URL (server-side via qrcode). */
 export async function qrisToDataUrl(payload: string, size = 320): Promise<string> {
   const QRCode = (await import("qrcode")).default;
-  return QRCode.toDataURL(payload, { width: size, margin: 1, errorCorrectionLevel: "M" });
+  return QRCode.toDataURL(payload, { width: size, margin: 2, errorCorrectionLevel: "H" });
+}
+
+/**
+ * Create a masked QRIS payment for the active "qris" merchant gateway.
+ * Loads the static merchant payload from PaymentGatewayConfig (provider "qris").
+ */
+export async function createQrisPayment(
+  orderId: string,
+  amount: number
+): Promise<{ qrDataUrl: string; maskedPayload: string; merchantName?: string }> {
+  const { getPaymentConfig } = await import("./payment-config");
+  const config = await getPaymentConfig("qris");
+  if (!config?.qrisPayload) {
+    throw new Error(
+      "No active QRIS Merchant gateway configured. Go to Admin > Settings > Payment Gateway."
+    );
+  }
+  const maskedPayload = maskQris(config.qrisPayload, amount);
+  const merchantName = parseQris(maskedPayload).find((t) => t.tag === "59")?.value;
+  const qrDataUrl = await qrisToDataUrl(maskedPayload);
+  return { qrDataUrl, maskedPayload, merchantName };
 }

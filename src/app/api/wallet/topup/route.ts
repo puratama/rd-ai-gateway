@@ -76,6 +76,8 @@ export async function POST(request: NextRequest) {
           token: transaction.token,
           redirectUrl: transaction.redirectUrl,
           provider: transaction.provider,
+          kind: transaction.kind,
+          qrDataUrl: transaction.qrDataUrl,
           orderId,
         },
       });

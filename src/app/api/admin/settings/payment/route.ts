@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { validateQrisPayload } from "@/lib/qris";
 
 export async function GET() {
   try {
@@ -14,6 +15,7 @@ export async function GET() {
         name: g.name,
         hasServerKey: Boolean(g.serverKeyEnc),
         hasClientKey: Boolean(g.clientKeyEnc),
+        hasQrisPayload: Boolean(g.qrisPayload),
         environment: g.environment,
         isActive: g.isActive,
         createdAt: g.createdAt,
@@ -31,11 +33,30 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { provider, name, serverKey, clientKey, environment, isActive } = body;
+    const { provider, name, serverKey, clientKey, environment, isActive, qrisPayload } = body;
 
-    if (!provider || !name || !serverKey || !clientKey) {
+    if (!provider || !name) {
       return NextResponse.json(
-        { error: "provider, name, serverKey, clientKey required" },
+        { error: "provider and name required" },
+        { status: 400 }
+      );
+    }
+
+    const isQris = provider === "qris";
+    if (isQris) {
+      if (!qrisPayload) {
+        return NextResponse.json(
+          { error: "qrisPayload required for QRIS Merchant" },
+          { status: 400 }
+        );
+      }
+      const invalid = validateQrisPayload(qrisPayload);
+      if (invalid) {
+        return NextResponse.json({ error: invalid }, { status: 400 });
+      }
+    } else if (!serverKey || !clientKey) {
+      return NextResponse.json(
+        { error: "serverKey, clientKey required" },
         { status: 400 }
       );
     }
@@ -55,8 +76,9 @@ export async function POST(request: NextRequest) {
       data: {
         provider,
         name,
-        serverKeyEnc: serverKey,
-        clientKeyEnc: clientKey,
+        serverKeyEnc: serverKey ?? "",
+        clientKeyEnc: clientKey ?? "",
+        qrisPayload: qrisPayload ?? null,
         environment: environment || "sandbox",
         isActive: isActive ?? true,
       },
@@ -77,10 +99,17 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, provider, name, serverKey, clientKey, environment, isActive } = body;
+    const { id, provider, name, serverKey, clientKey, environment, isActive, qrisPayload } = body;
 
     if (!id) {
       return NextResponse.json({ error: "id required" }, { status: 400 });
+    }
+
+    if (qrisPayload !== undefined) {
+      const invalid = validateQrisPayload(qrisPayload);
+      if (invalid) {
+        return NextResponse.json({ error: invalid }, { status: 400 });
+      }
     }
 
     const data: Record<string, unknown> = {};
@@ -88,6 +117,7 @@ export async function PUT(request: NextRequest) {
     if (name !== undefined) data.name = name;
     if (serverKey !== undefined) data.serverKeyEnc = serverKey;
     if (clientKey !== undefined) data.clientKeyEnc = clientKey;
+    if (qrisPayload !== undefined) data.qrisPayload = qrisPayload;
     if (environment !== undefined) data.environment = environment;
     if (isActive !== undefined) data.isActive = isActive;
 

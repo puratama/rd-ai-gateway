@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, ReceiptText, RefreshCw, Wallet } from "lucide-react";
+import { Clock, Copy, Download, Plus, ReceiptText, RefreshCw, Wallet } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -13,7 +14,20 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type BalanceResponse = { balance: number };
-type TopupResponse = { transaction?: { token: string; redirectUrl?: string; provider?: string; orderId?: string }; billing?: Record<string, unknown> };
+type TopupResponse = {
+  transaction?: {
+    token: string;
+    redirectUrl?: string;
+    provider?: string;
+    orderId?: string;
+    kind?: "redirect" | "qris";
+    qrDataUrl?: string;
+    maskedPayload?: string;
+    merchantName?: string;
+    expiresAt?: string;
+  };
+  billing?: Record<string, unknown>;
+};
 type BillingRecord = {
   id?: string;
   type?: string;
@@ -56,8 +70,37 @@ export default function WalletPage() {
   const [message, setMessage] = useState("");
   const [billing, setBilling] = useState<BillingRecord[]>([]);
   const [snapReady, setSnapReady] = useState(false);
+  const [qrisPayment, setQrisPayment] = useState<{
+    orderId: string;
+    qrDataUrl: string;
+    amount: number;
+    maskedPayload?: string;
+    merchantName?: string;
+    expiresAt: string;
+  } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const numericAmount = useMemo(() => Number(amount), [amount]);
+
+  // QRIS countdown clock (repo qrisdinamis: 15 menit masa berlaku)
+  useEffect(() => {
+    if (!qrisPayment) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [qrisPayment]);
+
+  const qrisExpired = qrisPayment
+    ? now >= new Date(qrisPayment.expiresAt).getTime()
+    : false;
+  const qrisRemainingMs = qrisPayment
+    ? Math.max(0, new Date(qrisPayment.expiresAt).getTime() - now)
+    : 0;
+  const qrisRemaining = `${Math.floor(qrisRemainingMs / 60000)
+    .toString()
+    .padStart(2, "0")}:${Math.floor((qrisRemainingMs % 60000) / 1000)
+    .toString()
+    .padStart(2, "0")}`;
 
   // Load Midtrans Snap script once
   useEffect(() => {
@@ -159,7 +202,20 @@ export default function WalletPage() {
         return;
       }
 
-      const { token, redirectUrl, provider, orderId } = data.transaction;
+      const { token, redirectUrl, provider, orderId, kind, qrDataUrl, maskedPayload, merchantName, expiresAt } = data.transaction;
+
+      if (kind === "qris" && qrDataUrl && orderId) {
+        setQrisPayment({
+          orderId,
+          qrDataUrl,
+          amount: numericAmount,
+          maskedPayload,
+          merchantName,
+          expiresAt: expiresAt ?? new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        });
+        setMessage("Scan QRIS lalu bayar. Setelah membayar, klik tombol konfirmasi di bawah.");
+        return;
+      }
 
       if (provider === "xendit") {
         if (!redirectUrl) throw new Error("Missing Xendit checkout URL.");
@@ -186,6 +242,16 @@ export default function WalletPage() {
     }
   }
 
+  async function handleCopyPayload() {
+    if (!qrisPayment?.maskedPayload) return;
+    try {
+      await navigator.clipboard.writeText(qrisPayment.maskedPayload);
+      toast.success("Payload QRIS disalin");
+    } catch {
+      toast.error("Gagal menyalin payload");
+    }
+  }
+
   async function handleRefresh() {
     setError("");
     setLoading(true);
@@ -195,6 +261,36 @@ export default function WalletPage() {
       setError(err instanceof Error ? err.message : "Failed to load wallet.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleQrisConfirm() {
+    if (!qrisPayment) return;
+    setConfirmLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/wallet/topup/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: qrisPayment.orderId }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: "Gagal konfirmasi." }));
+        throw new Error(err.error || "Gagal konfirmasi.");
+      }
+      const data = await response.json();
+      if (data.status === "paid") {
+        toast.success("Balance updated");
+        setBalance(data.balance ?? balance);
+        setQrisPayment(null);
+        await loadBilling();
+      } else {
+        setMessage("Pembayaran belum terkonfirmasi. Jika sudah membayar, coba lagi dalam beberapa saat.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal konfirmasi pembayaran.");
+    } finally {
+      setConfirmLoading(false);
     }
   }
 
@@ -243,7 +339,10 @@ export default function WalletPage() {
                       type="button"
                       variant={numericAmount === value ? "default" : "outline"}
                       className="h-11 animate-button"
-                      onClick={() => setAmount(String(value))}
+                      onClick={() => {
+                        setAmount(String(value));
+                        setQrisPayment(null);
+                      }}
                     >
                       {rupiah.format(value)}
                     </Button>
@@ -258,11 +357,15 @@ export default function WalletPage() {
                   min={10000}
                   type="number"
                   value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
+                  onChange={(event) => {
+                    setAmount(event.target.value);
+                    setQrisPayment(null);
+                  }}
                   className="mt-2 h-11 bg-input"
                 />
                 <Button className="mt-5 h-11 w-full" onClick={handleTopup} disabled={topupLoading || loading}>
-                  <Plus className="h-4 w-4" /> {topupLoading ? "Starting payment..." : "Top Up"}
+                  <Plus className="h-4 w-4" />
+                  {topupLoading ? "Starting payment..." : "Top Up"}
                 </Button>
               </CardContent>
             </Card>
@@ -308,6 +411,85 @@ export default function WalletPage() {
               </CardContent>
             </Card>
           </section>
+
+          <Dialog
+            open={Boolean(qrisPayment)}
+            onOpenChange={(open) => {
+              if (!open) setQrisPayment(null);
+            }}
+          >
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Bayar lewat QRIS</DialogTitle>
+                <DialogDescription>
+                  Scan QR lalu bayar sebelum masa berlaku habis. Setelah membayar, klik konfirmasi.
+                </DialogDescription>
+              </DialogHeader>
+              {qrisPayment && (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex w-full items-center justify-between text-xs">
+                    <span className="font-medium">{qrisPayment.merchantName ?? "Merchant"}</span>
+                    <span
+                      className={
+                        qrisExpired
+                          ? "inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-destructive"
+                          : "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-muted-foreground"
+                      }
+                    >
+                      <Clock className="h-3 w-3" />
+                      {qrisExpired ? "Kedaluwarsa" : qrisRemaining}
+                    </span>
+                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrisPayment.qrDataUrl}
+                    alt="QRIS payment QR"
+                    className={
+                      "h-56 w-56 rounded-lg bg-white" + (qrisExpired ? " opacity-40" : "")
+                    }
+                  />
+                  <div className="text-center">
+                    <p className="text-sm font-medium">{rupiah.format(qrisPayment.amount)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Order: {qrisPayment.orderId}</p>
+                  </div>
+                  <div className="grid w-full grid-cols-2 gap-2">
+                    <a
+                      href={qrisPayment.qrDataUrl}
+                      download={`QRIS-${(qrisPayment.merchantName ?? "Merchant").replace(/\s+/g, "-")}-${qrisPayment.amount}.png`}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
+                    >
+                      <Download className="h-4 w-4" /> Download
+                    </a>
+                    <Button
+                      variant="outline"
+                      onClick={handleCopyPayload}
+                      disabled={!qrisPayment.maskedPayload}
+                    >
+                      <Copy className="h-4 w-4" /> Copy
+                    </Button>
+                  </div>
+                  {qrisExpired ? (
+                    <p className="text-xs text-destructive">
+                      QR telah kedaluwarsa. Tutup lalu buat ulang top-up.
+                    </p>
+                  ) : (
+                    <Button className="w-full" onClick={handleQrisConfirm} disabled={confirmLoading}>
+                      {confirmLoading ? "Memverifikasi..." : "Saya Sudah Bayar"}
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="cursor-pointer"
+                    onClick={() => setQrisPayment(null)}
+                  >
+                    Batal
+                  </Button>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </AppShell>

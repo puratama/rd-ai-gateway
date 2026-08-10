@@ -6,19 +6,31 @@ import { getPaymentConfig } from "./payment-config";
 export interface PaymentTransactionResult {
   token: string;
   redirectUrl: string;
-  provider: "midtrans" | "xendit";
+  provider: "midtrans" | "xendit" | "qris";
+  kind: "redirect" | "qris";
+  /** Present when kind === "qris": a data-URL PNG the client must show for scanning. */
+  qrDataUrl?: string;
+  /** QRIS dynamic payload string (for copy). */
+  maskedPayload?: string;
+  /** Merchant display name parsed from tag 59. */
+  merchantName?: string;
+  /** QRIS expiry, defaults to 15 minutes after creation. */
+  expiresAt?: string;
 }
 
 /**
  * Find the first active payment gateway from DB.
  * Returns null if none configured.
  */
-async function getActiveGateway(): Promise<"midtrans" | "xendit" | null> {
+async function getActiveGateway(): Promise<"midtrans" | "xendit" | "qris" | null> {
   const midtrans = await getPaymentConfig("midtrans");
   if (midtrans?.isActive) return "midtrans";
 
   const xendit = await getPaymentConfig("xendit");
   if (xendit?.isActive) return "xendit";
+
+  const qris = await getPaymentConfig("qris");
+  if (qris?.isActive) return "qris";
 
   return null;
 }
@@ -52,6 +64,22 @@ export async function createTransaction(
       token: result.token,
       redirectUrl: result.redirect_url,
       provider: "midtrans",
+      kind: "redirect",
+    };
+  }
+
+  if (provider === "qris") {
+    const { createQrisPayment } = await import("./qris");
+    const result = await createQrisPayment(orderId, amount);
+    return {
+      token: orderId,
+      redirectUrl: "",
+      provider: "qris",
+      kind: "qris",
+      qrDataUrl: result.qrDataUrl,
+      maskedPayload: result.maskedPayload,
+      merchantName: result.merchantName,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     };
   }
 
@@ -68,5 +96,6 @@ export async function createTransaction(
     token: invoice.id,
     redirectUrl: invoice.invoice_url,
     provider: "xendit",
+    kind: "redirect",
   };
 }

@@ -285,25 +285,14 @@ model SiteSetting {
 // ====== Payment Gateway Config ======
 
 model PaymentGatewayConfig {
-  id           String  @id @default(cuid())
-  provider     String  @default("midtrans") // "midtrans" | "xendit"
+  id           String   @id @default(cuid())
+  provider     String   @default("midtrans") // "midtrans" | "xendit" | "qris"
   name         String
   serverKeyEnc String
   clientKeyEnc String
-  environment  String  @default("sandbox") // sandbox | production
-  isActive     Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ====== QRIS Custom (static QRIS masking) ======
-
-model QrisConfig {
-  id        String  @id @default(cuid())
-  name      String
-  payload   String // static QRIS EMV string, e.g. "000201010211..."
-  isActive  Boolean @default(true)
+  environment  String   @default("sandbox") // sandbox | production
+  isActive     Boolean  @default(true)
+  qrisPayload  String? // static QRIS EMV string, only used when provider == "qris"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
