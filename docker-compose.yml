@@ -1,12 +1,18 @@
 # ============================================================
-# Xperimne AI Gateway — stack: traefik (reverse proxy + TLS) + postgres + app
+# Xperimne AI Gateway — stack: postgres + migrate + app
 #
-# Syarat .env:
-#   APP_DOMAIN            → hostname aplikasi, contoh "gateway.example.com"
-#   ACME_EMAIL            → email Let's Encrypt
-#   POSTGRES_PASSWORD     → password DB (wajib, compose gagal jika kosong)
-#   NEXT_PUBLIC_APP_URL   → harus https://${APP_DOMAIN}
-#   NEXT_PUBLIC_INTERNAL_KEY, INTERNAL_API_KEY, AUTH_SECRET, AUTH_SALT, CRON_SECRET
+# Reverse proxy: Traefik EKSTERNAL (dijalankan terpisah, di luar
+# compose ini) pada network bersama `internet-net`.
+# Referensi: docker-compose.yml rakitdigital (C:\Users\rizky\OneDrive\Documents\New folder).
+#
+# Alur akses: Cloudflare Tunnel → Traefik :80 (HTTP) → app via label.
+# TLS/HTTPS ditangani Cloudflare; traefik hanya proxy HTTP.
+#
+# Syarat:
+#   - network external sudah dibuat:  docker network create internet-net
+#   - instance Traefik host sudah attach ke `internet-net` dengan entrypoint `web`.
+#   - .env berisi APP_DOMAIN, POSTGRES_PASSWORD, dst.
+#     (acuan: .env.production.example)
 #
 # Jalankan:  docker compose up -d --build
 # Migrate sekali:  docker compose run --rm migrate
@@ -16,55 +22,39 @@
 # ============================================================
 
 services:
-  traefik:
-    image: traefik:v3.5
-    container_name: xgate-traefik
-    restart: unless-stopped
-    command:
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.le.acme.email=${ACME_EMAIL:?set ACME_EMAIL in .env}"
-      - "--certificatesresolvers.le.acme.storage=/certs/acme.json"
-      - "--certificatesresolvers.le.acme.httpchallenge=true"
-      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik-certs:/certs
-
   postgres:
     image: postgres:16-alpine
-    container_name: xgate-postgres
+    container_name: rdai-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-xgate}
+      POSTGRES_USER: ${POSTGRES_USER:-rdai}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-xgate}
+      POSTGRES_DB: ${POSTGRES_DB:-rdai}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-xgate} -d ${POSTGRES_DB:-xgate}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rdai} -d ${POSTGRES_DB:-rdai}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - internet-net
 
   migrate:
     build:
       context: .
       target: migrate
-    container_name: xgate-migrate
+    container_name: rdai-migrate
     restart: "no"
     env_file: .env
     environment:
       # Pakai service `postgres` sebagai host, bukan host dari .env
-      DATABASE_URL: postgresql://${POSTGRES_USER:-xgate}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-xgate}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rdai}?schema=public
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - internet-net
 
   app:
     build:
@@ -72,11 +62,11 @@ services:
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost}
         NEXT_PUBLIC_INTERNAL_KEY: ${NEXT_PUBLIC_INTERNAL_KEY:-}
-    container_name: xgate-app
+    container_name: rdai-app
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-xgate}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-xgate}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rdai}?schema=public
       HOSTNAME: 0.0.0.0
       PORT: 3035
     depends_on:
@@ -87,9 +77,14 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.gateway.rule=Host(`${APP_DOMAIN:?set APP_DOMAIN in .env}`)"
-      - "traefik.http.routers.gateway.entrypoints=websecure"
-      - "traefik.http.routers.gateway.tls.certresolver=le"
       - "traefik.http.services.gateway.loadbalancer.server.port=3035"
+      - "traefik.http.routers.gateway.entrypoints=web"
+    networks:
+      - internet-net
 
 volumes:
   pgdata:
+
+networks:
+  internet-net:
+    external: true
