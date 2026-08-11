@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { handlePaidBilling } from "@/lib/billing-fulfillment";
+import { notifyPaymentPending } from "@/lib/telegram";
 import { getTransactionStatus, mapTransactionStatus, initMidtrans } from "@/lib/midtrans";
 
 async function resolveUserId(request: NextRequest) {
@@ -67,6 +68,10 @@ export async function POST(request: NextRequest) {
         },
       });
       const wallet = await prisma.wallet.findUnique({ where: { userId } });
+
+      // Fire-and-forget: notify admins via Telegram bot (never block the user flow)
+      await notifyPaymentPending(pending).catch(() => {});
+
       return NextResponse.json({
         status: pending.status,
         balance: wallet ? Number(wallet.balance) : 0,

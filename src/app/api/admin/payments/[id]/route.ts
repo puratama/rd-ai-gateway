@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/db";
-import { handlePaidBilling } from "@/lib/billing-fulfillment";
+import { reviewBillingPayment, ReviewError } from "@/lib/payment-review";
 
 async function requireSuperadmin() {
   const session = await getSession();
@@ -29,32 +28,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
 
-    const billing = await prisma.billingRecord.findUnique({ where: { id } });
-    if (!billing) {
-      return NextResponse.json({ error: "Billing record not found" }, { status: 404 });
-    }
-    if (billing.status !== "pending_confirmation") {
-      return NextResponse.json(
-        { error: "Only pending_confirmation payments can be reviewed" },
-        { status: 409 }
-      );
-    }
-
-    const updated = await prisma.billingRecord.update({
-      where: { id },
-      data: {
-        status: decision === "approve" ? "paid" : "failed",
-        paidAt: decision === "approve" ? new Date() : billing.paidAt,
-        verifiedAt: new Date(),
-      },
-    });
-
-    if (decision === "approve") {
-      await handlePaidBilling(updated);
-    }
-
-    return NextResponse.json({ status: updated.status });
+    const { status } = await reviewBillingPayment(id, decision as Decision);
+    return NextResponse.json({ status });
   } catch (error: unknown) {
+    if (error instanceof ReviewError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }

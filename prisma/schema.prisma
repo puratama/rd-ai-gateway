@@ -186,6 +186,10 @@ model BillingRecord {
   proofImage String?
   verifiedAt DateTime?
 
+  // Telegram bot notification (editable message for approve/reject)
+  telegramChatId   String?
+  telegramMessageId Int?
+
   paidAt    DateTime?
   createdAt DateTime  @default(now())
 }
@@ -300,6 +304,18 @@ model PaymentGatewayConfig {
   environment  String   @default("sandbox") // sandbox | production
   isActive     Boolean  @default(true)
   qrisPayload  String? // static QRIS EMV string, only used when provider == "qris"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ====== Telegram Bot (manual payment verification channel) ======
+
+model TelegramConfig {
+  id           String   @id @default("telegram") // singleton row
+  botTokenEnc  String? // bot token from @BotFather (plaintext, follows *Enc codebase convention)
+  adminChatIds String[] @default([]) // Telegram chat IDs that receive payment notifications
+  isEnabled    Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

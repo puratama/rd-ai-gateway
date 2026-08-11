@@ -14,6 +14,7 @@ import {
   Link2,
   FileText,
   Palette,
+  Send,
 } from "lucide-react";
 import type { SiteSettings } from "@/lib/site-settings";
 import AppShell from "@/components/layout/AppShell";
@@ -48,7 +49,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
 
-type SettingsTabId = "site" | "payment";
+type SettingsTabId = "site" | "payment" | "telegram";
 
 export default function AdminSettingsPage() {
   return (
@@ -83,6 +84,7 @@ function AdminSettingsContent() {
             [
               { id: "site" as const, label: "Site", icon: Globe },
               { id: "payment" as const, label: "Payment Gateway", icon: Building2 },
+              { id: "telegram" as const, label: "Telegram", icon: Send },
             ]
           ).map((tab) => {
             const Icon = tab.icon;
@@ -106,6 +108,7 @@ function AdminSettingsContent() {
 
         {activeTab === "site" && <SiteSettingsSection />}
         {activeTab === "payment" && <PaymentGatewaySection />}
+        {activeTab === "telegram" && <TelegramSection />}
       </div>
     </AppShell>
   );
@@ -624,6 +627,176 @@ function GatewayForm({
           {saving ? "Menyimpan..." : gateway ? "Update" : "Tambah"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ─── Telegram Bot ─────────────────────────────────────────────────────────
+
+function TelegramSection() {
+  const [hasToken, setHasToken] = useState(false);
+  const [botToken, setBotToken] = useState("");
+  const [chatIdsText, setChatIdsText] = useState("");
+  const [isEnabled, setIsEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState("");
+
+  const fetchConfig = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/settings/telegram");
+      if (res.ok) {
+        const data = await res.json();
+        setHasToken(data.hasToken);
+        setChatIdsText((data.adminChatIds || []).join("\n"));
+        setIsEnabled(data.isEnabled);
+      }
+    } catch {
+      setError("Failed to load telegram config");
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  const handleSave = async (test = false) => {
+    setSaving(true);
+    setError("");
+    try {
+      const adminChatIds = chatIdsText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const res = await fetch("/api/admin/settings/telegram", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(botToken ? { botToken } : {}),
+          adminChatIds,
+          isEnabled,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Save failed" }));
+        throw new Error(err.error || "Save failed");
+      }
+      const data = await res.json();
+      setHasToken(data.hasToken);
+      setBotToken("");
+      toast.success("Telegram config tersimpan");
+
+      if (test) {
+        setTesting(true);
+        try {
+          const t = await fetch("/api/admin/settings/telegram/test", { method: "POST" });
+          const td = await t.json();
+          if (td.ok) toast.success(td.message);
+          else toast.error(td.message || td.error || "Test gagal");
+        } catch {
+          toast.error("Test gagal");
+        }
+        setTesting(false);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save");
+    }
+    setSaving(false);
+  };
+
+  if (loading) {
+    return <div className="h-56 animate-pulse rounded-xl border border-border bg-card" />;
+  }
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-200">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Telegram Bot</h2>
+          <p className="text-xs text-muted-foreground">
+            Jalur verifikasi pembayaran manual (QRIS) lewat bot Telegram.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSave(true)}
+            disabled={saving || testing}
+          >
+            {testing ? "Testing..." : "Test"}
+          </Button>
+          <Button size="sm" onClick={() => handleSave(false)} disabled={saving}>
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? "Menyimpan..." : "Simpan"}
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Send className="h-4 w-4 text-primary" /> Kredensial Bot
+          </CardTitle>
+          <CardDescription>
+            Buat bot lewat @BotFather untuk mendapatkan token, lalu daftarkan Chat ID admin.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Bot Token</Label>
+            <div className="mt-1.5 flex items-center gap-2">
+              <Input
+                type="password"
+                value={botToken}
+                onChange={(e) => setBotToken(e.target.value)}
+                placeholder={
+                  hasToken ? "•••••••• (kosongkan untuk tidak mengubah)" : "123456789:AA...token dari @BotFather"
+                }
+                className="h-9 flex-1 bg-background"
+              />
+              {hasToken && (
+                <span className="shrink-0 text-xs text-emerald-400">Terpasang</span>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label>Chat ID Admin</Label>
+            <Textarea
+              value={chatIdsText}
+              onChange={(e) => setChatIdsText(e.target.value)}
+              rows={4}
+              className="bg-background font-mono text-xs"
+              placeholder={"123456789\n987654321"}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground/70">
+              Buka bot ini di Telegram, kirim /start, lalu salin "Chat ID Anda" ke sini (satu per
+              baris). Chat yang terdaftar menerima notifikasi bukti pembayaran dan bisa
+              approve/reject.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Aktifkan Bot</p>
+              <p className="text-xs text-muted-foreground/60">
+                Long-polling berjalan saat aktif; keluar otomatis saat nonaktif.
+              </p>
+            </div>
+            <Switch checked={isEnabled} onChange={(v) => setIsEnabled(v)} />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
