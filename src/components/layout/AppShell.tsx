@@ -224,7 +224,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                 <DropdownMenu>
                   <DropdownMenuTrigger render={
                     <Button variant="ghost" size="sm" className="gap-1.5 pl-1 pr-2 hover:bg-primary/10 hover:text-primary">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-linear-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
                         <UserRound />
                       </span>
                       <span className="hidden md:inline">{user?.name || user?.email}</span>
@@ -233,7 +233,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                   } />
                   <DropdownMenuContent align="end" className="w-64 space-y-1 p-2">
                     <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
                         <UserRound />
                       </span>
                       <div className="min-w-0">
@@ -421,7 +421,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
               <DropdownMenu>
                 <DropdownMenuTrigger render={
                   <Button variant="ghost" size="sm" className="gap-1.5 pl-1 pr-2 hover:bg-primary/10 hover:text-primary">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-linear-to-br from-primary to-accent text-[11px] font-bold text-primary-foreground">
                       <UserRound />
                     </span>
                     <span className="hidden md:inline">{user?.name || user?.email}</span>
@@ -430,7 +430,7 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                 } />
                 <DropdownMenuContent align="end" className="w-64 space-y-1 p-2">
                   <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
                       <UserRound />
                     </span>
                     <div className="min-w-0">

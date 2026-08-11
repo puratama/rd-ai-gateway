@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
-import { sendEmail, buildVerifyHtml, getVerifyUrl } from "@/lib/email";
+import { sendEmail, buildVerifyHtml, getVerifyUrl, getSiteName } from "@/lib/email";
 import { randomBytes } from "crypto";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +12,18 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json({ error: "email and password required" }, { status: 400 });
+    }
+    if (typeof password !== "string" || password.length < 8) {
+      return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 });
+    }
+
+    // Anti account-spam: 5 pendaftaran / jam per IP
+    const rl = rateLimit(request, "register", { limit: 5, windowMs: 60 * 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Terlalu banyak pendaftaran dari IP ini. Coba lagi nanti." },
+        { status: 429 }
+      );
     }
 
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -37,10 +50,10 @@ export async function POST(request: NextRequest) {
     // Send verification email
     try {
       await sendEmail({
-        to: user.email,
-        subject: "Verifikasi Email - xperimne.ai",
-        html: buildVerifyHtml(getVerifyUrl(verifyToken)),
-      });
+          to: user.email,
+          subject: `Verifikasi Email - ${await getSiteName()}`,
+          html: await buildVerifyHtml(getVerifyUrl(verifyToken)),
+        });
     } catch {
       // Non-fatal — user can re-register
     }

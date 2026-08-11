@@ -2,23 +2,45 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowRight, Lock, Mail, User, Sparkles } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail, RefreshCw, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import AuthBrand from "@/components/auth/AuthBrand";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [registered, setRegistered] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  async function handleResend() {
+    setResending(true);
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal kirim ulang email");
+      toast.success(data.message || "Email verifikasi sudah dikirim ulang.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal kirim ulang email");
+    } finally {
+      setResending(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     try {
       const res = await fetch("/api/auth/register", {
@@ -30,31 +52,61 @@ export default function RegisterPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed");
 
-      localStorage.setItem("xperimne-api-key", typeof data.apiKey === "string" ? data.apiKey : data.apiKey?.key || "");
-      localStorage.setItem("xperimne-user", JSON.stringify(data.user));
-      toast.success("Account created");
-      router.push("/dashboard");
+      // Don't auto-login — user must verify email first
+      setRegistered(true);
     } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setLoading(false);
     }
   }
 
+  if (registered) {
+    return (
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,color-mix(in_oklch,var(--color-primary)_18%,transparent),transparent_30rem),linear-gradient(180deg,var(--color-background),color-mix(in_oklch,var(--color-background)_78%,var(--color-card)))] flex items-center justify-center p-6">
+        <div className="w-full max-w-md">
+        <AuthBrand />
+
+        <Card className="border-border bg-card/95 shadow-2xl shadow-primary/10">
+          <CardContent className="pt-8 text-center">
+              <div className="w-14 h-14 mx-auto mb-4 bg-primary/10 rounded-2xl flex items-center justify-center">
+                <Mail className="w-7 h-7 text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Cek email kamu</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Kami sudah mengirim link verifikasi ke <span className="font-medium text-foreground">{email}</span>.
+                Klik link itu untuk mengaktifkan akun kamu, lalu login.
+              </p>
+              <Link href="/login" className="inline-flex w-full h-11 items-center justify-center rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90">
+                Masuk sekarang
+              </Link>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-11 mt-3"
+                onClick={handleResend}
+                disabled={resending}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${resending ? "animate-spin" : ""}`} />
+                {resending ? "Mengirim ulang..." : "Kirim ulang email verifikasi"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,color-mix(in_oklch,var(--color-primary)_18%,transparent),transparent_30rem),linear-gradient(180deg,var(--color-background),color-mix(in_oklch,var(--color-background)_78%,var(--color-card)))] flex items-center justify-center p-6">
       <div className="w-full max-w-md">
-        <Link href="/" className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="w-9 h-9 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-bold">xPerimne</span>
-        </Link>
+        <AuthBrand />
 
         <Card className="border-border bg-card/95 shadow-2xl shadow-primary/10">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">Create account</CardTitle>
-            <p className="text-sm text-muted-foreground">Start building with 500+ AI models</p>
+            <CardTitle className="text-2xl">Buat akun</CardTitle>
+            <p className="text-sm text-muted-foreground">Mulai bangun dengan 500+ model AI</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -65,7 +117,7 @@ export default function RegisterPage() {
               )}
 
               <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">Name</label>
+                <label htmlFor="name" className="text-sm font-medium">Nama</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -73,7 +125,7 @@ export default function RegisterPage() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
+                    placeholder="Nama kamu"
                     className="pl-9 h-11"
                     required
                     autoComplete="name"
@@ -104,29 +156,37 @@ export default function RegisterPage() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="pl-9 h-11"
+                    className="pl-9 pr-10 h-11"
                     required
                     minLength={8}
                     autoComplete="new-password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-                <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
+                <p className="text-xs text-muted-foreground">Minimal 8 karakter</p>
               </div>
 
               <Button type="submit" className="w-full h-11" disabled={loading}>
-                {loading ? "Creating account..." : "Create Account"}
+                {loading ? "Membuat akun..." : "Buat Akun"}
                 {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
               </Button>
             </form>
 
             <p className="text-sm text-muted-foreground text-center mt-6">
-              Already have an account?{" "}
+              Sudah punya akun?{" "}
               <Link href="/login" className="text-primary hover:underline font-medium">
-                Sign in
+                Masuk
               </Link>
             </p>
           </CardContent>

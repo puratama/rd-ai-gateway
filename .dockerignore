@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+.git
+.gitignore
+.env*
+!.env.example
+*.log
+.kimchi
+.kimchidocs-*
+.kimchidocs*
+data
+public/uploads
+Dockerfile
+docker-compose.yml
+.dockerignore
+.test-results
