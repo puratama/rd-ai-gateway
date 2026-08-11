@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="id"
       className={`${jakarta.variable} h-full antialiased dark`}
       suppressHydrationWarning
     >

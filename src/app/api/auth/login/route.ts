@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createSession } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +11,15 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json({ error: "email and password required" }, { status: 400 });
+    }
+
+    // Anti brute-force: 5 percobaan / 15 menit per IP+email
+    const rl = rateLimit(request, `login:${email}`, { limit: 5, windowMs: 15 * 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Terlalu banyak percobaan. Coba lagi dalam ${Math.ceil(rl.retryAfterSec / 60)} menit.` },
+        { status: 429 }
+      );
     }
 
     const user = await prisma.user.findUnique({
@@ -24,6 +34,14 @@ export async function POST(request: NextRequest) {
     const { valid, needsRehash } = await verifyPassword(password, user.passwordHash);
     if (!valid) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    // Email verification gate — account must be verified before login
+    if (!user.emailVerified) {
+      return NextResponse.json(
+        { error: "Email belum diverifikasi. Cek inbox email kamu untuk link verifikasi." },
+        { status: 403 }
+      );
     }
 
     // Upgrade legacy SHA-256 hash to bcrypt on successful login

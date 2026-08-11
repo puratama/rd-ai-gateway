@@ -28,6 +28,10 @@ model User {
   verifyToken     String?   @unique
   verifyExpiresAt DateTime?
 
+  // Password reset
+  resetToken     String?   @unique
+  resetExpiresAt DateTime?
+
   // Relations
   apiKeys        ApiKey[]
   wallet         Wallet?
