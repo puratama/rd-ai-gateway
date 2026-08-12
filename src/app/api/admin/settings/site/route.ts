@@ -14,7 +14,10 @@ const ALLOWED_KEYS = new Set([
   "metaTitle",
   "metaDescription",
   "baseUrl",
+  "apiKeyPrefix",
 ]);
+
+const API_KEY_PREFIX_RE = /^[A-Za-z0-9_-]{1,32}$/;
 
 export async function GET() {
   try {
@@ -43,6 +46,13 @@ export async function PUT(request: NextRequest) {
 
     if (Object.keys(clean).length === 0) {
       return NextResponse.json({ error: "No valid site settings provided" }, { status: 400 });
+    }
+
+    if (clean.apiKeyPrefix !== undefined && !API_KEY_PREFIX_RE.test(clean.apiKeyPrefix as string)) {
+      return NextResponse.json(
+        { error: "apiKeyPrefix: hanya huruf, angka, _ atau - (maks 32 karakter)" },
+        { status: 400 }
+      );
     }
 
     const saved = await saveSiteSettings(clean);
