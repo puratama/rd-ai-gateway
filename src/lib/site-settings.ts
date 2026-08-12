@@ -14,6 +14,7 @@ export interface SiteSettings {
   metaTitle: string;
   metaDescription: string;
   baseUrl: string;
+  apiKeyPrefix: string;
 }
 
 export const SITE_SETTINGS_DEFAULTS: SiteSettings = {
@@ -26,6 +27,7 @@ export const SITE_SETTINGS_DEFAULTS: SiteSettings = {
   metaTitle: `${siteConfig.brandName} AI Gateway - Premium AI Models. One API.`,
   metaDescription: siteConfig.description,
   baseUrl: siteConfig.baseUrl,
+  apiKeyPrefix: "xpgw_",
 };
 
 const STORAGE_KEY = "site";

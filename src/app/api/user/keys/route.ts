@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getSiteSettings } from "@/lib/site-settings";
 
-function generateApiKey(): string {
-  return `xpgw_${randomBytes(32).toString("hex")}`;
+async function generateApiKey(): Promise<string> {
+  const s = await getSiteSettings();
+  return `${s.apiKeyPrefix}${randomBytes(32).toString("hex")}`;
 }
 
 export async function GET() {
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
     });
     const newKey = await prisma.apiKey.create({
       data: {
-        key: generateApiKey(),
+        key: await generateApiKey(),
         name: name || old.name,
         userId: session.sub,
       },
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
   // Create new key
   const newKey = await prisma.apiKey.create({
     data: {
-      key: generateApiKey(),
+      key: await generateApiKey(),
       name: name || "Default Key",
       userId: session.sub,
     },

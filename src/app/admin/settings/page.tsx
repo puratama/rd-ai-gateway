@@ -871,6 +871,17 @@ function SiteSettingsSection() {
                 className="h-9 bg-background"
               />
             </SiteField>
+            <SiteField
+              label="Prefix API Key"
+              hint="Awalan kunci API publik yang dibuat user (mis. xpgw_). Hanya huruf, angka, _ atau -, maks 32 karakter."
+            >
+              <Input
+                value={form.apiKeyPrefix}
+                onChange={(e) => set("apiKeyPrefix", e.target.value)}
+                placeholder="xpgw_"
+                className="h-9 bg-background"
+              />
+            </SiteField>
           </CardContent>
         </Card>
       </div>
