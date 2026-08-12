@@ -83,21 +83,40 @@ export function maskQris(payload: string, amount: number): string {
 
   const entries = parseQris(payload);
 
-  const setTag = (tag: string, value: string) => {
-    const existing = entries.find((t) => t.tag === tag);
-    if (existing) existing.value = value;
-    else entries.push({ tag, value });
-  };
+  // Maintain original order as much as possible while inserting/updating tag 01 and tag 54.
+  // Tag 01: Point of Initiation Method -> "12" (dynamic)
+  const tag01 = entries.find((t) => t.tag === "01");
+  if (tag01) {
+    tag01.value = "12";
+  } else {
+    // Insert tag 01 after tag 00 if present
+    const idx00 = entries.findIndex((t) => t.tag === "00");
+    if (idx00 !== -1) {
+      entries.splice(idx00 + 1, 0, { tag: "01", value: "12" });
+    } else {
+      entries.unshift({ tag: "01", value: "12" });
+    }
+  }
 
-  setTag("01", "12"); // dynamic point of initiation
-  setTag("54", String(amount)); // amount, no decimals/leading zeros
+  // Tag 54: Transaction Amount
+  const amountStr = String(amount);
+  const tag54 = entries.find((t) => t.tag === "54");
+  if (tag54) {
+    tag54.value = amountStr;
+  } else {
+    // Insert tag 54 before tag 58, 59, 60 or 63 according to EMVCo spec order if missing
+    const targetIdx = entries.findIndex((t) => ["55", "56", "57", "58", "59", "60", "61", "62", "63"].includes(t.tag));
+    if (targetIdx !== -1) {
+      entries.splice(targetIdx, 0, { tag: "54", value: amountStr });
+    } else {
+      entries.push({ tag: "54", value: amountStr });
+    }
+  }
 
-  // strip old CRC, recompute
+  // Strip tag 63 (CRC), recompute, and append at the end
   const stripped = entries.filter((t) => t.tag !== "63");
-  // EMVCo tags should appear in ascending order; keep valid when 54 was appended
-  stripped.sort((a, b) => Number(a.tag) - Number(b.tag));
-  const body = buildQris(stripped);
-  return body + `6304${crc16ccitt(body).toString(16).toUpperCase().padStart(4, "0")}`;
+  const body = buildQris(stripped) + "6304";
+  return body + crc16ccitt(body).toString(16).toUpperCase().padStart(4, "0");
 }
 
 /** Render a QRIS payload into a PNG data URL (server-side via qrcode). */

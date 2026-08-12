@@ -37,8 +37,8 @@ test("maskQris forces dynamic point-of-initiation and embeds the amount", () => 
 test("maskQris recomputes CRC16 and output ends with 6304", () => {
   const masked = maskQris(STATIC_PAYLOAD, 25000);
   assert.match(masked, /6304[0-9A-F]{4}$/);
-  const body = masked.slice(0, -8); // "6304" + 4 hex CRC chars
-  assert.equal(masked.slice(-4), crc16ccitt(body).toString(16).toUpperCase().padStart(4, "0"));
+  const dataForCrc = masked.slice(0, -4); // whole payload including "6304" tag+len header
+  assert.equal(masked.slice(-4), crc16ccitt(dataForCrc).toString(16).toUpperCase().padStart(4, "0"));
 });
 
 test("maskQris rejects invalid amounts", () => {
