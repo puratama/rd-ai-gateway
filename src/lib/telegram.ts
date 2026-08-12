@@ -95,7 +95,7 @@ export async function notifyPaymentPending(billing: BillingLike): Promise<void> 
   for (const chatId of cfg.adminChatIds) {
     try {
       const replyMarkup = paymentKeyboard(billing.id);
-      let result: { ok?: boolean } = {};
+      let result: { ok?: boolean; result?: { message_id?: number } } = {};
       if (billing.proofImage) {
         const buf = await readFile(join(process.cwd(), "public", billing.proofImage)).catch(() => null);
         if (buf) {
