@@ -85,7 +85,7 @@ function paymentKeyboard(billingId: string) {
  */
 export async function notifyPaymentPending(billing: BillingLike): Promise<void> {
   const cfg = await getTelegramConfig();
-  if (!cfg?.botTokenEnc || !cfg.isEnabled || cfg.adminChatIds.length === 0) return;
+  if (!cfg?.botTokenEnc || !cfg.isEnabled) return;
   const token = cfg.botTokenEnc;
 
   let firstChatId: string | null = null;
@@ -240,7 +240,7 @@ async function pollLoop() {
   while (pollingRunning) {
     const cfg = await getTelegramConfig();
     const token = cfg?.botTokenEnc;
-    if (!token || !cfg?.isEnabled || cfg.adminChatIds.length === 0) {
+    if (!token || !cfg?.isEnabled) {
       pollingRunning = false;
       return;
     }
@@ -282,7 +282,7 @@ async function pollLoop() {
 export async function startTelegramPolling(): Promise<void> {
   if (pollingRunning) return;
   const cfg = await getTelegramConfig();
-  if (!cfg?.botTokenEnc || !cfg.isEnabled || cfg.adminChatIds.length === 0) return;
+  if (!cfg?.botTokenEnc || !cfg.isEnabled) return;
   pollingRunning = true;
   console.log("[telegram] long-polling started.");
   void pollLoop();

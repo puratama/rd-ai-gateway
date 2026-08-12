@@ -20,6 +20,7 @@ RUN npm ci
 FROM node:22-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 # Env `NEXT_PUBLIC_*` yang wajib di-inline saat build
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_INTERNAL_KEY
@@ -36,6 +37,7 @@ CMD ["npx", "prisma", "migrate", "deploy"]
 # ---------- runner ----------
 FROM node:22-alpine AS runner
 WORKDIR /app
+RUN apk add --no-cache openssl
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
