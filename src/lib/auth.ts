@@ -2,16 +2,16 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
-import { SECRET, COOKIE_NAME, EXPIRY, type SessionPayload } from "./auth-config";
+import { getSecret, COOKIE_NAME, EXPIRY, type SessionPayload } from "./auth-config";
 
-export { SECRET, COOKIE_NAME, EXPIRY, type SessionPayload };
+export { COOKIE_NAME, EXPIRY, type SessionPayload };
 
 export async function createSession(payload: SessionPayload): Promise<string> {
   const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(EXPIRY)
-    .sign(SECRET);
+    .sign(getSecret());
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
@@ -31,7 +31,7 @@ export async function getSession(): Promise<SessionPayload | null> {
     const token = cookieStore.get(COOKIE_NAME)?.value;
     if (!token) return null;
 
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     return payload as unknown as SessionPayload;
   } catch {
     return null;
@@ -46,7 +46,7 @@ export async function destroySession(): Promise<void> {
 // Edge-safe JWT verify (for middleware)
 export async function verifyTokenEdge(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     return payload as unknown as SessionPayload;
   } catch {
     return null;

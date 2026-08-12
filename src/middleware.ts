@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-import { SECRET, COOKIE_NAME } from "@/lib/auth-config";
+import { getSecret, COOKIE_NAME } from "@/lib/auth-config";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     const role = payload.role as string | undefined;
 
     if (role !== "superadmin") {
