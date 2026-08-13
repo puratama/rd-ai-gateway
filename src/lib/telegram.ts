@@ -121,6 +121,10 @@ export async function notifyPaymentPending(billing: BillingLike): Promise<void> 
     }
   }
 
+  if (!pollingRunning) {
+    void startTelegramPolling();
+  }
+
   if (firstChatId && firstMessageId) {
     await prisma.billingRecord
       .update({
@@ -153,7 +157,8 @@ export async function sendTestToAdmins(): Promise<{ ok: boolean; message: string
 }
 
 function isAdminChat(chatId: number | string, adminChatIds: string[]): boolean {
-  return adminChatIds.includes(String(chatId));
+  const strId = String(chatId).trim();
+  return adminChatIds.some((id) => String(id).trim() === strId);
 }
 
 async function broadcastToAdmins(token: string, adminChatIds: string[], text: string) {
