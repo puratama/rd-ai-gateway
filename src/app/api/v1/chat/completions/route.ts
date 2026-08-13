@@ -201,6 +201,7 @@ export async function POST(request: NextRequest) {
                   const delta = parsed.choices?.[0]?.delta;
                   const content = delta?.content || "";
                   if (content) fullText += typeof content === "string" ? content : JSON.stringify(content);
+                  if (delta?.tool_calls) fullText += JSON.stringify(delta.tool_calls);
                 } catch {}
                 controller.enqueue(encoder.encode(line + "\n\n"));
               }
@@ -239,6 +240,7 @@ export async function POST(request: NextRequest) {
               const { addServerUsageRecord } = await import("@/lib/server-store");
               await addServerUsageRecord({
                 userId,
+                apiKeyId: apiKeyId || undefined,
                 model,
                 provider: result.provider,
                 source: apiKeyId ? "api" : "chat",
@@ -247,10 +249,6 @@ export async function POST(request: NextRequest) {
                 totalTokens: estimateTokens(JSON.stringify(messages)) + estimateTokens(fullText),
                 endpoint: "/v1/chat/completions",
               });
-              if (apiKeyId) {
-                const { updateServerKeyUsage } = await import("@/lib/server-store");
-                await updateServerKeyUsage(apiKeyId, estimateTokens(JSON.stringify(messages)) + estimateTokens(fullText));
-              }
             } catch {/* non-critical */}
           }
         },
@@ -316,6 +314,7 @@ export async function POST(request: NextRequest) {
           estimateTokens(data.choices?.[0]?.message?.content || "");
         await addServerUsageRecord({
           userId,
+          apiKeyId: apiKeyId || undefined,
           model,
           provider: result.provider,
           source: apiKeyId ? "api" : "chat",
@@ -324,10 +323,6 @@ export async function POST(request: NextRequest) {
           totalTokens: promptTokens + completionTokens,
           endpoint: "/v1/chat/completions",
         });
-        if (apiKeyId) {
-          const { updateServerKeyUsage } = await import("@/lib/server-store");
-          await updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
-        }
       } catch {/* non-critical */}
     }
 
