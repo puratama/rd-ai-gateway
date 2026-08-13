@@ -189,7 +189,7 @@ export default function WalletPage() {
 
     setTopupLoading(true);
     setMessage("");
-    setError("");
+    setError(""); 
 
     try {
       const response = await fetch("/api/wallet/topup", {
