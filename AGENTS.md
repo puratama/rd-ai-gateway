@@ -22,9 +22,26 @@ Product: AI chat gateway. Users get an API key and pay per usage. Billing model:
 ## Models of note
 
 - `User`: roles `user` | `superadmin`; status `active` | `suspended` | `banned`.
-- `ApiKey`: user's key for gateway calls.
+- `ApiKey`: user's key for gateway calls. New keys store `keyHash`; legacy plaintext `key` values remain supported for migration. Never expose secrets from list/update endpoints; return the plaintext secret only once after create/regenerate.
 - `UserPackage`: prepaid token balance (`tokensRemaining`). `status`: `active` | `expired` | `depleted`. A user may hold several.
 - `AppModel`: per-model pricing — `sellPricePer1k*` (PAYG) and `tokenPlanPricePer1k*` (package), IDR per 1K tokens.
+
+## Agent API contract
+
+- Main endpoint: `POST /api/v1/chat/completions`; compatible with OpenAI Chat Completions clients.
+- Authentication accepts `Authorization: Bearer <API_KEY>` and `x-api-key: <API_KEY>`.
+- Model discovery: `GET /api/v1/models`; apply the same authentication headers.
+- Supported agent features: `stream`, `tools`, `tool_choice`, `response_format`, `parallel_tool_calls`, `top_p`, `stop`, `seed`, `user`, and `metadata`.
+- Streaming uses SSE. Preserve provider `tool_calls` events; do not parse only text content when changing the stream proxy.
+- Public API traffic is rate-limited in memory per API key/user and client IP. This is suitable for a single instance only; use a shared store before multi-instance deployment.
+- CORS responses must allow `Authorization` and `X-API-Key` for browser-based agent clients.
+- After successful usage, update both `UsageRecord` and API key usage counters (`usageCount`, `totalTokens`, `lastUsed`).
+
+## Security rules
+
+- API key secrets must be generated with cryptographically secure randomness and hashed before persistence.
+- Do not add new plaintext API key writes or return stored secrets from list/admin/login responses.
+- When changing API key authentication, update all API-key-protected routes consistently, including wallet, billing, package purchase, and model routes.
 
 ## Conventions
 

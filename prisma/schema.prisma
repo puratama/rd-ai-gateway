@@ -72,6 +72,7 @@ model ApiKey {
   name   String
   userId String
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageRecords UsageRecord[]
 
   isActive    Boolean   @default(true)
   usageCount  Int       @default(0)
@@ -152,6 +153,9 @@ model UsageRecord {
   userId String
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  apiKeyId String?
+  apiKey   ApiKey? @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
   model    String
   provider String?
   source   String // "puter" | "aggregator"
@@ -164,6 +168,9 @@ model UsageRecord {
   endpoint String
 
   createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([apiKeyId, createdAt])
 }
 
 // ====== Billing Records ======

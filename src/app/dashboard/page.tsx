@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { UsageBarChart } from "@/components/ui/usage-bar-chart";
 import { useSiteConfig } from "@/lib/use-site-config";
 import {
   ArrowRight,
@@ -11,7 +12,6 @@ import {
   Copy,
   CreditCard,
   Key,
-  Loader2,
   MessageSquare,
   Rocket,
   Settings,
@@ -21,10 +21,8 @@ import {
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CardGridSkeleton, StatsCardSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { CardGridSkeleton, CardRowSkeleton, ChartSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/utils";
-
 type UsageData = {
   totalTokens: number;
   totalCost: number;
@@ -38,23 +36,9 @@ type UserData = {
 };
 
 type ApiKeyRow = {
-  key: string;
+  displayKey: string;
   isActive: boolean;
 };
-
-function getApiKey(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("xperimne-api-key") || "";
-}
-
-function getStoredUser(): UserData | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return JSON.parse(localStorage.getItem("xperimne-user") || "null") as UserData | null;
-  } catch {
-    return null;
-  }
-}
 
 function formatNumber(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -64,6 +48,17 @@ function formatNumber(n: number) {
 
 function formatRupiah(n: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
+}
+
+function lastSevenDays(byDay: UsageData["byDay"]) {
+  const today = new Date();
+  const usageMap = new Map(byDay.map((day) => [day.date, day]));
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (6 - index));
+    const key = date.toISOString().slice(0, 10);
+    return usageMap.get(key) ?? { date: key, tokens: 0, cost: 0, requests: 0 };
+  });
 }
 
 export default function DashboardPage() {
@@ -77,10 +72,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let active = true;
-    const stored = getStoredUser();
-    setUser(stored);
-
     (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (active) setUser(data.user);
+        }
+      } catch {}
       // Ambil key aktif dari DB (session auth, tanpa Bearer)
       let key = "";
       try {
@@ -89,19 +88,16 @@ export default function DashboardPage() {
           const data = await res.json();
           const keys: ApiKeyRow[] = data.keys ?? [];
           const activeKey = keys.find((k) => k.isActive) ?? keys[0];
-          key = activeKey?.key || "";
+          key = activeKey?.displayKey || "";
         }
       } catch {}
 
       if (!active) return;
-      // Fallback localStorage jika DB tidak punya key
-      if (!key) key = getApiKey();
       setApiKey(key);
       setKeysLoaded(true);
 
-      if (!key) { setLoading(false); return; }
       try {
-        const res = await fetch("/api/user/usage", { headers: { Authorization: `Bearer ${key}` } });
+        const res = await fetch("/api/user/usage?range=week");
         if (res.ok && active) setUsage(await res.json());
       } catch {}
       if (active) setLoading(false);
@@ -110,7 +106,7 @@ export default function DashboardPage() {
     return () => { active = false; };
   }, []);
 
-  const dailyMax = useMemo(() => Math.max(...(usage?.byDay.map((d) => d.tokens) || [1]), 1), [usage]);
+  const dailyUsage = useMemo(() => lastSevenDays(usage?.byDay || []), [usage]);
 
   function copy(text: string, id: string) {
     navigator.clipboard.writeText(text);
@@ -165,10 +161,12 @@ export default function DashboardPage() {
                     <div key={item.id} className="rounded-2xl border border-border bg-muted/30 p-3">
                       <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                         <span>{item.label}</span>
-                        <Button variant="ghost" size="xs" onClick={() => copy(item.value, item.id)} disabled={!apiKey && item.id === "key"}>
-                          {copied === item.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                          {copied === item.id ? "Disalin" : "Salin"}
-                        </Button>
+                        {item.id === "base" && (
+                          <Button variant="ghost" size="xs" onClick={() => copy(item.value, item.id)}>
+                            {copied === item.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copied === item.id ? "Disalin" : "Salin"}
+                          </Button>
+                        )}
                       </div>
                       {(item.id === "base" && !siteCfg.loaded) || (item.id === "key" && !keysLoaded) ? (
                         <Skeleton className="h-4 w-full" />
@@ -214,7 +212,7 @@ export default function DashboardPage() {
                 <CardTitle className="text-base">Langkah selanjutnya</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {[
+                {loading ? <CardRowSkeleton count={3} /> : [
                   { href: "/keys", title: "Generate API key", desc: "Buat key untuk app, server, atau IDE kamu.", icon: Key },
                   { href: "/models", title: "Pilih model dan harga", desc: "Bandingkan model, konteks, speed, dan biaya.", icon: CreditCard },
                   { href: "/settings", title: "Atur akun", desc: "Ubah profil dan preferensi aplikasi.", icon: Settings },
@@ -238,23 +236,13 @@ export default function DashboardPage() {
 
             <Card className="bg-card/75 backdrop-blur">
               <CardHeader>
-                <CardTitle className="text-base">Usage 30 hari</CardTitle>
+                <CardTitle className="text-base">Usage 7 hari terakhir</CardTitle>
               </CardHeader>
               <CardContent>
-                {usage?.byDay.length ? (
-                  <div className="flex h-64 items-end gap-1 rounded-2xl border border-border bg-background/50 p-4">
-                    {usage.byDay.map((day) => (
-                      <div key={day.date} className="group relative flex h-full flex-1 items-end">
-                        <div
-                          className={cn("w-full rounded-t bg-primary/70 transition group-hover:bg-primary", day.tokens === 0 && "bg-muted")}
-                          style={{ height: `${Math.max((day.tokens / dailyMax) * 100, day.tokens > 0 ? 6 : 2)}%` }}
-                        />
-                        <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-popover px-2 py-1 text-[10px] shadow-xl group-hover:block">
-                          {day.date}: {formatNumber(day.tokens)} token
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {loading ? (
+                  <ChartSkeleton />
+                ) : dailyUsage.some((day) => day.tokens > 0) ? (
+                  <UsageBarChart data={dailyUsage} />
                 ) : (
                   <EmptyState
                     icon={BarChart3}

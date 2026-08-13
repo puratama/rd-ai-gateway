@@ -52,7 +52,11 @@ export async function GET(request: NextRequest) {
         totalTokens: true,
         cost: true,
         createdAt: true,
+        apiKeyId: true,
+        promptTokens: true,
+        completionTokens: true,
       },
+      orderBy: { createdAt: "desc" },
     });
 
     const totals = emptySummary();
@@ -96,6 +100,15 @@ export async function GET(request: NextRequest) {
         cost: summary.cost,
         requests: summary.requests,
       })).sort((a, b) => a.date.localeCompare(b.date)),
+      records: usageRecords.map((record) => ({
+        datetime: record.createdAt.toISOString(),
+        apiKeyId: record.apiKeyId,
+        model: record.model,
+        promptTokens: record.promptTokens,
+        completionTokens: record.completionTokens,
+        totalTokens: record.totalTokens,
+        cost: record.cost?.toNumber() ?? 0,
+      })), 
     });
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });

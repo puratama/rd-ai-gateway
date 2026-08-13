@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
+    const apiKeyHeader = request.headers.get("x-api-key");
+    const token = apiKeyHeader || authHeader?.replace(/^Bearer\s+/i, "").trim();
     const { searchParams } = new URL(request.url);
     const keyId = searchParams.get("keyId");
 
@@ -19,11 +20,13 @@ export async function GET(request: NextRequest) {
 
     if (token === internalKey) {
       // Admin - can see all usage or specific key
+      const allKeys = await loadServerKeys();
       if (keyId) {
-        return NextResponse.json(await getServerUsageSummary(keyId));
+        const key = allKeys.find((item) => item.id === keyId);
+        if (!key) return NextResponse.json({ error: "API key not found" }, { status: 404 });
+        return NextResponse.json(await getServerUsageSummary(key.userId, keyId));
       }
       const allRecords = await loadServerUsageRecords();
-      const allKeys = await loadServerKeys();
       return NextResponse.json({
         totalRequests: allRecords.length,
         totalTokens: allRecords.reduce((sum, r) => sum + (r.totalTokens || 0), 0),
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest) {
     if (token) {
       const apiKey = await validateServerKey(token);
       if (apiKey) {
-        return NextResponse.json(await getServerUsageSummary(apiKey.userId));
+        return NextResponse.json(await getServerUsageSummary(apiKey.userId, apiKey.id));
       }
     }
 

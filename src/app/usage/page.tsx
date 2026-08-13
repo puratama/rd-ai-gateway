@@ -2,23 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, BarChart3, Coins, Hash, RefreshCw } from "lucide-react";
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  TooltipItem,
-} from "chart.js";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton, ChartSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
+import { Pagination } from "@/components/ui/pagination";
+import { UsageBarChart } from "@/components/ui/usage-bar-chart";
 
 interface ModelUsage {
   model: string;
@@ -34,6 +24,16 @@ interface DailyUsage {
   requests: number;
 }
 
+interface UsageRecord {
+  datetime: string;
+  apiKeyId: string | null;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cost: number;
+}
+
 interface UsageResponse {
   totalTokens: number;
   totalCost: number;
@@ -41,9 +41,11 @@ interface UsageResponse {
   range: string;
   byModel: ModelUsage[];
   byDay: DailyUsage[];
+  records: UsageRecord[];
 }
 
 type RangeFilter = "week" | "month";
+type UsageTab = "daily" | "recent" | "models";
 
 const RANGE_OPTIONS: { key: RangeFilter; label: string }[] = [
   { key: "week", label: "1 Week" },
@@ -59,6 +61,15 @@ const RANGE_DAYS: Record<RangeFilter, number> = {
   week: 7,
   month: 30,
 };
+
+const RECORDS_PER_PAGE = 10;
+const DATE_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 const idr = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat("id-ID");
@@ -89,6 +100,8 @@ export default function UsagePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [range, setRange] = useState<RangeFilter>("month");
+  const [activeTab, setActiveTab] = useState<UsageTab>("daily");
+  const [recordsPage, setRecordsPage] = useState(1);
 
   const loadUsage = useCallback(async (r: RangeFilter) => {
     setLoading(true);
@@ -108,66 +121,14 @@ export default function UsagePage() {
     loadUsage(range);
   }, [range, loadUsage]);
 
+  useEffect(() => {
+    setRecordsPage(1);
+  }, [range]);
+
+  const recordPageCount = Math.max(1, Math.ceil((usage?.records.length ?? 0) / RECORDS_PER_PAGE));
+  const visibleRecords = usage?.records.slice((recordsPage - 1) * RECORDS_PER_PAGE, recordsPage * RECORDS_PER_PAGE) ?? [];
+
   const days = useMemo(() => usage ? fillDays(range, usage.byDay) : [], [usage, range]);
-  const maxTokens = Math.max(...days.map((day) => day.tokens), 1);
-
-  const chartData = useMemo(() => ({
-    labels: days.map((d) => shortDate(d.date)),
-    datasets: [
-      {
-        label: "Tokens",
-        data: days.map((d) => d.tokens),
-        backgroundColor: "oklch(0.68 0.16 235)",
-        borderRadius: 4,
-        borderSkipped: false as const,
-      },
-    ],
-  }), [days]);
-
-  const chartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: "oklch(0.265 0.062 247)",
-        titleColor: "oklch(0.97 0.015 240)",
-        bodyColor: "oklch(0.97 0.015 240)",
-        borderColor: "oklch(0.39 0.065 246)",
-        borderWidth: 1,
-        padding: 10,
-        cornerRadius: 8,
-        displayColors: false,
-        callbacks: {
-          title: (items: TooltipItem<"bar">[]) => items[0]?.label ?? "",
-          label: (item: TooltipItem<"bar">) => {
-            const day = days[item.dataIndex];
-            if (!day) return "";
-            return [
-              `Tokens: ${number.format(day.tokens)}`,
-              `Requests: ${number.format(day.requests)}`,
-              day.cost > 0 ? `Cost: ${idr.format(day.cost)}` : "",
-            ].filter(Boolean) as unknown as string;
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        grid: { display: false },
-        ticks: { color: "oklch(0.76 0.045 245)", font: { size: 10 } },
-      },
-      y: {
-        beginAtZero: true,
-        grid: { color: "oklch(0.39 0.065 246 / 0.4)" },
-        ticks: {
-          color: "oklch(0.76 0.045 245)",
-          font: { size: 10 },
-          callback: (v: string | number) => number.format(Number(v)),
-        },
-      },
-    },
-  }), [days, number, idr]);
 
   return (
     <AppShell variant="user">
@@ -250,28 +211,81 @@ export default function UsagePage() {
                 </Card>
               </div>
 
-              <Card>
+              <div className="inline-flex w-fit rounded-xl border border-border/50 bg-card p-1" role="tablist" aria-label="Usage views">
+                {([
+                  ["daily", "Daily usage"],
+                  ["recent", "Recent requests"],
+                  ["models", "By model"],
+                ] as const).map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {activeTab === "daily" && <Card>
                 <CardContent className="p-5">
                   <div className="mb-4 flex items-center justify-between">
                     <h2 className="text-sm font-semibold">Daily usage</h2>
                     <span className="text-xs text-muted-foreground">{RANGE_LABEL[range]} · {days.filter((d) => d.tokens > 0).length} hari aktif</span>
                   </div>
-                  {days.every((d) => d.tokens === 0) ? (
-                    <EmptyState icon={BarChart3} title="No usage in this period." />
+                  {days.some((day) => day.tokens > 0) ? (
+                    <UsageBarChart data={days} />
                   ) : (
-                    <div className="h-72">
-                      <Bar data={chartData} options={chartOptions} />
-                    </div>
+                    <EmptyState icon={BarChart3} title="No usage in this period." />
                   )}
                 </CardContent>
-              </Card>
+              </Card>}
 
-              <Card>
+              {activeTab === "recent" && <Card>
+                <CardContent className="p-5">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold">Recent usage</h2>
+                    <span className="text-xs text-muted-foreground">Waktu lokal</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="border-b border-border text-left text-xs text-muted-foreground">
+                        <tr>
+                          <th className="py-2 font-medium">Datetime</th>
+                          <th className="py-2 font-medium">Model</th>
+                          <th className="py-2 text-right font-medium">Input</th>
+                          <th className="py-2 text-right font-medium">Output</th>
+                          <th className="py-2 text-right font-medium">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {usage.records.length === 0 ? (
+                          <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No usage records.</td></tr>
+                        ) : visibleRecords.map((record, index) => (
+                          <tr key={`${record.datetime}-${index}`} className="border-b border-border/50">
+                            <td className="py-3 text-muted-foreground">{DATE_FORMATTER.format(new Date(record.datetime))}</td>
+                            <td className="py-3 font-medium">{record.model}</td>
+                            <td className="py-3 text-right tabular-nums">{number.format(record.promptTokens)}</td>
+                            <td className="py-3 text-right tabular-nums">{number.format(record.completionTokens)}</td>
+                            <td className="py-3 text-right font-medium tabular-nums">{number.format(record.totalTokens)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Pagination page={recordsPage} pageCount={recordPageCount} onPageChange={setRecordsPage} />
+                </CardContent>
+              </Card>}
+
+              {activeTab === "models" && <Card>
                 <CardContent className="p-5">
                   <h2 className="mb-4 text-sm font-semibold">Per-model usage</h2>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="border-b text-left text-xs text-muted-foreground">
+                      <thead className="border-b border-border text-left text-xs text-muted-foreground">
                         <tr>
                           <th className="py-2 font-medium">Model</th>
                           <th className="py-2 text-right font-medium">Tokens</th>
@@ -284,7 +298,7 @@ export default function UsagePage() {
                         {usage.byModel.length === 0 ? (
                           <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No model usage in this period.</td></tr>
                         ) : usage.byModel.map((model) => (
-                          <tr key={model.model}>
+                          <tr key={model.model} className="border-b border-border/50">
                             <td className="py-3 font-medium">{model.model}</td>
                             <td className="py-3 text-right tabular-nums">{number.format(model.tokens)}</td>
                             <td className="py-3 text-right tabular-nums">{idr.format(model.cost)}</td>
@@ -296,7 +310,7 @@ export default function UsagePage() {
                     </table>
                   </div>
                 </CardContent>
-              </Card>
+              </Card>}
             </>
           ) : null}
         </div>
