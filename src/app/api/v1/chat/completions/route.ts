@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Validate API Key (server-side)
     const authHeader = request.headers.get("authorization");
+    const apiKeyHeader = request.headers.get("x-api-key");
     let apiKeyId: string | null = null;
     let userId: string | null = null;
 
-    if (authHeader) {
-      const token = authHeader.replace(/^Bearer\s+/i, "");
+    if (authHeader || apiKeyHeader) {
+      const token = apiKeyHeader || authHeader!.replace(/^Bearer\s+/i, "").trim();
       const { validateServerKey } = await import("@/lib/server-store");
       const apiKey = await validateServerKey(token);
       if (!apiKey) {
@@ -38,7 +39,10 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json();
-    const { model, messages, stream = false, temperature, max_tokens, tools, tool_choice } = body;
+    const {
+      model, messages, stream = false, temperature, max_tokens, tools, tool_choice,
+      response_format, parallel_tool_calls, top_p, stop, seed, user, metadata,
+    } = body;
 
     if (!messages || !model) {
       return new Response(
@@ -84,6 +88,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { rateLimit } = await import("@/lib/rate-limit");
+    const requestLimit = rateLimit(request, `api:${apiKeyId || userId}`, { limit: 120, windowMs: 60_000 });
+    if (!requestLimit.allowed) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded", retry_after: requestLimit.retryAfterSec }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": String(requestLimit.retryAfterSec) },
+      });
+    }
+
     // Estimate prompt tokens for balance check
     const estimatedPromptTokens = estimateTokens(JSON.stringify(messages));
 
@@ -122,6 +135,13 @@ export async function POST(request: NextRequest) {
       max_tokens,
       tools,
       tool_choice,
+      response_format,
+      parallel_tool_calls,
+      top_p,
+      stop,
+      seed,
+      user,
+      metadata,
       preferProvider: (request as unknown as Record<string, unknown>)._userPlanBackend as string | undefined,
       userId: userId || undefined,
     });
@@ -156,6 +176,7 @@ export async function POST(request: NextRequest) {
           }
 
           let fullText = "";
+          let pending = "";
           let streamError = false;
 
           try {
@@ -163,10 +184,13 @@ export async function POST(request: NextRequest) {
               const { done, value } = await streamReader.read();
               if (done) break;
 
-              const chunk = new TextDecoder().decode(value);
-              const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
+              pending += new TextDecoder().decode(value);
+              const lines = pending.split("\n");
+              pending = lines.pop() || "";
 
-              for (const line of lines) {
+              for (const rawLine of lines) {
+                const line = rawLine.replace(/\r$/, "");
+                if (!line.startsWith("data: ")) continue;
                 const jsonStr = line.slice(6);
                 if (jsonStr.trim() === "[DONE]") {
                   controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -174,8 +198,9 @@ export async function POST(request: NextRequest) {
                 }
                 try {
                   const parsed = JSON.parse(jsonStr);
-                  const content = parsed.choices?.[0]?.delta?.content || "";
-                  if (content) fullText += content;
+                  const delta = parsed.choices?.[0]?.delta;
+                  const content = delta?.content || "";
+                  if (content) fullText += typeof content === "string" ? content : JSON.stringify(content);
                 } catch {}
                 controller.enqueue(encoder.encode(line + "\n\n"));
               }
@@ -198,7 +223,7 @@ export async function POST(request: NextRequest) {
                 await settleUsage(userId, model, promptTokens, completionTokens, {
                   tier: tier as "payg" | "package",
                   packageId: (request as unknown as Record<string, unknown>)._billingPackageId as string | undefined,
-                  pricing: (request as unknown as Record<string, unknown>)._billingPricing as any,
+                  pricing: (request as unknown as Record<string, unknown>)._billingPricing as import("@/lib/db/quota").ModelPricing,
                   heldTokens: (request as unknown as Record<string, unknown>)._billingHeldTokens as number | undefined,
                   heldAmount: (request as unknown as Record<string, unknown>)._billingHeldAmount as number | undefined,
                 });
@@ -222,6 +247,10 @@ export async function POST(request: NextRequest) {
                 totalTokens: estimateTokens(JSON.stringify(messages)) + estimateTokens(fullText),
                 endpoint: "/v1/chat/completions",
               });
+              if (apiKeyId) {
+                const { updateServerKeyUsage } = await import("@/lib/server-store");
+                await updateServerKeyUsage(apiKeyId, estimateTokens(JSON.stringify(messages)) + estimateTokens(fullText));
+              }
             } catch {/* non-critical */}
           }
         },
@@ -233,6 +262,8 @@ export async function POST(request: NextRequest) {
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
           "X-Provider": result.provider,
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
         },
       });
     }
@@ -261,7 +292,7 @@ export async function POST(request: NextRequest) {
           await settleUsage(userId, model, promptTokens, completionTokens, {
             tier: tier as "payg" | "package",
             packageId: (request as unknown as Record<string, unknown>)._billingPackageId as string | undefined,
-            pricing: (request as unknown as Record<string, unknown>)._billingPricing as any,
+            pricing: (request as unknown as Record<string, unknown>)._billingPricing as import("@/lib/db/quota").ModelPricing,
             heldTokens: (request as unknown as Record<string, unknown>)._billingHeldTokens as number | undefined,
             heldAmount: (request as unknown as Record<string, unknown>)._billingHeldAmount as number | undefined,
           });
@@ -293,11 +324,19 @@ export async function POST(request: NextRequest) {
           totalTokens: promptTokens + completionTokens,
           endpoint: "/v1/chat/completions",
         });
+        if (apiKeyId) {
+          const { updateServerKeyUsage } = await import("@/lib/server-store");
+          await updateServerKeyUsage(apiKeyId, promptTokens + completionTokens);
+        }
       } catch {/* non-critical */}
     }
 
     return new Response(JSON.stringify({ ...data, _provider: result.provider }), {
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
+      },
     });
   } catch (error: unknown) {
     return new Response(
@@ -317,7 +356,7 @@ export async function OPTIONS() {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
     },
   });
 }

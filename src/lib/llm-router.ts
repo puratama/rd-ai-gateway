@@ -39,6 +39,13 @@ export interface RouterRequest {
   max_tokens?: number;
   tools?: Array<Record<string, unknown>>;
   tool_choice?: string | Record<string, unknown>;
+  response_format?: Record<string, unknown>;
+  parallel_tool_calls?: boolean;
+  top_p?: number;
+  stop?: string | string[];
+  seed?: number;
+  user?: string;
+  metadata?: Record<string, unknown>;
   preferProvider?: string; // provider name to prioritize (matches provider config name)
   userId?: string;        // for observability
   routingStrategy?: RoutingStrategy; // override default strategy per-request
@@ -152,6 +159,13 @@ async function tryProviderRaw(
   if (req.max_tokens !== undefined) body.max_tokens = req.max_tokens;
   if (req.tools !== undefined) body.tools = req.tools;
   if (req.tool_choice !== undefined) body.tool_choice = req.tool_choice;
+  if (req.response_format !== undefined) body.response_format = req.response_format;
+  if (req.parallel_tool_calls !== undefined) body.parallel_tool_calls = req.parallel_tool_calls;
+  if (req.top_p !== undefined) body.top_p = req.top_p;
+  if (req.stop !== undefined) body.stop = req.stop;
+  if (req.seed !== undefined) body.seed = req.seed;
+  if (req.user !== undefined) body.user = req.user;
+  if (req.metadata !== undefined) body.metadata = req.metadata;
 
   const response = await fetch(url, {
     method: "POST",

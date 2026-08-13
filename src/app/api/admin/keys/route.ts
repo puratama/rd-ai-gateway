@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       keys: keys.map((k) => ({
         id: k.id,
-        key: `${k.key.slice(0, 12)}...`,
+        key: k.key ? `${k.key.slice(0, 8)}...${k.key.slice(-4)}` : "••••••••",
         name: k.name,
         userId: k.userId,
         email: k.user.email,

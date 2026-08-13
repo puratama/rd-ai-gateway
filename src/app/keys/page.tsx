@@ -49,6 +49,7 @@ export default function KeysPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showKey, setShowKey] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [newSecret, setNewSecret] = useState<string | null>(null);
   const siteCfg = useSiteConfig();
 
   const fetchKeys = useCallback(async () => {
@@ -76,6 +77,8 @@ export default function KeysPage() {
         body: JSON.stringify({ name: newKeyName.trim() }),
       });
       if (res.ok) {
+        const data = await res.json();
+        setNewSecret(data.key?.secret ?? data.secret ?? null);
         await fetchKeys();
         toast.success("API key created");
       } else {
@@ -85,7 +88,6 @@ export default function KeysPage() {
       toast.error("Failed to create API key");
     }
     setNewKeyName("");
-    setShowCreate(false);
   }, [newKeyName, fetchKeys]);
 
   const handleRegenerate = useCallback(async (id: string, name: string) => {
@@ -352,6 +354,17 @@ const response = await client.chat.completions.create({
             </div>
             <DialogDescription>Create a new personal API key.</DialogDescription>
           </DialogHeader>
+          {newSecret && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+              <p className="font-medium text-amber-200">Copy this secret now. It will not be shown again.</p>
+              <div className="mt-2 flex items-center gap-2">
+                <code className="min-w-0 flex-1 break-all font-mono">{newSecret}</code>
+                <Button size="icon-sm" variant="ghost" onClick={() => copyToClipboard(newSecret, "new-secret")}>
+                  {copiedId === "new-secret" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="py-2">
             <label className="mb-1.5 block text-xs font-medium">Key Name</label>
             <Input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)}

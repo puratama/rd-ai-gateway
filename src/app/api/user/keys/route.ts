@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getSiteSettings } from "@/lib/site-settings";
+import { generateApiKey, hashApiKey, maskApiKey } from "@/lib/db/api-keys";
 
-async function generateApiKey(): Promise<string> {
-  const s = await getSiteSettings();
-  return `${s.apiKeyPrefix}${randomBytes(32).toString("hex")}`;
+function toPublicKey(key: { id: string; key: string | null; name: string; createdAt: Date; lastUsed: Date | null; isActive: boolean; usageCount: number; totalTokens: number }) {
+  return { ...key, key: maskApiKey(key.key), displayKey: maskApiKey(key.key) };
 }
 
 export async function GET() {
@@ -30,7 +28,7 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ keys });
+  return NextResponse.json({ keys: keys.map(toPublicKey) });
 }
 
 export async function POST(request: NextRequest) {
@@ -54,26 +52,30 @@ export async function POST(request: NextRequest) {
       where: { id: regenerateId },
       data: { isActive: false },
     });
+    const secret = generateApiKey();
     const newKey = await prisma.apiKey.create({
       data: {
-        key: await generateApiKey(),
+        key: null,
+        keyHash: hashApiKey(secret),
         name: name || old.name,
         userId: session.sub,
       },
     });
-    return NextResponse.json({ key: newKey }, { status: 201 });
+    return NextResponse.json({ key: { ...toPublicKey(newKey), secret } }, { status: 201 });
   }
 
   // Create new key
+  const secret = generateApiKey();
   const newKey = await prisma.apiKey.create({
     data: {
-      key: await generateApiKey(),
+      key: null,
+      keyHash: hashApiKey(secret),
       name: name || "Default Key",
       userId: session.sub,
     },
   });
 
-  return NextResponse.json({ key: newKey }, { status: 201 });
+  return NextResponse.json({ key: { ...toPublicKey(newKey), secret } }, { status: 201 });
 }
 
 export async function PUT(request: NextRequest) {
@@ -111,7 +113,7 @@ export async function PUT(request: NextRequest) {
     },
   });
 
-  return NextResponse.json({ key: updated });
+  return NextResponse.json({ key: toPublicKey(updated) });
 }
 
 export async function DELETE(request: NextRequest) {

@@ -7,8 +7,9 @@ import { createTransaction } from "@/lib/payment-gateway";
 async function resolveUser(request: NextRequest) {
   const token = request.headers.get("authorization")?.replace("Bearer ", "");
   if (token) {
-    const apiKey = await prisma.apiKey.findUnique({
-      where: { key: token, isActive: true },
+    const { hashApiKey } = await import("@/lib/db/api-keys");
+    const apiKey = await prisma.apiKey.findFirst({
+      where: { isActive: true, OR: [{ keyHash: hashApiKey(token) }, { key: token }] },
       include: { user: true },
     });
     if (apiKey) return apiKey.user;

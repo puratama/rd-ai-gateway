@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
             keys: [{
               id: apiKey.id,
               name: apiKey.name,
-              key: apiKey.key,
+              key: apiKey.key ? `${apiKey.key.slice(0, 8)}...${apiKey.key.slice(-4)}` : "••••••••",
               createdAt: apiKey.createdAt,
               lastUsed: apiKey.lastUsed,
               isActive: apiKey.isActive,
@@ -31,9 +31,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { loadServerKeys } = await import("@/lib/server-store");
+    const { loadServerKeys, maskApiKey } = await import("@/lib/server-store");
     const keys = await loadServerKeys();
-    return NextResponse.json({ keys });
+    return NextResponse.json({ keys: keys.map((key) => ({
+      id: key.id,
+      name: key.name,
+      key: maskApiKey(key.key),
+      createdAt: key.createdAt,
+      lastUsed: key.lastUsed,
+      isActive: key.isActive,
+      usageCount: key.usageCount,
+      totalTokens: key.totalTokens,
+    })) });
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
@@ -61,9 +70,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { createServerKey } = await import("@/lib/server-store");
-    const newKey = await createServerKey(name);
+    const newKey = await createServerKey(name.trim());
 
-    return NextResponse.json({ key: newKey }, { status: 201 });
+    return NextResponse.json({ key: { ...newKey, key: newKey.secret, secret: newKey.secret } }, { status: 201 });
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },

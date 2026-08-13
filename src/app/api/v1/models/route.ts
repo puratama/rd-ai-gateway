@@ -46,10 +46,12 @@ async function resolveUserPlan(
 
     // Try API key first
     const authHeader = request.headers.get("authorization");
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      const apiKey = await prisma.apiKey.findUnique({
-        where: { key: token, isActive: true },
+    const apiKeyHeader = request.headers.get("x-api-key");
+    if (authHeader || apiKeyHeader) {
+      const token = apiKeyHeader || authHeader!.replace(/^Bearer\s+/i, "").trim();
+      const { hashApiKey } = await import("@/lib/db/api-keys");
+      const apiKey = await prisma.apiKey.findFirst({
+        where: { isActive: true, OR: [{ keyHash: hashApiKey(token) }, { key: token }] },
         select: { userId: true },
       });
       if (apiKey) {
@@ -211,7 +213,7 @@ export async function OPTIONS() {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
     },
   });
 }

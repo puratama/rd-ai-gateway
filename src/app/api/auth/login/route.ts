@@ -57,10 +57,9 @@ export async function POST(request: NextRequest) {
     const role = user.role === "superadmin" ? "superadmin" : "user";
     await createSession({ sub: user.id, email: user.email, role });
 
-    const primaryKey = user.apiKeys.find((k) => k.isActive);
     return NextResponse.json({
       user: { id: user.id, email: user.email, name: user.name, role, status: user.status },
-      apiKey: primaryKey?.key ?? null,
+      apiKey: null,
       wallet: user.wallet ? { balance: Number(user.wallet.balance) } : null,
     });
   } catch (error: unknown) {

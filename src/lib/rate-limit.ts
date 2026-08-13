@@ -25,7 +25,7 @@ export function rateLimit(
   { limit, windowMs }: { limit: number; windowMs: number }
 ): { allowed: boolean; remaining: number; retryAfterSec: number } {
   const now = Date.now();
-  const fullKey = `${clientIp(request)}:${key}`;
+  const fullKey = `${key}:${clientIp(request)}`;
   const b = buckets.get(fullKey);
 
   if (!b || b.resetAt < now) {

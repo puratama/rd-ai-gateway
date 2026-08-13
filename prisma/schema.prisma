@@ -67,7 +67,8 @@ model Conversation {
 
 model ApiKey {
   id     String  @id @default(cuid())
-  key    String  @unique
+  key    String? @unique
+  keyHash String? @unique
   name   String
   userId String
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
