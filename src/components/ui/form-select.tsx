@@ -12,7 +12,10 @@ export interface SelectOption {
 const selectStyles: StylesConfig<SelectOption, boolean> = {
   control: (base, { isFocused, isDisabled }) => ({
     ...base,
-    minHeight: 36,
+    minHeight: 38,
+    height: 38,
+    padding: 0,
+    alignItems: "center",
     backgroundColor: "var(--color-background)",
     borderColor: isFocused ? "var(--color-ring)" : "var(--color-input)",
     boxShadow: "none",
@@ -45,7 +48,7 @@ const selectStyles: StylesConfig<SelectOption, boolean> = {
       : isSelected
         ? "var(--color-primary)"
         : isFocused
-          ? "var(--color-accent)"
+          ? "var(--color-muted)"
           : "transparent",
     color: isDisabled
       ? "var(--color-muted-foreground)"
@@ -76,19 +79,23 @@ const selectStyles: StylesConfig<SelectOption, boolean> = {
   placeholder: (base) => ({
     ...base,
     color: "var(--color-muted-foreground)",
+    margin: 0,
   }),
   singleValue: (base) => ({
     ...base,
     color: "var(--color-foreground)",
+    margin: 0,
   }),
-  input: (base) => ({ ...base, color: "var(--color-foreground)" }),
+  input: (base) => ({ ...base, color: "var(--color-foreground)", margin: 0, padding: 0 }),
   dropdownIndicator: (base) => ({
     ...base,
     color: "var(--color-muted-foreground)",
+    padding: 4,
   }),
   clearIndicator: (base) => ({
     ...base,
     color: "var(--color-muted-foreground)",
+    padding: 4,
   }),
 };
 

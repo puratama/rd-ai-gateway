@@ -48,6 +48,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
+import { Tabs } from "@/components/ui/tabs";
 
 type SettingsTabId = "site" | "payment" | "telegram";
 
@@ -79,32 +80,16 @@ function AdminSettingsContent() {
           </p>
         </div>
 
-        <div className="inline-flex gap-1 rounded-xl border border-border bg-card p-1">
-          {(
-            [
-              { id: "site" as const, label: "Site", icon: Globe },
-              { id: "payment" as const, label: "Payment Gateway", icon: Building2 },
-              { id: "telegram" as const, label: "Telegram", icon: Send },
-            ]
-          ).map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-                  activeTab === tab.id
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          items={[
+            { value: "site", label: "Site", icon: Globe },
+            { value: "payment", label: "Payment Gateway", icon: Building2 },
+            { value: "telegram", label: "Telegram", icon: Send },
+          ]}
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as SettingsTabId)}
+          ariaLabel="Admin settings sections"
+        />
 
         {activeTab === "site" && <SiteSettingsSection />}
         {activeTab === "payment" && <PaymentGatewaySection />}
@@ -188,13 +173,12 @@ function PaymentGatewaySection() {
           </p>
         </div>
         <Button
-          size="sm"
           onClick={() => {
             setShowCreate(true);
             setEditing(null);
           }}
         >
-          <Plus className="w-4 h-4 mr-2" /> Add Gateway
+          <Plus className="w-4 h-4" /> Add Gateway
         </Button>
       </div>
 
@@ -286,6 +270,8 @@ function PaymentGatewaySection() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
+                        aria-label="Edit gateway"
+                        title="Edit gateway"
                         onClick={() => {
                           setEditing(g);
                           setShowCreate(true);
@@ -298,6 +284,8 @@ function PaymentGatewaySection() {
                         size="icon-sm"
                         className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
                         onClick={() => setDeletingId(g.id)}
+                        aria-label="Delete gateway"
+                        title="Delete gateway"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -494,7 +482,7 @@ function GatewayForm({
                     setForm((p) => ({ ...p, name: e.target.value }))
                   }
                   placeholder={`e.g. ${PROVIDER_LABELS[form.provider]}`}
-                  className="h-9 bg-background"
+                  className="bg-background"
                 />
               </div>
             </div>
@@ -537,7 +525,7 @@ function GatewayForm({
                         ? "Kosongkan untuk tidak mengubah"
                         : "Token verifikasi webhook (opsional)"
                     }
-                    className="h-9 bg-background"
+                    className="bg-background"
                   />
                 </div>
               </>
@@ -558,7 +546,7 @@ function GatewayForm({
                         ? "SB-Mid-server-..."
                         : "xnd_..."
                     }
-                    className="h-9 bg-background"
+                    className="bg-background"
                   />
                 </div>
                 <div>
@@ -576,7 +564,7 @@ function GatewayForm({
                         ? "SB-Mid-client-..."
                         : "Token verifikasi callback"
                     }
-                    className="h-9 bg-background"
+                    className="bg-background"
                   />
                 </div>
               </>
@@ -623,7 +611,7 @@ function GatewayForm({
         <Button variant="outline" size="sm" onClick={onClose}>
           Batal
         </Button>
-        <Button size="sm" onClick={handleSave} disabled={saving || !form.name}>
+        <Button onClick={handleSave} disabled={saving || !form.name}>
           {saving ? "Menyimpan..." : gateway ? "Update" : "Tambah"}
         </Button>
       </div>
@@ -723,14 +711,13 @@ function TelegramSection() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            size="sm"
             onClick={() => handleSave(true)}
             disabled={saving || testing}
           >
             {testing ? "Testing..." : "Test"}
           </Button>
-          <Button size="sm" onClick={() => handleSave(false)} disabled={saving}>
-            <Save className="w-4 h-4 mr-2" />
+          <Button onClick={() => handleSave(false)} disabled={saving}>
+            <Save className="w-4 h-4" />
             {saving ? "Menyimpan..." : "Simpan"}
           </Button>
         </div>
@@ -899,8 +886,8 @@ function SiteSettingsSection() {
             Nama situs, branding, dan metadata diterapkan di seluruh situs.
           </p>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={saving}>
-          <Save className="w-4 h-4 mr-2" />
+        <Button onClick={handleSave} disabled={saving}>
+          <Save className="w-4 h-4" />
           {saving ? "Menyimpan..." : "Simpan"}
         </Button>
       </div>
@@ -941,7 +928,7 @@ function SiteSettingsSection() {
                     value={form.siteName}
                     onChange={(e) => set("siteName", e.target.value)}
                     placeholder="Nama situs"
-                    className="h-9 bg-background"
+                    className="bg-background"
                   />
                 </SiteField>
               </div>
@@ -951,7 +938,7 @@ function SiteSettingsSection() {
               <Input
                 value={form.tagline}
                 onChange={(e) => set("tagline", e.target.value)}
-                className="h-9 bg-background"
+                className="bg-background"
               />
             </SiteField>
 
@@ -1013,7 +1000,7 @@ function SiteSettingsSection() {
               <Input
                 value={form.metaTitle}
                 onChange={(e) => set("metaTitle", e.target.value)}
-                className="h-9 bg-background"
+                className="bg-background"
               />
             </SiteField>
             <SiteField label="Meta Description">

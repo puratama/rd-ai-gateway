@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildVerifyHtml, getVerifyUrl } from "../src/lib/email";
 
-test("buildVerifyHtml renders a clickable verification link", () => {
-  const html = buildVerifyHtml("[REDACTED-URL]");
+test("buildVerifyHtml renders a clickable verification link", async () => {
+  const html = await buildVerifyHtml("[REDACTED-URL]");
   assert.ok(html.includes("[REDACTED-URL]"), "should embed verification URL");
   assert.ok(html.includes("Verifikasi Email"), "should include Indonesian title");
   assert.ok(html.toLowerCase().includes("href="), "should include anchor href");

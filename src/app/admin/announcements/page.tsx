@@ -12,6 +12,7 @@ import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -127,8 +128,8 @@ function AdminAnnouncementsPageContent() {
             <h1 className="text-2xl font-semibold">Announcements</h1>
             <p className="text-sm text-muted-foreground">Manage announcements shown on guest and client pages.</p>
           </div>
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="w-4 h-4 mr-2" /> New Announcement
+          <Button className="gap-1.5" onClick={openCreate}>
+            <Plus className="w-4 h-4" /> New Announcement
           </Button>
         </div>
 
@@ -146,8 +147,8 @@ function AdminAnnouncementsPageContent() {
             title="No announcements yet."
             description="Buat announcement pertama untuk menampilkan bar di atas navbar."
             action={
-              <Button size="sm" onClick={openCreate}>
-                <Plus className="w-4 h-4 mr-2" /> New Announcement
+              <Button onClick={openCreate} className="gap-1.5">
+                <Plus className="w-4 h-4" /> New Announcement
               </Button>
             }
           />
@@ -180,10 +181,11 @@ function AdminAnnouncementsPageContent() {
                       <td className="px-4 py-3 text-muted-foreground">{formatDate(a.createdAt)}</td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon-sm" onClick={() => openEdit(a)}>
+                          <Button variant="ghost" size="icon-sm" onClick={() => openEdit(a)} aria-label="Edit announcement" title="Edit announcement">
                             <Edit3 className="w-4 h-4" />
+
                           </Button>
-                          <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => setDeletingId(a.id)}>
+                          <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={() => setDeletingId(a.id)} aria-label="Delete announcement" title="Delete announcement">
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -217,13 +219,15 @@ function AdminAnnouncementsPageContent() {
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   placeholder="e.g. Maintenance scheduled"
-                  className="h-9 bg-background"
+                  className="bg-background"
                 />
               </div>
               <div>
                 <Label>Description</Label>
-                <textarea
+                <Textarea
+                  name="description"
                   value={form.description}
+                  required
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="e.g. The API will be down for 30 minutes on Saturday."
                   rows={3}

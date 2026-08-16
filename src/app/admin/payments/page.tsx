@@ -8,6 +8,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Tabs } from "@/components/ui/tabs";
 
 interface PaymentRecord {
   id: string;
@@ -103,31 +104,21 @@ export default function AdminPaymentsPage() {
               Konfirmasi manual pembayaran QRIS merchant (tanpa webhook).
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchRecords} className="cursor-pointer">
+          <Button variant="outline" onClick={fetchRecords} className="cursor-pointer" aria-label="Refresh payments" title="Refresh payments">
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
 
-        <div className="flex gap-2">
-          {[
-            { key: "pending_confirmation", label: "Menunggu Verifikasi" },
-            { key: "pending", label: "Pending" },
-            { key: "all", label: "Semua" },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key)}
-              className={
-                "rounded-lg px-3 py-1.5 text-sm transition-colors " +
-                (filter === tab.key
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/70")
-              }
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          items={[
+            { value: "pending_confirmation", label: "Menunggu Verifikasi" },
+            { value: "pending", label: "Pending" },
+            { value: "all", label: "Semua" },
+          ]}
+          value={filter}
+          onValueChange={setFilter}
+          ariaLabel="Payment filter"
+        />
 
         {error && (
           <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive">

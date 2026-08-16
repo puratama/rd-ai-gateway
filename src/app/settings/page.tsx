@@ -5,15 +5,13 @@ import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { User, Shield, Loader2, CheckCircle2, AlertCircle, Settings as SettingsIcon } from "lucide-react";
+import { User, Shield, CheckCircle2, AlertCircle, Settings as SettingsIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tabs } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Tab = "profile" | "security";
-
-function getApiKey(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("xperimne-api-key") || "";
-}
 
 function Feedback({ type, message }: { type: "success" | "error"; message: string }) {
   return (
@@ -43,19 +41,12 @@ function ProfileTab() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
-    const key = getApiKey();
-    if (!key) {
-      setLoading(false);
-      return;
-    }
-    fetch("/api/user/profile", {
-      headers: { Authorization: `Bearer ${key}` },
-    })
+    fetch("/api/user/profile")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data) {
-          setName(data.name ?? "");
-          setEmail(data.email ?? "");
+        if (data?.user) {
+          setName(data.user.name ?? "");
+          setEmail(data.user.email ?? "");
         }
       })
       .finally(() => setLoading(false));
@@ -64,20 +55,17 @@ function ProfileTab() {
   async function handleSave() {
     setSaving(true);
     setFeedback(null);
-    const key = getApiKey();
     try {
       const res = await fetch("/api/user/profile", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({ name, email }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
       });
       if (res.ok) {
         setFeedback({ type: "success", message: "Profile updated successfully." });
       } else {
-        setFeedback({ type: "error", message: "Failed to update profile." });
+        const data = await res.json().catch(() => ({}));
+        setFeedback({ type: "error", message: data.error || "Failed to update profile." });
       }
     } catch {
       setFeedback({ type: "error", message: "Network error. Please try again." });
@@ -88,29 +76,34 @@ function ProfileTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      <div className="space-y-4 max-w-md">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-10" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-10" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+        <Skeleton className="h-9 w-28" />
       </div>
     );
   }
 
   return (
     <div className="space-y-4 max-w-md">
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="settings-name">
-          Name
-        </label>
+      <div className="space-y-2">
+        <Label htmlFor="settings-name">Name</Label>
         <Input
           id="settings-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Your name"
+          className="bg-background"
         />
       </div>
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="settings-email">
-          Email
-        </label>
+      <div className="space-y-2">
+        <Label htmlFor="settings-email">Email</Label>
         <Input
           id="settings-email"
           type="email"
@@ -148,14 +141,10 @@ function SecurityTab() {
       return;
     }
     setSaving(true);
-    const key = getApiKey();
     try {
       const res = await fetch("/api/user/password", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       if (res.ok) {
@@ -164,7 +153,8 @@ function SecurityTab() {
         setNewPassword("");
         setConfirmPassword("");
       } else {
-        setFeedback({ type: "error", message: "Failed to change password." });
+        const data = await res.json().catch(() => ({}));
+        setFeedback({ type: "error", message: data.error || "Failed to change password." });
       }
     } catch {
       setFeedback({ type: "error", message: "Network error. Please try again." });
@@ -175,40 +165,37 @@ function SecurityTab() {
 
   return (
     <div className="space-y-4 max-w-md">
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="settings-current-pw">
-          Current Password
-        </label>
+      <div className="space-y-2">
+        <Label htmlFor="settings-current-pw">Current Password</Label>
         <Input
           id="settings-current-pw"
           type="password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           placeholder="Current password"
+          className="bg-background"
         />
       </div>
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="settings-new-pw">
-          New Password
-        </label>
+      <div className="space-y-2">
+        <Label htmlFor="settings-new-pw">New Password</Label>
         <Input
           id="settings-new-pw"
           type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           placeholder="New password"
+          className="bg-background"
         />
       </div>
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="settings-confirm-pw">
-          Confirm New Password
-        </label>
+      <div className="space-y-2">
+        <Label htmlFor="settings-confirm-pw">Confirm New Password</Label>
         <Input
           id="settings-confirm-pw"
           type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm new password"
+          className="bg-background"
         />
       </div>
       {feedback && <Feedback type={feedback.type} message={feedback.message} />}
@@ -242,33 +229,19 @@ export default function SettingsPage() {
             </div>
           </header>
 
-          <Card>
-            {/* Tab switcher */}
-            <div className="flex gap-1 border-b border-border px-4">
-              {tabs.map((t) => {
-                const Icon = t.icon;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTab(t.id)}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
-                      tab === t.id
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-                    )}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
+          <Tabs
+            items={tabs.map((t) => ({ value: t.id, label: t.label, icon: t.icon }))}
+            value={tab}
+            onValueChange={(value) => setTab(value as Tab)}
+            ariaLabel="Settings sections"
+          />
 
-            {/* Tab content */}
-            <CardContent className="p-6 max-w-2xl">
-              {tab === "profile" && <ProfileTab />}
-              {tab === "security" && <SecurityTab />}
+          <Card>
+            <CardContent className="p-6">
+              <div className="max-w-md">
+                {tab === "profile" && <ProfileTab />}
+                {tab === "security" && <SecurityTab />}
+              </div>
             </CardContent>
           </Card>
         </div>

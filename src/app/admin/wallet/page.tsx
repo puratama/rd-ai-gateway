@@ -69,7 +69,7 @@ export default function AdminWalletPage() {
             <h1 className="text-2xl font-semibold">Wallets</h1>
             <p className="text-sm text-muted-foreground">Monitor all user wallet balances and activity.</p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => fetchWallets(search, page, limit)} className="cursor-pointer">
+          <Button variant="outline" size="icon-lg" onClick={() => fetchWallets(search, page, limit)} aria-label="Refresh wallets" title="Refresh wallets">
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>

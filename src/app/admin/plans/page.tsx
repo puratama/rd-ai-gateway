@@ -103,7 +103,7 @@ function AddManualItem({
         onKeyDown={(e) => {
           if (e.key === "Enter") submit();
         }}
-        className="h-9 bg-background"
+        className="bg-background"
       />
       <Button type="button" variant="outline" size="lg" className="shrink-0" disabled={!trimmed} onClick={submit}>
         <Plus className="h-4 w-4" />
@@ -162,8 +162,8 @@ function AdminPlansPageContent() {
             <h1 className="text-2xl font-semibold">Plans</h1>
             <p className="text-sm text-muted-foreground">Manage membership plans and pricing.</p>
           </div>
-          <Button size="sm" onClick={() => { setShowCreate(true); setEditingPlan(null); }}>
-            <Plus className="w-4 h-4 mr-2" /> New Plan
+          <Button className="gap-1.5" onClick={() => { setShowCreate(true); setEditingPlan(null); }}>
+            <Plus className="w-4 h-4" /> New Plan
           </Button>
         </div>
 
@@ -238,7 +238,10 @@ function AdminPlansPageContent() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => setEditingPlan(plan)}
+                            onClick={() => setEditingPlan(plan)
+                            }
+                            aria-label="Edit plan"
+                            title="Edit plan"
                           >
                             <Edit3 className="h-3.5 w-3.5" />
                           </Button>
@@ -247,6 +250,8 @@ function AdminPlansPageContent() {
                             size="icon-sm"
                             className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
                             onClick={() => setDeletingPlanId(plan.id)}
+                            aria-label="Delete plan"
+                            title="Delete plan"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -540,7 +545,7 @@ function PlanEditor({
                 value={form.name || ""}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="e.g. Pro"
-                className="h-9 bg-background"
+                className="bg-background"
               />
             </div>
             <div>
@@ -549,7 +554,7 @@ function PlanEditor({
                 value={form.description || ""}
                 onChange={(e) => update("description", e.target.value)}
                 placeholder="Short plan description"
-                className="h-9 bg-background"
+                className="bg-background"
               />
             </div>
           </FormPanel>
@@ -568,7 +573,7 @@ function PlanEditor({
                   value={fmtNumber(form.price)}
                   onChange={(e) => onNumericChange("price", e.target.value)}
                   placeholder="e.g. 50.000"
-                  className="h-9 bg-background"
+                  className="bg-background"
                 />
                 <p className="text-[10px] text-muted-foreground/60 mt-1">
                   0 = free plan
@@ -605,7 +610,7 @@ function PlanEditor({
                 value={fmtNumber(form.features.maxTokensPerMonth)}
                 onChange={(e) => onNumericChange("maxTokensPerMonth", e.target.value)}
                 placeholder="e.g. 1.000.000"
-                className="h-9 bg-background"
+                className="bg-background"
               />
               <p className="text-[10px] text-muted-foreground/60 mt-1">
                 Jatah token di paket. Berlaku untuk paket &amp; token plan.
@@ -745,13 +750,17 @@ function PlanEditor({
                           className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-500 text-[10px] px-2 py-0.5"
                         >
                           {m}
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => toggleList("allowedModels", m)}
-                            className="hover:text-amber-300 leading-none"
+                            className="h-auto w-auto p-0 hover:text-amber-300 leading-none"
+                            aria-label={`Remove orphan model ${m}`}
+                            title="Remove orphan model"
                           >
                             ×
-                          </button>
+                          </Button>
                         </span>
                       ))}
                     </div>
@@ -810,14 +819,17 @@ function PlanEditor({
                       </span>
                       <span className="min-w-0 truncate">{f}</span>
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => toggleList("highlights", f)}
-                      className="shrink-0 border-l border-border/70 pl-2.5 text-muted-foreground/50 transition-colors hover:text-destructive"
+                      className="shrink-0 border-border/70 text-muted-foreground/50 transition-colors hover:text-destructive"
+                      aria-label="Hapus highlight"
                       title="Hapus"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>

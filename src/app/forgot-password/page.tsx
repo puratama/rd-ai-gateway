@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Mail } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -58,7 +59,7 @@ export default function ForgotPasswordPage() {
                   Kalau email terdaftar, link reset password sudah dikirim ke{" "}
                   <span className="font-medium text-foreground">{email}</span>. Link berlaku 1 jam.
                 </p>
-                <Link href="/login" className="inline-flex w-full h-11 items-center justify-center rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90">
+                <Link href="/login" className={buttonVariants({ className: "w-full h-11" })}>
                   Kembali ke login
                 </Link>
               </div>
@@ -71,7 +72,7 @@ export default function ForgotPasswordPage() {
                 )}
 
                 <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">Email</label>
+                  <Label htmlFor="email">Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -80,7 +81,7 @@ export default function ForgotPasswordPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@example.com"
-                      className="pl-9 h-11"
+                      className="pl-9 h-11 bg-background"
                       required
                       autoComplete="email"
                     />

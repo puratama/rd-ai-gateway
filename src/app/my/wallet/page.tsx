@@ -369,9 +369,7 @@ export default function WalletPage() {
                     </Button>
                   ))}
                 </div>
-                <label className="mt-5 block text-sm font-medium text-foreground" htmlFor="custom-amount">
-                  Custom amount
-                </label>
+                <Label htmlFor="custom-amount" className="mt-5">Custom amount</Label>
                 <Input
                   id="custom-amount"
                   inputMode="numeric"

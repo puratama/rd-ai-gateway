@@ -5,6 +5,8 @@ import { Inbox, RefreshCw } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -130,7 +132,7 @@ function AdminSupportPageContent() {
             <h1 className="text-2xl font-semibold">Support Tickets</h1>
             <p className="text-sm text-muted-foreground">Reply to user support tickets and manage their lifecycle.</p>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchTickets} className="cursor-pointer">
+          <Button variant="outline" size="icon-lg" onClick={fetchTickets} aria-label="Refresh support tickets" title="Refresh support tickets">
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
@@ -161,20 +163,12 @@ function AdminSupportPageContent() {
         )}
 
         {/* Filters */}
-        <div className="flex gap-1 rounded-lg border border-border bg-muted/30 p-1 w-fit">
-          {filterTabs.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                filter === f ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {f === "all" ? "All" : titleCase(f)}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          items={filterTabs.map((f) => ({ value: f, label: f === "all" ? "All" : titleCase(f) }))}
+          value={filter}
+          onValueChange={(value) => setFilter(value as (typeof filterTabs)[number])}
+          ariaLabel="Support ticket filters"
+        />
 
         {loading ? (
           <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-6">
@@ -213,9 +207,10 @@ function AdminSupportPageContent() {
               {filtered.map((t) => (
                 <button
                   key={t.id}
+                  type="button"
                   onClick={() => setActiveId(t.id)}
                   className={cn(
-                    "w-full text-left rounded-xl border px-4 py-3 transition-colors",
+                    "w-full text-left rounded-xl border px-4 py-3 transition-colors cursor-pointer",
                     activeId === t.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
                   )}
                 >
@@ -269,12 +264,12 @@ function AdminSupportPageContent() {
 
                   {activeTicket.status !== "closed" && (
                     <div className="border-t border-border pt-4">
-                      <textarea
+                      <Textarea
                         value={reply}
                         onChange={(e) => { setReply(e.target.value); }}
                         placeholder="Write reply..."
                         rows={3}
-                        className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                        className="bg-background text-sm"
                       />
                       <div className="mt-2 flex flex-wrap gap-2">
                         <Button size="sm" onClick={handleReply} disabled={!reply.trim() || saving}>{saving ? "Sending..." : "Send Reply"}</Button>

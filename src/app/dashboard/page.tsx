@@ -12,7 +12,6 @@ import {
   Copy,
   CreditCard,
   Key,
-  MessageSquare,
   Rocket,
   Settings,
   Terminal,
@@ -130,18 +129,18 @@ export default function DashboardPage() {
                 <div>
                   <h1 className="text-3xl font-bold tracking-tight md:text-5xl">Selamat datang, {displayName}</h1>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-                    Mulai dari sini: salin Base URL, cek API key, buka chat, atau pantau usage. Semua jalur utama ada dalam satu layar.
+                    Mulai dari sini: salin Base URL, cek API key, atau pantau usage. Semua jalur utama ada dalam satu layar.
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Link href="/chat">
+                  <Link href="/keys">
                     <Button size="lg" className="w-full gap-2 sm:w-auto">
-                      <MessageSquare className="h-4 w-4" /> Buka Chat
+                      <Key className="h-4 w-4" /> Kelola API Key
                     </Button>
                   </Link>
-                  <Link href="/keys">
+                  <Link href="/models">
                     <Button size="lg" variant="outline" className="w-full gap-2 sm:w-auto">
-                      <Key className="h-4 w-4" /> Kelola API Key
+                      <CreditCard className="h-4 w-4" /> Lihat Model
                     </Button>
                   </Link>
                 </div>
@@ -247,7 +246,7 @@ export default function DashboardPage() {
                   <EmptyState
                     icon={BarChart3}
                     title="Belum ada usage"
-                    description="Coba chat atau panggil API pertama kamu."
+                    description="Panggil API pertama kamu."
                   />
                 )}
               </CardContent>

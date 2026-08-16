@@ -22,6 +22,7 @@ import {
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 interface ApiKeyItem {
@@ -366,9 +367,9 @@ const response = await client.chat.completions.create({
             </div>
           )}
           <div className="py-2">
-            <label className="mb-1.5 block text-xs font-medium">Key Name</label>
-            <Input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)}
-              placeholder="e.g., Production Key" onKeyDown={(e) => e.key === "Enter" && handleCreate()} autoFocus />
+            <Label htmlFor="new-key-name">Key Name</Label>
+            <Input id="new-key-name" value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="e.g., Production Key" onKeyDown={(e) => e.key === "Enter" && handleCreate()} autoFocus className="bg-background" />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>

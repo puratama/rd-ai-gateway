@@ -9,6 +9,7 @@ import { Skeleton, ChartSkeleton, TableSkeleton } from "@/components/ui/skeleton
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { UsageBarChart } from "@/components/ui/usage-bar-chart";
+import { Tabs } from "@/components/ui/tabs";
 
 interface ModelUsage {
   model: string;
@@ -143,20 +144,21 @@ export default function UsagePage() {
               <p className="text-sm text-muted-foreground">Track requests, tokens, and IDR cost.</p>
             </div>
             <div className="flex items-center gap-2">
-              {RANGE_OPTIONS.map((opt) => (
-                <Button
-                  key={opt.key}
-                  variant={range === opt.key ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setRange(opt.key)}
-                  disabled={loading}
-                  className="cursor-pointer"
-                >
-                  {opt.label}
-                </Button>
-              ))}
-              <Button variant="outline" size="sm" onClick={() => loadUsage(range)} disabled={loading} className="cursor-pointer">
-                <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+              <Tabs
+                items={RANGE_OPTIONS.map((opt) => ({ value: opt.key, label: opt.label, disabled: loading }))}
+                value={range}
+                onValueChange={(value) => setRange(value as RangeFilter)}
+                ariaLabel="Usage range"
+              />
+              <Button
+                variant="outline"
+                size="icon-lg"
+                onClick={() => loadUsage(range)}
+                disabled={loading}
+                aria-label="Refresh usage"
+                title="Refresh usage"
+              >
+                <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
               </Button>
             </div>
           </header>
@@ -211,24 +213,16 @@ export default function UsagePage() {
                 </Card>
               </div>
 
-              <div className="inline-flex w-fit rounded-xl border border-border/50 bg-card p-1" role="tablist" aria-label="Usage views">
-                {([
-                  ["daily", "Daily usage"],
-                  ["recent", "Recent requests"],
-                  ["models", "By model"],
-                ] as const).map(([tab, label]) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <Tabs
+                items={[
+                  { value: "daily", label: "Daily usage" },
+                  { value: "recent", label: "Recent requests" },
+                  { value: "models", label: "By model" },
+                ]}
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(value as UsageTab)}
+                ariaLabel="Usage views"
+              />
 
               {activeTab === "daily" && <Card>
                 <CardContent className="p-5">

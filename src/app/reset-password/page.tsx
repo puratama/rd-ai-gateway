@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -76,7 +77,7 @@ export default function ResetPasswordPage() {
               )}
 
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">Password baru</label>
+                <Label htmlFor="password">Password baru</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -85,7 +86,7 @@ export default function ResetPasswordPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="pl-9 pr-10 h-11"
+                    className="pl-9 pr-10 h-11 bg-background"
                     required
                     minLength={8}
                     autoComplete="new-password"
@@ -103,7 +104,7 @@ export default function ResetPasswordPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="confirm" className="text-sm font-medium">Konfirmasi password</label>
+                <Label htmlFor="confirm">Konfirmasi password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -112,7 +113,7 @@ export default function ResetPasswordPage() {
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     placeholder="••••••••"
-                    className="pl-9 pr-10 h-11"
+                    className="pl-9 pr-10 h-11 bg-background"
                     required
                     minLength={8}
                     autoComplete="new-password"

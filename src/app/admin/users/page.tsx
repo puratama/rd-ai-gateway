@@ -209,7 +209,7 @@ export default function AdminUsersPage() {
             <h1 className="text-2xl font-semibold">Users</h1>
             <p className="text-sm text-muted-foreground">Manage roles, status, verification, and monitor user data.</p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => fetchUsers(search, page, limit, hasPackageOnly)} className="cursor-pointer">
+          <Button variant="outline" size="icon-lg" onClick={() => fetchUsers(search, page, limit, hasPackageOnly)} aria-label="Refresh users" title="Refresh users">
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
@@ -262,7 +262,7 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 text-right tabular-nums text-xs">{fmtT(user.totalTokens)}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-xs">{user.usageCount.toLocaleString()}</td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon-sm" className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10" onClick={() => setDeletingUserId(user.id)}>
+                        <Button variant="ghost" size="icon-sm" className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10" onClick={() => setDeletingUserId(user.id)} aria-label="Delete user" title="Delete user">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </td>

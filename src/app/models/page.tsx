@@ -122,9 +122,8 @@ export default function ModelsPage() {
             </div>
             <Button
               variant={compareMode ? "default" : "outline"}
-              size="sm"
               onClick={() => setCompareMode(!compareMode)}
-              className={cn("gap-1.5", compareMode && "shadow-lg shadow-primary/20")}
+              className={cn(compareMode && "shadow-lg shadow-primary/20")}
             >
               <ArrowLeftRight className="h-3.5 w-3.5" />
               {compareMode ? "Exit Compare" : "Compare Models"}
@@ -195,7 +194,10 @@ export default function ModelsPage() {
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-muted-foreground">Sort:</span>
               {(["name", "prompt", "completion"] as const).map((field) => (
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
                   key={field}
                   onClick={() => toggleSort(field)}
                   className={cn(
@@ -207,7 +209,7 @@ export default function ModelsPage() {
                 >
                   {field === "name" ? "Name" : field === "prompt" ? "Prompt $" : "Completion $"}
                   <SortArrow field={field} />
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -215,7 +217,7 @@ export default function ModelsPage() {
           {/* Compare bar */}
           {compareMode && compareList.length > 0 && (
             <Card className="border-primary/20">
-              <CardContent className="flex items-center justify-between p-3">
+              <CardContent className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-[11px] font-semibold text-primary">
                     {compareList.length}
@@ -346,7 +348,11 @@ export default function ModelsPage() {
                       <CardContent className="p-5">
                         {/* Compare checkbox */}
                         {compareMode && (
-                          <button
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-pressed={isCompared}
                             onClick={() => toggleCompare(model.id)}
                             className={cn(
                               "absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded border transition-all",
@@ -356,7 +362,7 @@ export default function ModelsPage() {
                             )}
                           >
                             {isCompared && <Check className="h-3 w-3" />}
-                          </button>
+                          </Button>
                         )}
 
                         {/* Header */}

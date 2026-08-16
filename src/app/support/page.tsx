@@ -36,7 +36,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Tabs } from "@/components/ui/tabs";
 
 interface Message {
   authorRole: "user" | "admin";
@@ -259,8 +262,8 @@ function SupportPageContent() {
               <h1 className="text-3xl font-semibold tracking-tight">Support Center</h1>
               <p className="text-sm text-muted-foreground">Contact our team. We usually respond within a few hours.</p>
             </div>
-            <Button size="sm" onClick={openCreate} className="cursor-pointer">
-              <Plus className="mr-1.5 h-4 w-4" /> New Ticket
+            <Button onClick={openCreate} className="gap-1.5">
+              <Plus className="h-4 w-4" /> New Ticket
             </Button>
           </header>
 
@@ -298,22 +301,12 @@ function SupportPageContent() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex w-fit flex-wrap gap-1 rounded-lg border border-border bg-muted/30 p-1">
-              {STATUS_OPTIONS.map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setFilter(opt.key)}
-                  disabled={loading}
-                  className={cn(
-                    "cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60",
-                    filter === opt.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              items={STATUS_OPTIONS.map((opt) => ({ ...opt, value: opt.key, disabled: loading }))}
+              value={filter}
+              onValueChange={(value) => setFilter(value as StatusFilter)}
+              ariaLabel="Ticket status"
+            />
             <div className="flex flex-wrap items-center gap-3">
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" /> Last updated {tickets.length ? formatTime(Math.max(...tickets.map((t) => t.updatedAt))) : "—"}
@@ -348,7 +341,7 @@ function SupportPageContent() {
                     type="button"
                     onClick={() => setActiveId(t.id)}
                     className={cn(
-                      "w-full rounded-xl border px-4 py-3 text-left transition-colors",
+                      "w-full rounded-xl border px-4 py-3 text-left transition-colors cursor-pointer",
                       activeId === t.id
                         ? "border-primary bg-primary/5"
                         : "border-border bg-card hover:border-primary/40"
@@ -375,7 +368,7 @@ function SupportPageContent() {
                       <p className="mt-3 text-sm">Select a ticket to read the conversation.</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
                         <div className="w-full">
                           <div className="flex items-center justify-between gap-2">
@@ -391,7 +384,7 @@ function SupportPageContent() {
 
                       <div className="max-h-[45vh] space-y-3 overflow-y-auto pr-1">
                         {activeTicket.messages.map((m, i) => (
-                          <div key={i} className={cn("max-w-[85%] w-fit break-words rounded-xl border px-3 py-2 text-sm", m.authorRole === "admin" ? "border-border/70 bg-muted/60" : "border-primary/25 bg-primary/15 ml-auto")}>
+                          <div key={i} className={cn("max-w-[85%] w-fit wrap-break-word rounded-xl border px-3 py-2 text-sm", m.authorRole === "admin" ? "border-border/70 bg-muted/60" : "border-primary/25 bg-primary/15 ml-auto")}>
                             <div className={cn("mb-1 text-[11px] font-medium", m.authorRole === "admin" ? "text-muted-foreground" : "text-primary")}>
                               {m.authorRole === "admin" ? "Support team" : "You"} <span className="mx-2">·</span> {formatTime(m.createdAt)}
                             </div>
@@ -402,14 +395,12 @@ function SupportPageContent() {
 
                       {activeTicket.status !== "closed" ? (
                         <div className="border-t border-border pt-4">
-                          <textarea
+                          <Textarea
                             value={reply}
-                            onChange={(e) => {
-                              setReply(e.target.value);
-                            }}
+                            onChange={(e) => setReply(e.target.value)}
                             placeholder="Type your reply..."
                             rows={3}
-                            className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                            className="bg-background"
                           />
                           <Button size="sm" className="mt-2 cursor-pointer" onClick={handleReply} disabled={!reply.trim()}>
                             <Send className="mr-1.5 h-3.5 w-3.5" /> Send Reply
@@ -433,20 +424,22 @@ function SupportPageContent() {
             <DialogTitle>New Support Ticket</DialogTitle>
             <DialogDescription>Describe your issue. Our team will reply here.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div>
-              <label className="mb-1.5 block text-xs text-muted-foreground">Subject</label>
+              <Label htmlFor="ticket-subject">Subject</Label>
               <Input
+                id="ticket-subject"
                 value={form.subject}
                 onChange={(e) => setForm({ ...form, subject: e.target.value })}
                 placeholder="Short summary of your issue"
+                className="bg-background"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-xs text-muted-foreground">Category</label>
+                <Label htmlFor="ticket-category">Category</Label>
                 <Select value={form.category} onValueChange={(v) => setForm((p) => ({ ...p, category: v || "general" }))}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger id="ticket-category" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -457,9 +450,9 @@ function SupportPageContent() {
                 </Select>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs text-muted-foreground">Priority</label>
+                <Label htmlFor="ticket-priority">Priority</Label>
                 <Select value={form.priority} onValueChange={(v) => setForm((p) => ({ ...p, priority: v || "normal" }))}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger id="ticket-priority" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -471,13 +464,14 @@ function SupportPageContent() {
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs text-muted-foreground">Message</label>
-              <textarea
+              <Label htmlFor="ticket-message">Message</Label>
+              <Textarea
+                id="ticket-message"
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
                 placeholder="Describe your issue..."
                 rows={4}
-                className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="bg-background"
               />
             </div>
             {formError && (

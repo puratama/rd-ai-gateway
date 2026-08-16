@@ -102,18 +102,16 @@ function AdminModelsPageContent() {
             <h1 className="text-2xl font-semibold">Models</h1>
             <p className="text-sm text-muted-foreground">
               Manage AI models, pricing, and availability.
-           </p>
-         </div>
-          <Button
-            size="sm"
-            onClick={() => {
+            </p>
+          </div>
+          <Button onClick={() => {
               setShowCreate(true);
               setEditing(null);
             }}
           >
-            <Plus className="w-4 h-4 mr-2" /> Add Model
-         </Button>
-       </div>
+            <Plus className="w-4 h-4" /> Add Model
+          </Button>
+        </div>
 
         {loading ? (
           <TableSkeleton rows={6} cols={8} />
@@ -130,16 +128,16 @@ function AdminModelsPageContent() {
                     <th className="px-4 py-3 font-medium">Public Model ID</th>
                     <th className="px-4 py-3 text-center font-medium">
                       Sell/1M Prompt
-                   </th>
+                    </th>
                     <th className="px-4 py-3 text-center font-medium">
                       Sell/1M Completion
-                   </th>
+                    </th>
                     <th className="px-4 py-3 text-center font-medium">
                       Status
-                   </th>
+                    </th>
                     <th className="px-4 py-3 font-medium sr-only">Actions</th>
-                 </tr>
-               </thead>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-border">
                   {models.map((m) => (
                     <tr key={m.id} className="hover:bg-muted/40">
@@ -147,24 +145,24 @@ function AdminModelsPageContent() {
                         <div className="font-medium">{m.name}</div>
                         <div className="text-xs text-muted-foreground font-mono">
                           {m.provider || "—"}
-                       </div>
-                     </td>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
                         {m.providerModelId || "—"}
-                     </td>
+                      </td>
                       <td className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
                         {m.modelId || "—"}
-                     </td>
+                      </td>
                       <td className="px-4 py-3 text-center tabular-nums text-muted-foreground">
                         {m.sellPricePer1kPrompt != null
                           ? `IDR ${m.sellPricePer1kPrompt.toFixed(2)}`
                           : "—"}
-                     </td>
+                      </td>
                       <td className="px-4 py-3 text-center tabular-nums text-muted-foreground">
                         {m.sellPricePer1kCompletion != null
                           ? `IDR ${m.sellPricePer1kCompletion.toFixed(2)}`
                           : "—"}
-                     </td>
+                      </td>
                       <td className="px-4 py-3 text-center">
                         <span
                           className={cn(
@@ -183,36 +181,40 @@ function AdminModelsPageContent() {
                             )}
                           />
                           {m.isActive ? "Active" : "Inactive"}
-                       </span>
-                     </td>
+                        </span>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
                           <Button
                             variant="ghost"
                             size="icon-sm"
+                            aria-label="Edit model"
+                            title="Edit model"
                             onClick={() => {
                               setEditing(m);
                               setShowCreate(true);
                             }}
                           >
-                            <Edit3 className="h-3.5 w-3.5" />
-                         </Button>
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon-sm"
                             className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
                             onClick={() => setDeletingId(m.id)}
+                            aria-label="Delete model"
+                            title="Delete model"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                         </Button>
-                       </div>
-                     </td>
-                   </tr>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
-               </tbody>
-             </table>
-           </div>
-         </div>
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {/* Model Create/Edit Dialog */}
@@ -532,7 +534,7 @@ function ModelForm({
                 value={form.provider}
                 onChange={(e) => update("provider", e.target.value)}
                 placeholder="e.g. deepseek"
-                className="h-9 bg-background"
+                className="bg-background"
               />
             </div>
             <div>
@@ -543,7 +545,7 @@ function ModelForm({
                 value={form.providerModelId}
                 onChange={(e) => update("providerModelId", e.target.value)}
                 placeholder="Actual model ID from the provider"
-                className="h-9 bg-background font-mono text-xs"
+                className="bg-background font-mono text-xs"
               />
               <p className="text-[10px] text-muted-foreground/60 mt-1">
                 The actual model ID from the provider. This is the reference model ID.
@@ -557,7 +559,7 @@ function ModelForm({
                 value={form.modelId}
                 onChange={(e) => update("modelId", e.target.value)}
                 placeholder="e.g. deepseek-flash"
-                className="h-9 bg-background font-mono text-xs"
+                className="bg-background font-mono text-xs"
               />
               <p className="text-[10px] text-muted-foreground/60 mt-1">
                 The model name used by API clients. Customize this to mask the provider model ID.
@@ -571,7 +573,7 @@ function ModelForm({
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="Model display name"
-                className="h-9 bg-background"
+                className="bg-background"
               />
             </div>
           </FormPanel>
@@ -592,7 +594,7 @@ function ModelForm({
                   value={fmtNumber(form.sellPricePer1kPrompt)}
                   onChange={(e) => onPricingChange("sellPricePer1kPrompt", e.target.value)}
                   placeholder="e.g. 10.000"
-                  className="h-9 bg-background"
+                  className="bg-background"
                 />
               </div>
               <div>
@@ -605,7 +607,7 @@ function ModelForm({
                   value={fmtNumber(form.sellPricePer1kCompletion)}
                   onChange={(e) => onPricingChange("sellPricePer1kCompletion", e.target.value)}
                   placeholder="e.g. 10.000"
-                  className="h-9 bg-background"
+                  className="bg-background"
                 />
               </div>
             </div>

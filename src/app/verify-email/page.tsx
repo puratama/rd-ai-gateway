@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import AuthBrand from "@/components/auth/AuthBrand";
 
@@ -77,10 +78,7 @@ export default async function VerifyEmailPage({
             </div>
             <h2 className="text-2xl font-bold mb-2">{v.title}</h2>
             <p className="text-sm text-muted-foreground mb-6">{v.message}</p>
-            <Link
-              href={v.ctaHref}
-              className="inline-flex w-full h-11 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/80"
-            >
+            <Link href={v.ctaHref} className={buttonVariants({ className: "w-full h-11" })}>
               {v.ctaText}
             </Link>
           </CardContent>

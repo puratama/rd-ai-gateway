@@ -294,13 +294,14 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
                   </Link>
                 );
               })}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={handleLogout}
-                className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                className="mt-1 w-full justify-start gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               >
                 <LogOut className="h-4 w-4" /> Logout
-              </button>
+              </Button>
             </nav>
           </div>
         )}

@@ -147,8 +147,8 @@ function AdminProvidersPageContent() {
               Manage API provider connections and credentials.
             </p>
           </div>
-          <Button size="sm" onClick={() => { setShowCreate(true); setEditing(null); }}>
-            <Plus className="w-4 h-4 mr-2" /> Add Provider
+          <Button onClick={() => { setShowCreate(true); setEditing(null); }}>
+            <Plus className="w-4 h-4" /> Add Provider
           </Button>
         </div>
 
@@ -236,7 +236,8 @@ function AdminProvidersPageContent() {
                             size="icon-sm"
                             onClick={() => handleTestConnection(p.id)}
                             disabled={testingId === p.id}
-                            title="Test Connection"
+                            aria-label="Test provider connection"
+                            title="Test connection"
                           >
                             <RefreshCw className={cn(
                               "h-3.5 w-3.5",
@@ -247,6 +248,8 @@ function AdminProvidersPageContent() {
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => { setEditing(p); setShowCreate(true); }}
+                            aria-label="Edit provider"
+                            title="Edit provider"
                           >
                             <Edit3 className="h-3.5 w-3.5" />
                           </Button>
@@ -255,6 +258,8 @@ function AdminProvidersPageContent() {
                             size="icon-sm"
                             className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
                             onClick={() => setDeletingId(p.id)}
+                            aria-label="Delete provider"
+                            title="Delete provider"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -466,7 +471,7 @@ function ProviderForm({
                 value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                 placeholder="e.g., My Provider"
-                className="h-9 bg-background"
+                className="bg-background"
               />
             </div>
             <div>
@@ -475,7 +480,7 @@ function ProviderForm({
                 value={form.baseUrl}
                 onChange={(e) => setForm((p) => ({ ...p, baseUrl: e.target.value }))}
                 placeholder="https://api.provider.com/v1"
-                className="h-9 bg-background"
+                className="bg-background"
               />
             </div>
           </FormPanel>
@@ -492,7 +497,7 @@ function ProviderForm({
                 value={form.apiKey}
                 onChange={(e) => setForm((p) => ({ ...p, apiKey: e.target.value }))}
                 placeholder={provider ? "Kosongkan untuk tidak mengubah" : "sk-..."}
-                className="h-9 bg-background"
+                className="bg-background"
               />
             </div>
           </FormPanel>
