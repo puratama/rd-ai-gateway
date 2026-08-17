@@ -636,10 +636,10 @@ function ModelForm({
 
       {/* ── Footer ── */}
       <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
-        <Button variant="outline" size="sm" onClick={onClose}>
+        <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button size="sm" onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving}>
           {saving ? (
             <>
               <svg className="animate-spin -ml-1 mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">

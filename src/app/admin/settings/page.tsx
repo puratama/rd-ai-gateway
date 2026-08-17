@@ -377,7 +377,7 @@ function PaymentGatewaySection() {
           <DialogFooter>
             <DialogClose render={<Button variant="outline">Batal</Button>} />
             <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Hapus
+              <Trash2 className="h-3.5 w-3.5" /> Hapus
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -608,7 +608,7 @@ function GatewayForm({
 
       {/* ── Footer ── */}
       <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
-        <Button variant="outline" size="sm" onClick={onClose}>
+        <Button variant="outline" onClick={onClose}>
           Batal
         </Button>
         <Button onClick={handleSave} disabled={saving || !form.name}>

@@ -525,10 +525,10 @@ function ProviderForm({
 
       {/* ── Footer ── */}
       <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
-        <Button variant="outline" size="sm" onClick={onClose}>
+        <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button size="sm" onClick={handleSave} disabled={saving || !form.name || !form.baseUrl}>
+        <Button onClick={handleSave} disabled={saving || !form.name || !form.baseUrl}>
           {saving ? "Menyimpan..." : provider ? "Update" : "Create"}
         </Button>
       </div>
