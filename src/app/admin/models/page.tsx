@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect, useCallback } from "react";
-import { Plus, Edit3, Trash2, Box, AlertTriangle } from "lucide-react";
+import { Plus, Edit3, Trash2, Box, AlertTriangle, RefreshCw } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,13 @@ interface AppModelItem {
   isActive: boolean;
 }
 
+interface ModelTestResult {
+  ok: boolean;
+  status: number;
+  latency: number;
+  error?: string;
+}
+
 interface ModelForm {
   modelId: string;
   name: string;
@@ -62,6 +69,8 @@ function AdminModelsPageContent() {
   const [editing, setEditing] = useState<AppModelItem | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, ModelTestResult>>({});
 
   const fetchModels = useCallback(async () => {
     setLoading(true);
@@ -80,6 +89,26 @@ function AdminModelsPageContent() {
   useEffect(() => {
     fetchModels();
   }, [fetchModels]);
+
+  const handleTestConnection = async (id: string) => {
+    setTestingId(id);
+    try {
+      const response = await fetch("/api/admin/models/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const result: ModelTestResult = await response.json();
+      setTestResults((prev) => ({ ...prev, [id]: result }));
+    } catch {
+      setTestResults((prev) => ({
+        ...prev,
+        [id]: { ok: false, status: 0, latency: 0, error: "Request failed" },
+      }));
+    } finally {
+      setTestingId(null);
+    }
+  };
 
   const handleDeleteModel = async () => {
     if (!deletingId) return;
@@ -184,7 +213,28 @@ function AdminModelsPageContent() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-1">
+                          {testResults[m.id] && (
+                            <span
+                              className={cn(
+                                "text-[10px] mr-1",
+                                testResults[m.id].ok ? "text-emerald-400" : "text-destructive"
+                              )}
+                              title={testResults[m.id].error}
+                            >
+                              {testResults[m.id].ok ? `${testResults[m.id].latency}ms` : "Fail"}
+                            </span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Test model connection"
+                            title="Test model connection"
+                            onClick={() => handleTestConnection(m.id)}
+                            disabled={testingId === m.id}
+                          >
+                            <RefreshCw className={cn("h-3.5 w-3.5", testingId === m.id && "animate-spin")} />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon-sm"
