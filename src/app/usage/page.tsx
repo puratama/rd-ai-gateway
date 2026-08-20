@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { UsageBarChart } from "@/components/ui/usage-bar-chart";
 import { Tabs } from "@/components/ui/tabs";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 interface ModelUsage {
   model: string;
@@ -72,7 +73,6 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("id-ID", {
   minute: "2-digit",
 });
 
-const idr = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat("id-ID");
 
 function shortDate(date: string) {
@@ -208,7 +208,7 @@ export default function UsagePage() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Coins className="h-4 w-4 text-amber-500" /> Cost ({RANGE_LABEL[range]})
                     </div>
-                    <div className="mt-3 text-3xl font-semibold">{idr.format(usage.totalCost)}</div>
+                    <div className="mt-3 text-3xl font-semibold">{formatCurrency(usage.totalCost)}</div>
                   </CardContent>
                 </Card>
               </div>
@@ -295,7 +295,7 @@ export default function UsagePage() {
                           <tr key={model.model} className="border-b border-border/50">
                             <td className="py-3 font-medium">{model.model}</td>
                             <td className="py-3 text-right tabular-nums">{number.format(model.tokens)}</td>
-                            <td className="py-3 text-right tabular-nums">{idr.format(model.cost)}</td>
+                            <td className="py-3 text-right tabular-nums">{formatCurrency(model.cost)}</td>
                             <td className="py-3 text-right tabular-nums">{number.format(model.requests)}</td>
                             <td className="py-3 text-right tabular-nums">{usage.totalTokens ? ((model.tokens / usage.totalTokens) * 100).toFixed(1) : "0.0"}%</td>
                           </tr>

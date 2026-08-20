@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Bar } from "react-chartjs-2";
+import { formatCurrency } from "@/components/ui/format-currency";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -34,9 +35,7 @@ function formatNumber(n: number) {
   return new Intl.NumberFormat("id-ID").format(n);
 }
 
-function formatRupiah(n: number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
-}
+
 
 export function UsageBarChart({ data, heightClass = "h-72" }: UsageBarChartProps) {
   const chartData = useMemo(() => ({
@@ -72,7 +71,7 @@ export function UsageBarChart({ data, heightClass = "h-72" }: UsageBarChartProps
             return [
               `Tokens: ${formatNumber(day.tokens)}`,
               `Requests: ${day.requests.toLocaleString("id-ID")}`,
-              day.cost && day.cost > 0 ? `Cost: ${formatRupiah(day.cost)}` : "",
+              day.cost && day.cost > 0 ? `Cost: ${formatCurrency(day.cost)}` : "",
             ].filter(Boolean) as unknown as string[];
           },
         },

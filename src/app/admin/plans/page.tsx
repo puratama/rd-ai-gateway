@@ -31,6 +31,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { toast } from "sonner";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 interface PlanItem {
   id: string;
@@ -72,12 +73,6 @@ interface PlanForm {
   sortOrder: number;
 }
 
-const fmtRupiah = (n: number) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(n);
 
 const formatNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
 
@@ -210,7 +205,7 @@ function AdminPlansPageContent() {
                           </span>
                         ) : (
                           <span className="text-xs font-medium">
-                            {fmtRupiah(plan.price)}
+                            {formatCurrency(plan.price)}
                           </span>
                         )}
                       </td>

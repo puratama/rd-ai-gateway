@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardGridSkeleton, CardRowSkeleton, ChartSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatCurrency } from "@/components/ui/format-currency";
 type UsageData = {
   totalTokens: number;
   totalCost: number;
@@ -45,9 +46,7 @@ function formatNumber(n: number) {
   return n.toLocaleString("id-ID");
 }
 
-function formatRupiah(n: number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
-}
+
 
 function lastSevenDays(byDay: UsageData["byDay"]) {
   const today = new Date();
@@ -188,7 +187,7 @@ export default function DashboardPage() {
               [
                 { label: "Total Request", value: formatNumber(usage?.totalRequests || 0), icon: BarChart3 },
                 { label: "Total Token", value: formatNumber(usage?.totalTokens || 0), icon: Bot },
-                { label: "Total Biaya", value: formatRupiah(usage?.totalCost || 0), icon: Wallet },
+                { label: "Total Biaya", value: formatCurrency(usage?.totalCost || 0), icon: Wallet },
                 { label: "API Key", value: apiKey ? "Aktif" : "Belum ada", icon: Key },
               ].map((stat) => {
                 const Icon = stat.icon;

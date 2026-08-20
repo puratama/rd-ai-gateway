@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { FormSelect } from "@/components/ui/form-select";
 import { toast } from "sonner";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 interface AdminUser {
   id: string;
@@ -88,7 +89,6 @@ type UserDetail = AdminUser & {
 const roles = ["user", "superadmin"];
 const statuses = ["active", "suspended", "banned"];
 
-const fmtRupiah = (n: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
 const fmtDate = (ts: string) => new Date(ts).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 const fmtT = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : n.toLocaleString();
 
@@ -339,7 +339,7 @@ export default function AdminUsersPage() {
                 {/* Summary cards */}
                 <div className="grid gap-3 text-xs sm:grid-cols-3">
                   <CardDetail label="Created" value={fmtDate(modalUser.createdAt)} />
-                  <CardDetail label="Wallet" value={modalUser.wallet ? fmtRupiah(Number(modalUser.wallet.balance)) : "No wallet"} />
+                  <CardDetail label="Wallet" value={modalUser.wallet ? formatCurrency(Number(modalUser.wallet.balance)) : "No wallet"} />
                   <CardDetail label="Packages" value={String(modalUser.packageCount)} />
                 </div>
 
@@ -412,7 +412,7 @@ export default function AdminUsersPage() {
                             <tr key={br.id}>
                               <td className="px-3 py-1.5 text-muted-foreground">{fmtDate(br.createdAt)}</td>
                               <td className="px-3 py-1.5 capitalize">{br.type}</td>
-                              <td className="px-3 py-1.5 text-right">{fmtRupiah(Number(br.amount))}</td>
+                              <td className="px-3 py-1.5 text-right">{formatCurrency(Number(br.amount))}</td>
                               <td className="px-3 py-1.5 capitalize">{br.status}</td>
                             </tr>
                           ))}

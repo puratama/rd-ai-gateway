@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useSiteConfig } from "@/lib/use-site-config";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 const features = [
   {
@@ -64,9 +65,7 @@ const FALLBACK_TIERS: PricingTier[] = [
   { name: "Enterprise", price: "Custom", description: "For teams and businesses", features: ["Unlimited tokens", "Custom models", "Dedicated support", "Unlimited keys", "SLA", "On-prem option"], cta: "Contact Sales", popular: false },
 ];
 
-function formatRupiah(n: number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
-}
+
 
 interface PlanRaw {
   id: string;
@@ -89,7 +88,7 @@ function planToTier(p: PlanRaw): PricingTier {
 
   return {
     name: p.name,
-    price: p.price === 0 ? "Free" : formatRupiah(p.price),
+    price: p.price === 0 ? "Free" : formatCurrency(p.price),
     description: p.description || p.name,
     features,
     cta: p.price === 0 ? "Get Started" : "Beli Paket",
@@ -184,7 +183,7 @@ export default function LandingPage() {
 
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight mb-6">
             One API for{" "}
-            <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
               500+ AI Models
             </span>
           </h1>
@@ -244,7 +243,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
-              <div className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-1">
+              <div className="text-3xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent mb-1">
                 {stat.dynamic && modelCount > 0 ? `${modelCount}+` : stat.value}
               </div>
               <div className="text-sm text-muted-foreground">{stat.label}</div>
@@ -333,7 +332,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="relative overflow-hidden border-t border-border bg-[radial-gradient(circle_at_18%_0%,color-mix(in_oklch,var(--color-primary)_20%,transparent),transparent_28rem),linear-gradient(180deg,color-mix(in_oklch,var(--color-card)_62%,transparent),var(--color-background))] px-6">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-primary/70 to-transparent" />
         <div className="mx-auto grid max-w-6xl gap-10 py-14 md:grid-cols-[1.2fr_.8fr_.8fr]">
           <div className="space-y-5">
             <Link href="/" className="inline-flex items-center gap-3">

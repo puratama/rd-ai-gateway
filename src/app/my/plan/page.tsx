@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 type UserPackage = {
   id: string;
@@ -42,8 +43,6 @@ type MyPlanData = {
   balance: number;
 };
 
-const fmtRupiah = (n: number) =>
-  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 const fmtNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
 const fmtDate = (d: string) =>
   d ? new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -159,7 +158,7 @@ export default function MyPlanPage() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Wallet className="h-4 w-4 text-blue-500" /> Saldo Wallet
                     </div>
-                    <div className="mt-3 text-3xl font-semibold tabular-nums">{fmtRupiah(data!.balance)}</div>
+                    <div className="mt-3 text-3xl font-semibold tabular-nums">{formatCurrency(data!.balance)}</div>
                     <Link href="/my/wallet" className={cn(buttonVariants({ variant: "link", size: "sm" }), "gap-1 px-0 text-xs")}>
                       Top up <ArrowRight className="h-3 w-3" />
                     </Link>
@@ -196,7 +195,7 @@ export default function MyPlanPage() {
                               <div>
                                 <p className="text-sm font-semibold">{p.plan.name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {fmtRupiah(p.plan.price)} · berlaku hingga {fmtDate(p.expiresAt)}
+                                  {formatCurrency(p.plan.price)} · berlaku hingga {fmtDate(p.expiresAt)}
                                 </p>
                               </div>
                               <StatusBadge status={p.status} />

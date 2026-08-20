@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CardGridSkeleton, StatsCardSkeleton, ChartSkeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import AppShell from "@/components/layout/AppShell";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 interface AdminStats {
   overview: { totalKeys: number; activeKeys: number; usedKeys: number; totalRequests: number; totalTokens: number; todayTokens: number; todayRequests: number };
@@ -52,8 +53,6 @@ function AdminPageContent() {
     return n.toLocaleString();
   };
 
-  const formatRupiah = (n: number) =>
-    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
 
   if (loading) {
     return (
@@ -137,7 +136,7 @@ function AdminPageContent() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{formatRupiah(stats.revenue.totalRevenue)}</div>
+                  <div className="text-2xl font-bold">{formatCurrency(stats.revenue.totalRevenue)}</div>
                   <p className="text-xs text-muted-foreground">{stats.revenue.completedPayments} payments</p>
                 </CardContent>
               </Card>
@@ -155,8 +154,8 @@ function AdminPageContent() {
                     />
                   ) : (
                     <>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Total Revenue</span><span className="font-semibold">{formatRupiah(stats.revenue.totalRevenue)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="text-amber-500">{formatRupiah(stats.revenue.pendingRevenue)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Total Revenue</span><span className="font-semibold">{formatCurrency(stats.revenue.totalRevenue)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="text-amber-500">{formatCurrency(stats.revenue.pendingRevenue)}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">Completed</span><span className="text-emerald-500">{stats.revenue.completedPayments}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">Pending Payments</span><span className="text-amber-500">{stats.revenue.pendingPayments}</span></div>
                     </>
@@ -174,8 +173,8 @@ function AdminPageContent() {
                     />
                   ) : (
                     <>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Package Purchase</span><span className="font-semibold">{formatRupiah(stats.revenue.byType?.package ?? 0)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Wallet Topup</span><span className="font-semibold">{formatRupiah(stats.revenue.byType?.topup ?? 0)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Package Purchase</span><span className="font-semibold">{formatCurrency(stats.revenue.byType?.package ?? 0)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Wallet Topup</span><span className="font-semibold">{formatCurrency(stats.revenue.byType?.topup ?? 0)}</span></div>
                     </>
                   )}
                 </CardContent>

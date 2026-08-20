@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { Tabs } from "@/components/ui/tabs";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 interface PaymentRecord {
   id: string;
@@ -24,11 +25,6 @@ interface PaymentRecord {
   user: { id: string; email: string; name: string | null };
 }
 
-const rupiah = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  minimumFractionDigits: 0,
-});
 
 function statusLabel(status: string) {
   switch (status) {
@@ -202,7 +198,7 @@ export default function AdminPaymentsPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Jumlah</span>
                   <span className="font-semibold text-primary tabular-nums">
-                    {rupiah.format(detail.amount)}
+                    {formatCurrency(detail.amount)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">

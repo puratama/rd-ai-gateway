@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 type BalanceResponse = { balance: number };
 type TopupResponse = {
@@ -55,7 +56,7 @@ declare global {
 }
 
 const presets = [10000, 25000, 50000, 100000, 250000];
-const rupiah = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+
 
 function parseBilling(input: BillingResponse): BillingRecord[] {
   if (Array.isArray(input)) return input;
@@ -343,7 +344,7 @@ export default function WalletPage() {
                   <Skeleton className="h-9 w-44" />
                 </div>
               ) : (
-                <div className="mt-3 text-3xl font-semibold tabular-nums">{rupiah.format(balance)}</div>
+                <div className="mt-3 text-3xl font-semibold tabular-nums">{formatCurrency(balance)}</div>
               )}
               {error && <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
               {message && <p className="mt-4 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground">{message}</p>}
@@ -366,7 +367,7 @@ export default function WalletPage() {
                         setQrisPayment(null);
                       }}
                     >
-                      {rupiah.format(value)}
+                      {formatCurrency(value)}
                     </Button>
                   ))}
                 </div>
@@ -421,7 +422,7 @@ export default function WalletPage() {
                           <p className="mt-1 text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString("id-ID")}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold">{rupiah.format(item.amount)}</p>
+                          <p className="text-sm font-semibold">{formatCurrency(item.amount)}</p>
                           <p className="mt-1 text-xs uppercase text-muted-foreground">{item.status}</p>
                         </div>
                       </div>
@@ -494,7 +495,7 @@ export default function WalletPage() {
                     }
                   />
                   <div className="text-center">
-                    <p className="text-sm font-medium">{rupiah.format(qrisPayment.amount)}</p>
+                    <p className="text-sm font-medium">{formatCurrency(qrisPayment.amount)}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">Order: {qrisPayment.orderId}</p>
                   </div>
                   <a

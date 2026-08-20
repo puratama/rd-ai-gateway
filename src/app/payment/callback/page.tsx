@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 type PaymentStatus = "success" | "pending" | "failed" | "cancelled" | "unknown";
 
@@ -26,11 +27,6 @@ type ConfirmResponse = {
 
 const REDIRECT_SECONDS = 5;
 
-const rupiah = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
 
 function normalizeStatus(raw: string | null): PaymentStatus {
   const value = (raw || "").toLowerCase();
@@ -180,7 +176,7 @@ function PaymentCallbackContent() {
             {status === "success" && balance !== null && (
               <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
                 <p className="text-xs text-muted-foreground">Saldo wallet saat ini</p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight">{rupiah.format(balance)}</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight">{formatCurrency(balance)}</p>
               </div>
             )}
 

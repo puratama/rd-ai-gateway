@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import Link from "next/link";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { formatCurrency } from "@/components/ui/format-currency";
 
 interface CatalogPlan {
   id: string;
@@ -32,8 +33,6 @@ interface CatalogPlan {
   };
 }
 
-const fmtRupiah = (n: number) =>
-  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 const fmtNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
 
 function FeatureRow({ icon, label, enabled }: { icon: React.ReactNode; label: string; enabled: boolean }) {
@@ -126,7 +125,7 @@ export default function PlanPage() {
             </div>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Wallet className="h-4 w-4" /> Saldo: {fmtRupiah(balance)}
+                <Wallet className="h-4 w-4" /> Saldo: {formatCurrency(balance)}
               </span>
               <Link href="/my/wallet">
                 <Button variant="outline" size="sm">Top up</Button>
@@ -188,7 +187,7 @@ export default function PlanPage() {
                       <div>
                         <p className="text-[10px] font-medium tracking-widest text-muted-foreground uppercase">Harga</p>
                         <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground tabular-nums">
-                          {plan.price === 0 ? "Gratis" : fmtRupiah(plan.price)}
+                          {plan.price === 0 ? "Gratis" : formatCurrency(plan.price)}
                         </p>
                       </div>
 
@@ -246,9 +245,9 @@ export default function PlanPage() {
             <DialogDescription>
               Beli paket <span className="font-medium text-foreground">{confirmPlan?.name}</span> seharga{" "}
               <span className="font-medium text-foreground">
-                {confirmPlan?.price === 0 ? "Gratis" : fmtRupiah(confirmPlan?.price ?? 0)}
+                {confirmPlan?.price === 0 ? "Gratis" : formatCurrency(confirmPlan?.price ?? 0)}
               </span>
-              ? Biaya akan dipotong langsung dari saldo wallet kamu (saldo saat ini: {fmtRupiah(balance)}).
+              ? Biaya akan dipotong langsung dari saldo wallet kamu (saldo saat ini: {formatCurrency(balance)}).
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

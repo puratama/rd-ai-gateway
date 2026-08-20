@@ -1,5 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+
+async function requireSuperadmin() {
+  const session = await getSession();
+  return session?.role === "superadmin";
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    if (!(await requireSuperadmin())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = (await request.json()) as { userId?: unknown; amount?: unknown };
+    const userId = typeof body.userId === "string" ? body.userId : "";
+    const amount = typeof body.amount === "number" ? body.amount : Number(body.amount);
+    if (!userId || !Number.isFinite(amount) || amount === 0) {
+      return NextResponse.json({ error: "userId and a non-zero amount are required" }, { status: 400 });
+    }
+
+    const wallet = await prisma.wallet.upsert({
+      where: { userId },
+      update: { balance: { increment: amount } },
+      create: { userId, balance: amount },
+    });
+    return NextResponse.json({ balance: Number(wallet.balance) });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
