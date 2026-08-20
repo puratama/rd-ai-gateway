@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import AuthBrand from "@/components/auth/AuthBrand";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -29,7 +30,7 @@ export default function RegisterPage() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal kirim ulang email");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "Gagal kirim ulang email"));
       toast.success(data.message || "Email verifikasi sudah dikirim ulang.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal kirim ulang email");
@@ -51,7 +52,7 @@ export default function RegisterPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Registration failed");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "Registration failed"));
 
       // Don't auto-login — user must verify email first
       setRegistered(true);

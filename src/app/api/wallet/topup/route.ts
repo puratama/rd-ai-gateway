@@ -1,39 +1,20 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { createTransaction } from "@/lib/payment-gateway";
-
-async function resolveUser(request: NextRequest) {
-  const token = request.headers.get("authorization")?.replace("Bearer ", "");
-  if (token) {
-    const { hashApiKey } = await import("@/lib/db/api-keys");
-    const apiKey = await prisma.apiKey.findFirst({
-      where: { isActive: true, OR: [{ keyHash: hashApiKey(token) }, { key: token }] },
-      include: { user: true },
-    });
-    if (apiKey) return apiKey.user;
-  }
-  const session = await getSession();
-  if (session) {
-    const user = await prisma.user.findUnique({ where: { id: session.sub } });
-    return user;
-  }
-  return null;
-}
+import { apiError, corsOptions, resolvePublicUser, withPublicCors } from "@/lib/public-api";
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await resolveUser(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const identity = await resolvePublicUser(request);
+    if (!identity) return apiError("Unauthorized", 401, "invalid_api_key");
+    const user = identity.user;
 
     const body = await request.json();
     const amount = Number(body.amount);
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      return NextResponse.json({ error: "amount must be > 0" }, { status: 400 });
+      return apiError("amount must be > 0", 400, "invalid_amount");
     }
 
     const orderId = `TOPUP-${randomUUID()}-${Date.now()}`;
@@ -72,7 +53,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({
+      return withPublicCors(NextResponse.json({
         billing,
         transaction: {
           token: transaction.token,
@@ -82,21 +63,19 @@ export async function POST(request: NextRequest) {
           qrDataUrl: transaction.qrDataUrl,
           orderId,
         },
-      });
+      }));
     } catch (e) {
       // Hapus billing record yang tidak berguna
       await prisma.billingRecord.delete({ where: { id: billing.id } }).catch(() => {});
 
       const msg = e instanceof Error ? e.message : "Payment gateway not available";
-      return NextResponse.json(
-        { error: msg },
-        { status: 503 }
-      );
+      return apiError(msg, 503, "provider_unavailable", "server_error");
     }
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : "Internal server error", 500, "internal_error", "server_error");
   }
+}
+
+export function OPTIONS() {
+  return corsOptions();
 }

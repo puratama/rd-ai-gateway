@@ -1,23 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { handlePaidBilling } from "@/lib/billing-fulfillment";
+import { apiError, corsOptions, resolvePublicUser, withPublicCors } from "@/lib/public-api";
 import { notifyPaymentPending } from "@/lib/telegram";
 import { getTransactionStatus, mapTransactionStatus, initMidtrans } from "@/lib/midtrans";
-
-async function resolveUserId(request: NextRequest) {
-  const token = request.headers.get("authorization")?.replace("Bearer ", "");
-  if (token) {
-    const { hashApiKey } = await import("@/lib/db/api-keys");
-    const apiKey = await prisma.apiKey.findFirst({
-      where: { isActive: true, OR: [{ keyHash: hashApiKey(token) }, { key: token }] },
-      select: { userId: true },
-    });
-    if (apiKey) return apiKey.userId;
-  }
-  const session = await getSession();
-  return session?.sub ?? null;
-}
 
 /**
  * Confirm a pending topup after client-side payment success.
@@ -26,16 +12,15 @@ async function resolveUserId(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = await resolveUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const identity = await resolvePublicUser(request);
+    if (!identity) return apiError("Unauthorized", 401, "invalid_api_key");
+    const userId = identity.user.id;
 
     const body = await request.json().catch(() => ({}));
     const orderId = typeof body.orderId === "string" ? body.orderId : null;
 
     if (!orderId) {
-      return NextResponse.json({ error: "orderId required" }, { status: 400 });
+      return apiError("orderId required", 400, "invalid_request");
     }
 
     const billing = await prisma.billingRecord.findFirst({
@@ -43,16 +28,16 @@ export async function POST(request: NextRequest) {
     });
 
     if (!billing) {
-      return NextResponse.json({ error: "Billing record not found" }, { status: 404 });
+      return apiError("Billing record not found", 404, "billing_not_found");
     }
 
     // Already paid — return balance (idempotent)
     if (billing.status === "paid") {
       const wallet = await prisma.wallet.findUnique({ where: { userId } });
-      return NextResponse.json({
+      return withPublicCors(NextResponse.json({
         status: "paid",
         balance: wallet ? Number(wallet.balance) : 0,
-      });
+      }));
     }
 
     // QRIS merchant (static) has no PSP callback/status API — payment can only
@@ -73,10 +58,10 @@ export async function POST(request: NextRequest) {
       // Fire-and-forget: notify admins via Telegram bot (never block the user flow)
       await notifyPaymentPending(pending).catch(() => {});
 
-      return NextResponse.json({
+      return withPublicCors(NextResponse.json({
         status: pending.status,
         balance: wallet ? Number(wallet.balance) : 0,
-      });
+      }));
     }
 
     // Optional: verify with Midtrans if still pending
@@ -94,10 +79,10 @@ export async function POST(request: NextRequest) {
 
     if (!shouldFulfill) {
       const wallet = await prisma.wallet.findUnique({ where: { userId } });
-      return NextResponse.json({
+      return withPublicCors(NextResponse.json({
         status: billing.status,
         balance: wallet ? Number(wallet.balance) : 0,
-      });
+      }));
     }
 
     const updated = await prisma.billingRecord.update({
@@ -111,14 +96,15 @@ export async function POST(request: NextRequest) {
     }
 
     const wallet = await prisma.wallet.findUnique({ where: { userId } });
-    return NextResponse.json({
+    return withPublicCors(NextResponse.json({
       status: "paid",
       balance: wallet ? Number(wallet.balance) : 0,
-    });
+    }));
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : "Internal server error", 500, "internal_error", "server_error");
   }
+}
+
+export function OPTIONS() {
+  return corsOptions();
 }

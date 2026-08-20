@@ -26,6 +26,7 @@ import {
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { toast } from "sonner";
 
 interface Announcement {
@@ -90,7 +91,7 @@ function AdminAnnouncementsPageContent() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Save failed" }));
-        throw new Error(err.error || "Save failed");
+        throw new Error(getApiErrorMessage(err, "Save failed"));
       }
       setModalOpen(false);
       fetchAnnouncements();
@@ -107,7 +108,7 @@ function AdminAnnouncementsPageContent() {
       const res = await fetch(`/api/admin/announcements?id=${deletingId}`, { method: "DELETE" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Delete failed" }));
-        throw new Error(err.error || "Delete failed");
+        throw new Error(getApiErrorMessage(err, "Delete failed"));
       }
       setDeletingId(null);
       fetchAnnouncements();

@@ -11,6 +11,7 @@ export async function GET() {
       name: m.name,
       providerModelId: m.providerModelId,
       provider: m.provider,
+      maxOutputTokens: m.maxOutputTokens,
       sellPricePer1kPrompt: m.sellPricePer1kPrompt ? Number(m.sellPricePer1kPrompt) : null,
       sellPricePer1kCompletion: m.sellPricePer1kCompletion ? Number(m.sellPricePer1kCompletion) : null,
       isActive: m.isActive,
@@ -27,7 +28,15 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { modelId, name, providerModelId, provider, sellPricePer1kPrompt, sellPricePer1kCompletion } = body;
+    const {
+      modelId,
+      name,
+      providerModelId,
+      provider,
+      maxOutputTokens,
+      sellPricePer1kPrompt,
+      sellPricePer1kCompletion,
+    } = body;
 
     if (!modelId || !name || !provider) {
       return NextResponse.json({ error: "modelId, name, provider required" }, { status: 400 });
@@ -44,6 +53,7 @@ export async function POST(request: NextRequest) {
         name,
         providerModelId: providerModelId || null,
         provider,
+        maxOutputTokens: maxOutputTokens ?? null,
         sellPricePer1kPrompt: sellPricePer1kPrompt ?? null,
         sellPricePer1kCompletion: sellPricePer1kCompletion ?? null,
       },

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { corsOptions, withPublicCors } from "@/lib/public-api";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
       if (keyId) {
         const key = allKeys.find((item) => item.id === keyId);
         if (!key) return NextResponse.json({ error: "API key not found" }, { status: 404 });
-        return NextResponse.json(await getServerUsageSummary(key.userId, keyId));
+        return withPublicCors(NextResponse.json(await getServerUsageSummary(key.userId, keyId)));
       }
       const allRecords = await loadServerUsageRecords();
       return NextResponse.json({
@@ -46,15 +47,19 @@ export async function GET(request: NextRequest) {
     if (token) {
       const apiKey = await validateServerKey(token);
       if (apiKey) {
-        return NextResponse.json(await getServerUsageSummary(apiKey.userId, apiKey.id));
+        return withPublicCors(NextResponse.json(await getServerUsageSummary(apiKey.userId, apiKey.id)));
       }
     }
 
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return withPublicCors(NextResponse.json({ error: { message: "Unauthorized", type: "authentication_error", param: null, code: "invalid_api_key" } }, { status: 401 }));
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+    return withPublicCors(NextResponse.json(
+      { error: { message: error instanceof Error ? error.message : "Internal server error", type: "server_error", param: null, code: "internal_error" } },
       { status: 500 }
-    );
+    ));
   }
+}
+
+export function OPTIONS() {
+  return corsOptions();
 }

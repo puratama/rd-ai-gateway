@@ -82,14 +82,36 @@ export function findProvidersForModel(modelId: string): ProviderConfig[] {
 export async function findProvidersForModelAsync(modelId: string): Promise<ProviderConfig[]> {
   const providers = await getProvidersAsync();
   const id = modelId.toLowerCase();
+  let modelProvider: string | null = null;
 
-  return providers.filter((p) => {
-    // Aggregator always matches — it's an OpenAI-compatible proxy that handles model routing itself
-    if (p.apiKeyEnc) return true;
-    if (p.models.some((m) => m.toLowerCase() === id)) return true;
-    if (p.modelPrefixes.some((prefix) => id.startsWith(prefix))) return true;
-    return false;
-  });
+  try {
+    const { prisma } = await import("./db");
+    const model = await prisma.appModel.findUnique({
+      where: { modelId },
+      select: { provider: true },
+    });
+    modelProvider = model?.provider?.toLowerCase() || null;
+  } catch {
+    modelProvider = null;
+  }
+
+  const matchingProviders = modelProvider
+    ? providers.filter((p) => {
+        const providerName = p.name.toLowerCase();
+        const providerLabel = p.label.toLowerCase();
+        return providerName === modelProvider || providerLabel === modelProvider;
+      })
+    : [];
+
+  // Provider is a preference when the model stores an upstream vendor name
+  // (for example "groq") rather than the configured aggregator name.
+  const candidates = matchingProviders.length > 0 ? matchingProviders : providers;
+
+  return candidates.filter((p) =>
+    p.models.some((m) => m.toLowerCase() === id) ||
+    p.modelPrefixes.some((prefix) => id.startsWith(prefix)) ||
+    Boolean(p.apiKeyEnc)
+  );
 }
 
 // ─── Key Pool State (runtime, not persisted) ──────────────────────────────
@@ -228,6 +250,8 @@ export function shouldFallback(error: unknown): boolean {
   if (!error) return false;
   const msg = String(error instanceof Error ? error.message : error).toLowerCase();
   if (msg.includes("401") || msg.includes("unauthorized") || msg.includes("invalid api key")) return false;
+  if (msg.includes("upstream_proxy_error") && msg.includes("400")) return false;
+  if (msg.includes("400") || msg.includes("402") || msg.includes("403")) return false;
   if (msg.includes("fetch failed") || msg.includes("network") || msg.includes("econnrefused")) return true;
   if (msg.includes("500") || msg.includes("502") || msg.includes("503") || msg.includes("service unavailable")) return true;
   if (msg.includes("timeout") || msg.includes("timed out")) return true;

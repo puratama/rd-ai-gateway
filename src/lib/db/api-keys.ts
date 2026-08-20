@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "../db";
+import { getSiteSettings } from "@/lib/site-settings";
 
 // ====== Helpers ======
 
@@ -11,13 +12,13 @@ export function hashApiKey(key: string): string {
   return createHash("sha256").update(key).digest("hex");
 }
 
-export function maskApiKey(key: string | null): string {
-  if (!key) return "••••••••";
+export function maskApiKey(key: string | null, prefix?: string): string {
+  if (!key) return `${prefix ?? "xpgw_"}••••••••`;
   return key.length <= 12 ? `${key.slice(0, 4)}...` : `${key.slice(0, 8)}...${key.slice(-4)}`;
 }
 
-export function generateApiKey(): string {
-  return `xpgw_${randomBytes(32).toString("hex")}`;
+export function generateApiKey(prefix = "xpgw_"): string {
+  return `${prefix}${randomBytes(32).toString("hex")}`;
 }
 
 // ====== API Keys ======
@@ -37,14 +38,19 @@ export async function validateServerKey(key: string) {
   return prisma.apiKey.findFirst({
     where: {
       isActive: true,
-      OR: [{ keyHash: hashApiKey(normalizedKey) }, { key: normalizedKey }],
+      AND: [
+        { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+        { user: { status: "active" } },
+        { OR: [{ keyHash: hashApiKey(normalizedKey) }, { key: normalizedKey }] },
+      ],
     },
     include: { user: { include: { wallet: true } } },
   });
 }
 
 export async function createServerKey(name: string, email?: string) {
-  const secret = generateApiKey();
+  const settings = await getSiteSettings();
+  const secret = generateApiKey(settings.apiKeyPrefix);
   const user = await prisma.user.create({
     data: {
       email: email || `${name}-${Date.now()}@generated.local`,

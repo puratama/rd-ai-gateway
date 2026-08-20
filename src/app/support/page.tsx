@@ -39,6 +39,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { Tabs } from "@/components/ui/tabs";
 
 interface Message {
@@ -218,7 +219,7 @@ function SupportPageContent() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to submit" }));
-        throw new Error(err.error || "Failed to submit");
+        throw new Error(getApiErrorMessage(err, "Failed to submit"));
       }
       setOpen(false);
       setFilter("all");
@@ -240,7 +241,7 @@ function SupportPageContent() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to send" }));
-        throw new Error(err.error || "Failed to send");
+        throw new Error(getApiErrorMessage(err, "Failed to send"));
       }
       setReply("");
       await fetchTickets();

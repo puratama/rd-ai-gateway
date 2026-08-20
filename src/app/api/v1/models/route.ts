@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { corsOptions, withPublicCors } from "@/lib/public-api";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   // 0. Resolve user & plan from Authorization header or session
-  const { userId, plan } = await resolveUserPlan(request);
+  const { userId, plan, apiKey } = await resolveUserPlan(request);
 
   // 1. Fetch all active AppModels as base
   let models = await fetchAppModels();
 
   if (models.length === 0) {
-    return NextResponse.json({ data: [], fallbackAvailable: false });
+    return withPublicCors(NextResponse.json({ data: [], fallbackAvailable: false }));
   }
 
   // 2. Enrich display names from aggregator if available
@@ -23,10 +24,18 @@ export async function GET(request: NextRequest) {
     }));
   }
 
-  // 3. Filter by plan's allowedModels & allowedProviders
-  const filtered = plan ? filterByPlan(models, plan) : models;
+  if (!userId) {
+    return withPublicCors(NextResponse.json({ error: { message: "Authentication required", type: "authentication_error", param: null, code: "invalid_api_key" } }, { status: 401 }));
+  }
 
-  return NextResponse.json({ data: filtered, fallbackAvailable: true });
+  // 3. Apply plan restrictions first, then API key restrictions.
+  let filtered = plan ? filterByPlan(models, plan) : models;
+  if (apiKey && !apiKey.allModels) {
+    const allowed = new Set(apiKey.allowedModels.map((model) => model.toLowerCase()));
+    filtered = filtered.filter((model) => allowed.has(String(model.id).toLowerCase()));
+  }
+
+  return withPublicCors(NextResponse.json({ data: filtered, fallbackAvailable: true }));
 }
 
 // ─── Resolve user & plan ────────────────────────────────────────────
@@ -40,7 +49,7 @@ interface PlanInfo {
 
 async function resolveUserPlan(
   request: NextRequest
-): Promise<{ userId?: string; plan?: PlanInfo }> {
+): Promise<{ userId?: string; plan?: PlanInfo; apiKey?: { allModels: boolean; allowedModels: string[] } }> {
   try {
     const { prisma } = await import("@/lib/db");
 
@@ -49,14 +58,18 @@ async function resolveUserPlan(
     const apiKeyHeader = request.headers.get("x-api-key");
     if (authHeader || apiKeyHeader) {
       const token = apiKeyHeader || authHeader!.replace(/^Bearer\s+/i, "").trim();
-      const { hashApiKey } = await import("@/lib/db/api-keys");
-      const apiKey = await prisma.apiKey.findFirst({
-        where: { isActive: true, OR: [{ keyHash: hashApiKey(token) }, { key: token }] },
-        select: { userId: true },
-      });
+      const { validateServerKey } = await import("@/lib/db/api-keys");
+      const apiKey = await validateServerKey(token);
       if (apiKey) {
         const plan = await getUserPlan(prisma, apiKey.userId);
-        return { userId: apiKey.userId, plan };
+        return {
+          userId: apiKey.userId,
+          plan,
+          apiKey: {
+            allModels: apiKey.allModels,
+            allowedModels: apiKey.allowedModels,
+          },
+        };
       }
     }
 
@@ -208,12 +221,6 @@ async function fetchAggregatorModels(): Promise<Record<string, unknown>[]> {
   }
 }
 
-export async function OPTIONS() {
-  return NextResponse.json(null, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
-    },
-  });
+export function OPTIONS() {
+  return corsOptions();
 }

@@ -74,7 +74,10 @@ model ApiKey {
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   usageRecords UsageRecord[]
 
-  isActive    Boolean   @default(true)
+  isActive     Boolean   @default(true)
+  expiresAt    DateTime?
+  allModels    Boolean   @default(true)
+  allowedModels String[] @default([])
   usageCount  Int       @default(0)
   totalTokens Int       @default(0)
   lastUsed    DateTime?
@@ -82,6 +85,7 @@ model ApiKey {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([isActive, expiresAt])
 }
 
 // ====== Wallet ======
@@ -264,6 +268,7 @@ model AppModel {
   name      String
   provider  String
   providerModelId String?
+  maxOutputTokens Int?
 
   // Pricing — cost to us
   costPer1kPrompt     Decimal?

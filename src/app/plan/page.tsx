@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 interface CatalogPlan {
   id: string;
@@ -94,8 +95,11 @@ export default function PlanPage() {
         body: JSON.stringify({ planId }),
       });
       if (!res.ok) {
-        const err = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(err?.error ?? "Gagal membeli paket");
+        const err = (await res.json().catch(() => null)) as {
+          error?: string | { message?: string };
+        } | null;
+        throw new Error(getApiErrorMessage(err, "Gagal membeli paket"));
+
       }
       toast.success("Paket berhasil dibeli.");
       await loadBalance();

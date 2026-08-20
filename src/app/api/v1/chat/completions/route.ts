@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       const apiKey = await validateServerKey(token);
       if (!apiKey) {
         return new Response(
-          JSON.stringify({ error: "Invalid or inactive API key" }),
+          JSON.stringify({ error: { message: "Invalid or inactive API key", type: "authentication_error", param: null, code: "invalid_api_key" } }),
           { status: 401, headers: { "Content-Type": "application/json" } }
         );
       }
@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
     const pricedModel = await prisma.appModel.findUnique({
       where: { modelId: String(model) },
       select: {
+        modelId: true,
+        provider: true,
         isActive: true,
         sellPricePer1kPrompt: true,
         sellPricePer1kCompletion: true,
@@ -86,6 +88,29 @@ export async function POST(request: NextRequest) {
         JSON.stringify({ error: `Model "${model}" is not configured for billing` }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
+    }
+
+    if (apiKeyId) {
+      const { checkModelAccess } = await import("@/lib/db/quota");
+      if (!(await checkModelAccess(apiKeyId, String(model)))) {
+        return new Response(
+          JSON.stringify({ error: `Model "${model}" is not enabled for this API key or plan` }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const apiKey = await prisma.apiKey.findUnique({
+        where: { id: apiKeyId },
+        select: { allModels: true, allowedModels: true },
+      });
+      const allowedModels = apiKey?.allowedModels ?? [];
+      const modelAllowed = apiKey?.allModels !== false || allowedModels.includes(pricedModel.modelId);
+      if (!modelAllowed) {
+        return new Response(
+          JSON.stringify({ error: `Model "${model}" is not enabled for this API key` }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const { rateLimit } = await import("@/lib/rate-limit");
@@ -147,6 +172,25 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.success || !result.data) {
+      if (userId) {
+        try {
+          const { releaseUsageHold } = await import("@/lib/db/quota");
+          const billing = request as unknown as Record<string, unknown>;
+          const tier = billing._billingTier as "payg" | "package" | undefined;
+          if (tier) {
+            await releaseUsageHold(userId, {
+              tier,
+              packageId: billing._billingPackageId as string | undefined,
+              pricing: billing._billingPricing as import("@/lib/db/quota").ModelPricing,
+              heldTokens: billing._billingHeldTokens as number | undefined,
+              heldAmount: billing._billingHeldAmount as number | undefined,
+            });
+          }
+        } catch (error) {
+          console.error("[Billing-Hold-Release-Error]:", error);
+        }
+      }
+
       return new Response(
         JSON.stringify({
           error: result.error || "All providers failed",
@@ -213,21 +257,27 @@ export async function POST(request: NextRequest) {
             streamReader.releaseLock();
           }
 
-          // Deduct cost after stream completes
-          if (userId && !streamError && fullText) {
+          // Settle or release the hold after the stream completes.
+          if (userId) {
             try {
-              const { settleUsage } = await import("@/lib/db/quota");
+              const { settleUsage, releaseUsageHold } = await import("@/lib/db/quota");
               const promptTokens = estimateTokens(JSON.stringify(messages));
               const completionTokens = estimateTokens(fullText);
-              const tier = (request as unknown as Record<string, unknown>)._billingTier as string;
-              if (tier && tier !== "free") {
-                await settleUsage(userId, model, promptTokens, completionTokens, {
-                  tier: tier as "payg" | "package",
-                  packageId: (request as unknown as Record<string, unknown>)._billingPackageId as string | undefined,
-                  pricing: (request as unknown as Record<string, unknown>)._billingPricing as import("@/lib/db/quota").ModelPricing,
-                  heldTokens: (request as unknown as Record<string, unknown>)._billingHeldTokens as number | undefined,
-                  heldAmount: (request as unknown as Record<string, unknown>)._billingHeldAmount as number | undefined,
-                });
+              const billing = request as unknown as Record<string, unknown>;
+              const tier = billing._billingTier as "payg" | "package" | undefined;
+              if (tier) {
+                const holdInfo = {
+                  tier,
+                  packageId: billing._billingPackageId as string | undefined,
+                  pricing: billing._billingPricing as import("@/lib/db/quota").ModelPricing,
+                  heldTokens: billing._billingHeldTokens as number | undefined,
+                  heldAmount: billing._billingHeldAmount as number | undefined,
+                };
+                if (streamError) {
+                  await releaseUsageHold(userId, holdInfo);
+                } else {
+                  await settleUsage(userId, model, promptTokens, completionTokens, holdInfo);
+                }
               }
             } catch (e: unknown) {
               console.error("[Billing-Stream-Deduction-Error]:", e instanceof Error ? e.message : e);
@@ -235,8 +285,8 @@ export async function POST(request: NextRequest) {
               // Stream already closed, so post-deduct cannot cancel stream but must be audited.
             }
 
-            // Log usage
-            try {
+            // Log usage only for a completed provider response.
+            if (!streamError) try {
               const { addServerUsageRecord } = await import("@/lib/server-store");
               await addServerUsageRecord({
                 userId,

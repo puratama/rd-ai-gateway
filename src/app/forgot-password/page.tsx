@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import AuthBrand from "@/components/auth/AuthBrand";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -28,7 +29,7 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal mengirim email");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "Gagal mengirim email"));
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal mengirim email");

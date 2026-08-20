@@ -14,13 +14,14 @@ import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 type PaymentStatus = "success" | "pending" | "failed" | "cancelled" | "unknown";
 
 type ConfirmResponse = {
   status?: string;
   balance?: number;
-  error?: string;
+  error?: unknown;
 };
 
 const REDIRECT_SECONDS = 5;
@@ -114,7 +115,7 @@ function PaymentCallbackContent() {
       });
       const data = (await res.json().catch(() => ({}))) as ConfirmResponse;
       if (!res.ok) {
-        throw new Error(data.error || "Gagal mengonfirmasi pembayaran.");
+        throw new Error(getApiErrorMessage(data, "Gagal mengonfirmasi pembayaran."));
       }
 
       if (typeof data.balance === "number") setBalance(data.balance);

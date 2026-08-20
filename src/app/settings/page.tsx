@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { User, Shield, CheckCircle2, AlertCircle, Settings as SettingsIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { Tabs } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,7 +66,7 @@ function ProfileTab() {
         setFeedback({ type: "success", message: "Profile updated successfully." });
       } else {
         const data = await res.json().catch(() => ({}));
-        setFeedback({ type: "error", message: data.error || "Failed to update profile." });
+        setFeedback({ type: "error", message: getApiErrorMessage(data, "Failed to update profile.") });
       }
     } catch {
       setFeedback({ type: "error", message: "Network error. Please try again." });
@@ -154,7 +155,7 @@ function SecurityTab() {
         setConfirmPassword("");
       } else {
         const data = await res.json().catch(() => ({}));
-        setFeedback({ type: "error", message: data.error || "Failed to change password." });
+        setFeedback({ type: "error", message: getApiErrorMessage(data, "Failed to change password.") });
       }
     } catch {
       setFeedback({ type: "error", message: "Network error. Please try again." });

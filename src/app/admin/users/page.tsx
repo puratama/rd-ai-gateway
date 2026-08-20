@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { FormSelect } from "@/components/ui/form-select";
 import { toast } from "sonner";
 
@@ -175,7 +176,7 @@ export default function AdminUsersPage() {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      toast.error(data.error || "Failed to update user");
+      toast.error(getApiErrorMessage(data, "Failed to update user"));
       return;
     }
     if (modalUser?.id === id) {

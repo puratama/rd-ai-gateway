@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import AuthBrand from "@/components/auth/AuthBrand";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function LoginPage() {
       if (!res.ok) {
         // 403 = email belum diverifikasi → tawarkan kirim ulang
         if (res.status === 403) setNeedsVerification(true);
-        throw new Error(data.error || "Login failed");
+        throw new Error(getApiErrorMessage(data, "Login failed"))
       }
 
       localStorage.setItem("xperimne-api-key", typeof data.apiKey === "string" ? data.apiKey : data.apiKey?.key || "");
@@ -68,7 +69,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal kirim ulang email");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "Gagal kirim ulang email"));
       toast.success(data.message || "Email verifikasi sudah dikirim ulang.");
       setError("");
       setNeedsVerification(false);

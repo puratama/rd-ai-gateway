@@ -8,6 +8,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { Tabs } from "@/components/ui/tabs";
 
 interface PaymentRecord {
@@ -83,7 +84,7 @@ export default function AdminPaymentsPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Gagal memproses" }));
-        throw new Error(err.error || "Gagal memproses");
+        throw new Error(getApiErrorMessage(err, "Gagal memproses"));
       }
       toast.success(decision === "approve" ? "Pembayaran disetujui, saldo ditambahkan" : "Pembayaran ditolak");
       setRecords((prev) => prev.filter((r) => r.id !== id));

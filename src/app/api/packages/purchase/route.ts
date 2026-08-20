@@ -1,28 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { deductWallet } from "@/lib/server-store";
-import { getSession } from "@/lib/auth";
-
-async function resolveUserId(request: NextRequest): Promise<string | null> {
-  const token = request.headers.get("authorization")?.replace("Bearer ", "");
-  if (token) {
-    const { hashApiKey } = await import("@/lib/db/api-keys");
-    const apiKey = await prisma.apiKey.findFirst({
-      where: { isActive: true, OR: [{ keyHash: hashApiKey(token) }, { key: token }] },
-      select: { userId: true },
-    });
-    if (apiKey) return apiKey.userId;
-  }
-  const session = await getSession();
-  return session ? session.sub : null;
-}
+import { apiError, corsOptions, resolvePublicUser, withPublicCors } from "@/lib/public-api";
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await resolveUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const identity = await resolvePublicUser(request);
+    if (!identity) return apiError("Unauthorized", 401, "invalid_api_key");
+    const userId = identity.user.id;
 
     const body = await request.json();
     const { planId, expiresAt } = body as { planId: string; expiresAt?: string };
@@ -37,35 +21,41 @@ export async function POST(request: NextRequest) {
     }
 
     const price = Number(plan.price);
-    const deducted = await deductWallet(userId, price);
-    if (!deducted) {
-      return NextResponse.json({ error: "Insufficient balance" }, { status: 402 });
-    }
-
     const expiry = expiresAt ? new Date(expiresAt) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    const userPackage = await prisma.userPackage.create({
-      data: {
-        userId,
-        planId,
-        tokensTotal: plan.maxTokensPerPeriod,
-        tokensRemaining: plan.maxTokensPerPeriod,
-        expiresAt: expiry,
-      },
+    const userPackage = await prisma.$transaction(async (tx) => {
+      const deducted = await tx.wallet.updateMany({
+        where: { userId, balance: { gte: price } },
+        data: { balance: { decrement: price } },
+      });
+      if (deducted.count !== 1) return null;
+
+      return tx.userPackage.create({
+        data: {
+          userId,
+          planId,
+          tokensTotal: plan.maxTokensPerPeriod,
+          tokensRemaining: plan.maxTokensPerPeriod,
+          expiresAt: expiry,
+        },
+      });
     });
 
-    return NextResponse.json({
+    if (!userPackage) return apiError("Insufficient balance", 402, "insufficient_balance", "billing_error");
+
+    return withPublicCors(NextResponse.json({
       id: userPackage.id,
       planId,
       tokensTotal: plan.maxTokensPerPeriod,
       tokensRemaining: plan.maxTokensPerPeriod,
       pricePaid: price,
       expiresAt: userPackage.expiresAt,
-    }, { status: 201 });
+    }, { status: 201 }));
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : "Internal server error", 500, "internal_error", "server_error");
   }
+}
+
+export function OPTIONS() {
+  return corsOptions();
 }

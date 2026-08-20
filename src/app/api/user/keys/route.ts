@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { generateApiKey, hashApiKey, maskApiKey } from "@/lib/db/api-keys";
+import { getSiteSettings } from "@/lib/site-settings";
 
-function toPublicKey(key: { id: string; key: string | null; name: string; createdAt: Date; lastUsed: Date | null; isActive: boolean; usageCount: number; totalTokens: number }) {
-  return { ...key, key: maskApiKey(key.key), displayKey: maskApiKey(key.key) };
+function toPublicKey(
+  key: { id: string; key: string | null; name: string; createdAt: Date; lastUsed: Date | null; isActive: boolean; expiresAt: Date | null; allModels: boolean; allowedModels: string[]; usageCount: number; totalTokens: number },
+  prefix: string
+) {
+  const maskedKey = maskApiKey(key.key, prefix);
+  return { ...key, key: maskedKey, displayKey: maskedKey };
 }
 
 export async function GET() {
@@ -13,6 +18,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const settings = await getSiteSettings();
   const keys = await prisma.apiKey.findMany({
     where: { userId: session.sub },
     select: {
@@ -22,60 +28,61 @@ export async function GET() {
       createdAt: true,
       lastUsed: true,
       isActive: true,
+      expiresAt: true,
+      allModels: true,
+      allowedModels: true,
       usageCount: true,
       totalTokens: true,
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ keys: keys.map(toPublicKey) });
+  return NextResponse.json({
+    keys: keys.map((key) => toPublicKey(key, settings.apiKeyPrefix)),
+  });
 }
 
 export async function POST(request: NextRequest) {
+  // #region debug-point A:post-entry
+  fetch("http://127.0.0.1:7777/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: "api-key-create-500", runId: "pre-fix", hypothesisId: "A", location: "src/app/api/user/keys/route.ts:POST", msg: "[DEBUG] API key create entered", data: { hasContentType: !!request.headers.get("content-type") }, ts: Date.now() }) }).catch(() => {});
+  // #endregion
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await request.json().catch(() => ({}));
-  const { name, regenerateId } = body as { name?: string; regenerateId?: string };
+  const { name, isActive, expiresAt, allModels, allowedModels } = body as {
+    name?: string;
+    isActive?: boolean;
+    expiresAt?: string | null;
+    allModels?: boolean;
+    allowedModels?: string[];
+  };
 
-  if (regenerateId) {
-    // Regenerate specific key — revoke old, create new with same name
-    const old = await prisma.apiKey.findFirst({
-      where: { id: regenerateId, userId: session.sub },
-    });
-    if (!old) {
-      return NextResponse.json({ error: "API key not found" }, { status: 404 });
-    }
-    await prisma.apiKey.update({
-      where: { id: regenerateId },
-      data: { isActive: false },
-    });
-    const secret = generateApiKey();
-    const newKey = await prisma.apiKey.create({
-      data: {
-        key: null,
-        keyHash: hashApiKey(secret),
-        name: name || old.name,
-        userId: session.sub,
-      },
-    });
-    return NextResponse.json({ key: { ...toPublicKey(newKey), secret } }, { status: 201 });
-  }
+  const settings = await getSiteSettings();
+  const secret = generateApiKey(settings.apiKeyPrefix);
+  // #region debug-point B:payload
+  fetch("http://127.0.0.1:7777/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: "api-key-create-500", runId: "pre-fix", hypothesisId: "B", location: "src/app/api/user/keys/route.ts:POST", msg: "[DEBUG] API key create payload parsed", data: { hasName: !!name, isActive, hasExpiry: !!expiresAt, expiryValid: !expiresAt || !Number.isNaN(new Date(expiresAt).getTime()), allModels, allowedModelsCount: Array.isArray(allowedModels) ? allowedModels.length : -1 }, ts: Date.now() }) }).catch(() => {});
+  // #endregion
 
-  // Create new key
-  const secret = generateApiKey();
   const newKey = await prisma.apiKey.create({
     data: {
       key: null,
       keyHash: hashApiKey(secret),
       name: name || "Default Key",
+      isActive: isActive ?? true,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      allModels: allModels ?? true,
+      allowedModels: Array.isArray(allowedModels) ? allowedModels : [],
       userId: session.sub,
     },
   });
 
-  return NextResponse.json({ key: { ...toPublicKey(newKey), secret } }, { status: 201 });
+  return NextResponse.json(
+    { key: { ...toPublicKey(newKey, settings.apiKeyPrefix), secret } },
+    { status: 201 }
+  );
 }
 
 export async function PUT(request: NextRequest) {
@@ -85,7 +92,14 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id, name, isActive } = body as { id: string; name?: string; isActive?: boolean };
+  const { id, name, isActive, expiresAt, allModels, allowedModels } = body as {
+    id: string;
+    name?: string;
+    isActive?: boolean;
+    expiresAt?: string | null;
+    allModels?: boolean;
+    allowedModels?: string[];
+  };
 
   const key = await prisma.apiKey.findFirst({
     where: { id, userId: session.sub },
@@ -97,7 +111,11 @@ export async function PUT(request: NextRequest) {
   const data: Record<string, unknown> = {};
   if (name !== undefined) data.name = name;
   if (isActive !== undefined) data.isActive = isActive;
+  if (expiresAt !== undefined) data.expiresAt = expiresAt ? new Date(expiresAt) : null;
+  if (allModels !== undefined) data.allModels = allModels;
+  if (allowedModels !== undefined) data.allowedModels = allowedModels;
 
+  const settings = await getSiteSettings();
   const updated = await prisma.apiKey.update({
     where: { id },
     data,
@@ -108,12 +126,15 @@ export async function PUT(request: NextRequest) {
       createdAt: true,
       lastUsed: true,
       isActive: true,
+      expiresAt: true,
+      allModels: true,
+      allowedModels: true,
       usageCount: true,
       totalTokens: true,
     },
   });
 
-  return NextResponse.json({ key: toPublicKey(updated) });
+  return NextResponse.json({ key: toPublicKey(updated, settings.apiKeyPrefix) });
 }
 
 export async function DELETE(request: NextRequest) {

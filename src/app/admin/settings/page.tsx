@@ -17,6 +17,7 @@ import {
   Send,
 } from "lucide-react";
 import type { SiteSettings } from "@/lib/site-settings";
+import { getApiErrorMessage } from "@/lib/api-error";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -340,7 +341,7 @@ function PaymentGatewaySection() {
                   });
               if (!res.ok) {
                 const err = await res.json().catch(() => ({ error: "Save failed" }));
-                throw new Error(err.error || "Save failed");
+                throw new Error(getApiErrorMessage(err, "Save failed"));
               }
               setShowCreate(false);
               setEditing(null);
@@ -670,7 +671,7 @@ function TelegramSection() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Save failed" }));
-        throw new Error(err.error || "Save failed");
+        throw new Error(getApiErrorMessage(err, "Save failed"));
       }
       const data = await res.json();
       setHasToken(data.hasToken);

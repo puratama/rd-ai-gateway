@@ -31,6 +31,14 @@ import { runWithTrace, addHop, formatTrace, type TraceContext } from "./tracing"
 import { isHealthy } from "./health-check";
 import { prisma } from "./db";
 
+async function getModelMaxOutputTokens(modelId: string) {
+  const model = await prisma.appModel.findUnique({
+    where: { modelId },
+    select: { maxOutputTokens: true },
+  });
+  return model?.maxOutputTokens ?? null;
+}
+
 export interface RouterRequest {
   model: string;
   messages: { role: string; content: unknown }[];
@@ -156,7 +164,12 @@ async function tryProviderRaw(
     stream: req.stream || false,
   };
   if (req.temperature !== undefined) body.temperature = req.temperature;
-  if (req.max_tokens !== undefined) body.max_tokens = req.max_tokens;
+  if (req.max_tokens !== undefined) {
+    const configuredLimit = await getModelMaxOutputTokens(req.model);
+    body.max_tokens = configuredLimit === null
+      ? req.max_tokens
+      : Math.min(req.max_tokens, configuredLimit);
+  }
   if (req.tools !== undefined) body.tools = req.tools;
   if (req.tool_choice !== undefined) body.tool_choice = req.tool_choice;
   if (req.response_format !== undefined) body.response_format = req.response_format;
@@ -358,11 +371,12 @@ export async function routeRequest(
       addHop({ provider: provider.name, model: effectiveModel, status: "attempt" });
 
       try {
+        const providerModel = usedModel !== effectiveModel ? undefined : apiModel;
         const { response, keyId } = await tryProviderWithRetry(provider, {
           ...req,
-          model: effectiveModel,
+          model: usedModel,
           messages: compressedMessages,
-        }, signal, undefined, apiModel);
+        }, signal, undefined, providerModel);
 
         const latency = Date.now() - providerStart;
 
@@ -441,7 +455,9 @@ export async function routeRequest(
 
         // Non-fallbackable errors — stop here
         if (!shouldFallback({ message: errorMsg })) {
-          return { success: false, error: errorMsg, status: response.status >= 400 && response.status < 600 ? response.status : 502, provider: provider.name, attempts, trace: trace || undefined, compression: compressionResult };
+          const nestedStatus = errorMsg.match(/upstream_proxy_error[\s\S]*?HTTP (\d{3})/i)?.[1];
+          const status = nestedStatus ? Number(nestedStatus) : response.status;
+          return { success: false, error: errorMsg, status: status >= 400 && status < 600 ? status : 502, provider: provider.name, attempts, trace: trace || undefined, compression: compressionResult };
         }
 
       } catch (error: unknown) {
@@ -522,8 +538,9 @@ function validateMessages(
 
     if (!msg.role) return `messages[${i}]: missing required field 'role'`;
 
-    // tool messages should have tool_call_id per spec, but some clients omit it
-    // upstream provider will reject if actually required
+    if (msg.role === "tool" && !msg.tool_call_id) {
+      return `messages[${i}]: 'tool_call_id' is required for tool messages`;
+    }
 
     // non-tool messages must have content (assistant can have null content with tool_calls)
     const requiresContent = msg.role !== "tool" && !(msg.role === "assistant" && msg.tool_calls);
@@ -539,12 +556,20 @@ function validateMessages(
     // Content can be string or array (multimodal) — pass through to upstream provider
   }
 
-  // If tools are provided, check there's at least one assistant message with tool_calls
-  if (tools && tools.length > 0) {
-    const hasToolCall = messages.some(
-      (m) => m.role === "assistant" && m.tool_calls
-    );
-    // Not an error if missing — tools can be defined without being called
+  const toolCallIds = new Set<string>();
+  for (const message of messages) {
+    if (message.role === "assistant" && Array.isArray(message.tool_calls)) {
+      for (const toolCall of message.tool_calls as Array<{ id?: string }>) {
+        if (toolCall.id) toolCallIds.add(toolCall.id);
+      }
+    }
+  }
+
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+    if (message.role === "tool" && !toolCallIds.has(message.tool_call_id!)) {
+      return `messages[${i}]: 'tool_call_id' does not match an assistant tool call`;
+    }
   }
 
   return null;

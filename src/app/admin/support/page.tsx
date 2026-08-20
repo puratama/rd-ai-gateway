@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { toast } from "sonner";
 
 interface Message {
@@ -96,7 +97,7 @@ function AdminSupportPageContent() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to send" }));
-        throw new Error(err.error || "Failed to send");
+        throw new Error(getApiErrorMessage(err, "Failed to send"));
       }
       setReply("");
       await fetchTickets();

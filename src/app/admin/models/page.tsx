@@ -20,6 +20,7 @@ import {
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { FormSelect } from "@/components/ui/form-select";
 import { toast } from "sonner";
 
@@ -41,6 +42,7 @@ interface AppModelItem {
   name: string;
   provider: string;
   providerModelId: string | null;
+  maxOutputTokens: number | null;
   sellPricePer1kPrompt: number | null;
   sellPricePer1kCompletion: number | null;
   isActive: boolean;
@@ -58,6 +60,7 @@ interface ModelForm {
   name: string;
   provider: string;
   providerModelId: string;
+  maxOutputTokens: number | null;
   sellPricePer1kPrompt: number | null;
   sellPricePer1kCompletion: number | null;
   isActive: boolean;
@@ -374,6 +377,7 @@ function ModelForm({
           name: model.name,
           provider: model.provider,
           providerModelId: model.providerModelId || "",
+          maxOutputTokens: model.maxOutputTokens,
           sellPricePer1kPrompt: model.sellPricePer1kPrompt,
           sellPricePer1kCompletion: model.sellPricePer1kCompletion,
           isActive: model.isActive,
@@ -383,12 +387,13 @@ function ModelForm({
           name: "",
           provider: "",
           providerModelId: "",
+          maxOutputTokens: null,
           sellPricePer1kPrompt: null,
           sellPricePer1kCompletion: null,
           isActive: true,
         }
   );
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<boolean>(false);
 
   // Aggregator integration (only when creating new model)
   const [aggregators, setAggregators] = useState<AggregatorItem[]>([]);
@@ -422,7 +427,7 @@ function ModelForm({
       .then(async (r) => {
         if (!r.ok) {
           const err = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
-          throw new Error(err.error || `HTTP ${r.status}`);
+          throw new Error(getApiErrorMessage(err, `HTTP ${r.status}`));
         }
         return r.json();
       })
@@ -626,6 +631,37 @@ function ModelForm({
                 className="bg-background"
               />
             </div>
+          </FormPanel>
+        </section>
+
+        {/* ── Output Limit ── */}
+        <section>
+          <FormSection>Output Tokens</FormSection>
+          <FormPanel className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Use provider default</p>
+                <p className="text-xs text-muted-foreground/60">
+                  On uses the provider default. Off lets you set a manual limit.
+                </p>
+              </div>
+              <Switch
+                checked={form.maxOutputTokens === null}
+                onChange={(useDefault) => update("maxOutputTokens", useDefault ? null : 8192)}
+              />
+            </div>
+            {form.maxOutputTokens !== null && (
+              <div>
+                <Label>Max Output Tokens (manual)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.maxOutputTokens}
+                  onChange={(event) => update("maxOutputTokens", Number(event.target.value) || 1)}
+                  className="bg-background"
+                />
+              </div>
+            )}
           </FormPanel>
         </section>
 

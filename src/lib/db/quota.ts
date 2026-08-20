@@ -217,6 +217,19 @@ export async function holdBalanceOrTokens(
   return { ok: false, reason: "Gagal menahan saldo transaksi. Silakan coba lagi." };
 }
 
+export async function releaseUsageHold(
+  userId: string,
+  holdInfo: {
+    tier: "payg" | "package";
+    packageId?: string;
+    pricing: ModelPricing;
+    heldTokens?: number;
+    heldAmount?: number;
+  }
+): Promise<void> {
+  await settleUsage(userId, "", 0, 0, holdInfo);
+}
+
 /**
  * Release the hold and deduct the actual usage cost.
  * Calculates refund/charge difference and settles balance atomically.
@@ -256,10 +269,10 @@ export async function settleUsage(
         if (r.count === 0) {
           // If package depleted, surcharge wallet as fallback
           const extraCost = Math.ceil((surcharge / 1000) * pricing.tokenPlanCompletion);
-          await prisma.wallet.update({
-            where: { userId },
+          await prisma.wallet.updateMany({
+            where: { userId, balance: { gte: extraCost } },
             data: { balance: { decrement: extraCost } },
-          }).catch(() => {});
+          });
         }
       });
     }

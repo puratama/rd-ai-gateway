@@ -1,16 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { apiError, corsOptions, withPublicCors } from "@/lib/public-api";
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = request.headers.get("authorization")?.replace("Bearer ", "");
+    const authHeader = request.headers.get("authorization");
+    const apiKeyHeader = request.headers.get("x-api-key");
+    const auth = apiKeyHeader || authHeader?.replace(/^Bearer\s+/i, "").trim();
     if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("Unauthorized", 401, "invalid_api_key");
     }
 
     const { validateServerKey, getPlan, createBillingRecord, generateId } = await import("@/lib/server-store");
     const apiKey = await validateServerKey(auth);
     if (!apiKey) {
-      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+      return apiError("Invalid API key", 401, "invalid_api_key");
     }
 
     const body = await request.json();
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest) {
       const { createTransaction } = await import("@/lib/payment-gateway");
       const transaction = await createTransaction(orderId, plan.price);
 
-      return NextResponse.json({
+      return withPublicCors(NextResponse.json({
         billing: billingRecord,
         transaction: {
           token: transaction.token,
@@ -45,30 +49,15 @@ export async function POST(request: NextRequest) {
           provider: transaction.provider,
         },
         plan,
-      });
+      }));
     } catch {
-      // Dev mode fallback - create package directly
-      const { prisma } = await import("@/lib/db");
-      const pkg = await prisma.userPackage.create({
-        data: {
-          userId: apiKey.userId,
-          planId,
-          status: "active",
-          tokensTotal: plan.features.maxTokensPerMonth,
-          tokensRemaining: plan.features.maxTokensPerMonth,
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          billingId: billingRecord.id,
-        },
-      });
-      return NextResponse.json({
-        billing: billingRecord,
-        plan,
-        package: pkg,
-        note: "Payment not configured. Package created directly (dev mode).",
-        devMode: true,
-      });
+      return apiError("Payment provider unavailable", 503, "provider_unavailable", "server_error");
     }
   } catch (error: unknown) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
+    return apiError(error instanceof Error ? error.message : "Internal server error", 500, "internal_error", "server_error");
   }
+}
+
+export function OPTIONS() {
+  return corsOptions();
 }

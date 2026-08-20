@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import AuthBrand from "@/components/auth/AuthBrand";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -47,7 +48,9 @@ export default function ResetPasswordPage() {
         body: JSON.stringify({ token, password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal reset password");
+      if (!res.ok) {
+        throw new Error(getApiErrorMessage(data, "Gagal reset password"));
+      }
       toast.success(data.message || "Password berhasil diubah.");
       router.push("/login");
     } catch (err) {

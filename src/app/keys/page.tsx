@@ -1,28 +1,38 @@
 "use client";
 
-import { useState, useEffect, useCallback, startTransition } from "react";
+import { useCallback, useEffect, useState, startTransition } from "react";
 import {
-  Key, Plus, Copy, Check, Trash2, Eye, EyeOff, AlertTriangle, RefreshCw,
-  Sparkles, Terminal, Clock, Activity, ChevronDown, Globe, Edit3,
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  Copy,
+  Edit3,
+  Globe,
+  Key,
+  Plus,
+  Sparkles,
+  Terminal,
+  Trash2,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { useSiteConfig } from "@/lib/use-site-config";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, TableSkeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/utils";
+import { FormPanel, FormSection } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface ApiKeyItem {
@@ -34,114 +44,161 @@ interface ApiKeyItem {
   isActive: boolean;
   usageCount: number;
   totalTokens: number;
+  expiresAt: string | null;
+  allModels: boolean;
+  allowedModels: string[];
 }
 
-const fmtT = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : n.toLocaleString();
-const fmtDate = (ts: string) => new Date(ts).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+interface AvailableModel {
+  modelId: string;
+  name: string;
+  provider: string;
+}
+
+const formatTokens = (tokens: number) => {
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`;
+  return tokens.toLocaleString();
+};
+
+const formatDate = (timestamp: string) =>
+  new Date(timestamp).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 export default function KeysPage() {
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [showCreate, setShowCreate] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyActive, setNewKeyActive] = useState(true);
+  const [newHasExpiry, setNewHasExpiry] = useState(false);
+  const [newExpiresAt, setNewExpiresAt] = useState("");
+  const [newAllModels, setNewAllModels] = useState(true);
+  const [newAllowedModels, setNewAllowedModels] = useState<string[]>([]);
+  const [newSecret, setNewSecret] = useState<string | null>(null);
+  const [showSecret, setShowSecret] = useState(false);
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [showKey, setShowKey] = useState<string | null>(null);
+  const [editActive, setEditActive] = useState(true);
+  const [editHasExpiry, setEditHasExpiry] = useState(false);
+  const [editExpiresAt, setEditExpiresAt] = useState("");
+  const [editAllModels, setEditAllModels] = useState(true);
+  const [editAllowedModels, setEditAllowedModels] = useState<string[]>([]);
+
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [newSecret, setNewSecret] = useState<string | null>(null);
-  const siteCfg = useSiteConfig();
+  const [models, setModels] = useState<AvailableModel[]>([]);
+  const siteConfig = useSiteConfig();
 
   const fetchKeys = useCallback(async () => {
     startTransition(() => setLoading(true));
+
     try {
-      const res = await fetch("/api/user/keys");
-      if (res.ok) {
-        const data = await res.json();
+      const response = await fetch("/api/user/keys");
+      if (response.ok) {
+        const data = await response.json();
         setKeys(data.keys || []);
       }
     } catch {
       setError("Failed to load API keys");
     }
+
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchKeys(); }, [fetchKeys]);
+  useEffect(() => {
+    fetchKeys();
+    fetch("/api/models")
+      .then((response) => (response.ok ? response.json() : []))
+      .then(setModels)
+      .catch(() => setModels([]));
+  }, [fetchKeys]);
 
   const handleCreate = useCallback(async () => {
     if (!newKeyName.trim()) return;
+
     try {
-      const res = await fetch("/api/user/keys", {
+      const response = await fetch("/api/user/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName.trim() }),
+        body: JSON.stringify({
+            name: newKeyName.trim(),
+          isActive: newKeyActive,
+          expiresAt: newHasExpiry && newExpiresAt ? new Date(newExpiresAt).toISOString() : null,
+          allModels: newAllModels,
+          allowedModels: newAllModels ? [] : newAllowedModels,
+        }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setNewSecret(data.key?.secret ?? data.secret ?? null);
-        await fetchKeys();
-        toast.success("API key created");
-      } else {
+
+      if (!response.ok) {
         toast.error("Failed to create key");
+        return;
       }
+
+      const data = await response.json();
+      setNewSecret(data.key?.secret ?? data.secret ?? null);
+      setShowCreate(false);
+      setShowSecret(true);
+      setNewKeyName("");
+      await fetchKeys();
+      toast.success("API key created");
     } catch {
       toast.error("Failed to create API key");
     }
-    setNewKeyName("");
-  }, [newKeyName, fetchKeys]);
-
-  const handleRegenerate = useCallback(async (id: string, name: string) => {
-    try {
-      const res = await fetch("/api/user/keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ regenerateId: id, name }),
-      });
-      if (res.ok) {
-        await fetchKeys();
-        toast.success("API key regenerated");
-      } else {
-        toast.error("Failed to regenerate key");
-      }
-    } catch {
-      toast.error("Failed to regenerate API key");
-    }
-  }, [fetchKeys]);
-
-  const handleUpdate = useCallback(async (id: string, data: Record<string, unknown>) => {
-    try {
-      const res = await fetch("/api/user/keys", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...data }),
-      });
-      if (res.ok) {
-        await fetchKeys();
-        toast.success("API key updated");
-      } else {
-        toast.error("Failed to update key");
-      }
-    } catch {
-      toast.error("Failed to update API key");
-    }
-    setEditingId(null);
-  }, [fetchKeys]);
+  }, [fetchKeys, newAllModels, newAllowedModels, newExpiresAt, newKeyActive, newKeyName]);
 
   const handleDelete = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/user/keys?id=${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setConfirmDelete(null);
-        await fetchKeys();
-        toast.success("API key deleted");
-      } else {
-        toast.error("Failed to delete key");
+      const response = await fetch(`/api/user/keys?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        toast.error("Failed to delete API key");
+        return;
       }
+
+      setConfirmRevoke(null);
+      await fetchKeys();
+      toast.success("API key deleted");
     } catch {
       toast.error("Failed to delete API key");
     }
   }, [fetchKeys]);
+
+  const handleUpdate = useCallback(
+    async (id: string, updates: Record<string, unknown>) => {
+      try {
+        const response = await fetch("/api/user/keys", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, ...updates }),
+        });
+
+        if (!response.ok) {
+          toast.error("Failed to update key");
+          return;
+        }
+
+        await fetchKeys();
+        if (updates.name !== undefined) setEditingId(null);
+        toast.success(
+          updates.isActive === false ? "API key revoked" : "API key updated"
+        );
+      } catch {
+        toast.error("Failed to update API key");
+      }
+    },
+    [fetchKeys]
+  );
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -149,257 +206,759 @@ export default function KeysPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const openCreateDialog = () => {
+    setShowCreate(true);
+    setNewKeyName("");
+    setNewKeyActive(true);
+    setNewHasExpiry(false);
+    setNewExpiresAt("");
+    setNewAllModels(true);
+    setNewAllowedModels([]);
+    setNewSecret(null);
+    setShowSecret(false);
+  };
+
+  const openEditDialog = (key: ApiKeyItem) => {
+    setEditingId(key.id);
+    setEditName(key.name);
+    setEditActive(key.isActive);
+    setEditHasExpiry(!!key.expiresAt);
+    setEditExpiresAt(key.expiresAt ? key.expiresAt.slice(0, 16) : "");
+    setEditAllModels(key.allModels);
+    setEditAllowedModels(key.allowedModels);
+  };
+
   return (
     <AppShell variant="user">
       <div className="h-full overflow-y-auto">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-          {/* Header */}
-          <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Key className="h-4 w-4 text-primary" /> API Keys
-              </div>
-              <h1 className="text-3xl font-semibold tracking-tight">API Keys</h1>
-              <p className="text-sm text-muted-foreground">Manage your personal API keys for the AI Gateway.</p>
-            </div>
-            <Button size="sm" onClick={() => { setShowCreate(true); setNewKeyName(""); }} className="cursor-pointer">
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> New Key
-            </Button>
-          </header>
+          <PageHeader onCreate={openCreateDialog} />
 
           {error && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive flex items-center justify-between">
+            <div className="flex items-center justify-between rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
               {error}
-              <Button variant="ghost" size="xs" onClick={() => setError("")}>Dismiss</Button>
+              <Button variant="ghost" size="xs" onClick={() => setError("")}>
+                Dismiss
+              </Button>
             </div>
           )}
 
-          {/* Base URL */}
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                  <Globe className="h-5 w-5 text-primary" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">Base URL</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Use this base URL with any OpenAI-compatible SDK:</p>
-                  <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted/30 p-3">
-                    {siteCfg.loaded ? (
-                      <>
-                        <code className="flex-1 font-mono text-xs text-primary" suppressHydrationWarning>{siteCfg.baseUrl}</code>
-                        <Button variant="ghost" size="icon-sm" onClick={() => copyToClipboard(`${siteCfg.baseUrl}`, "baseurl")}>
-                          {copiedId === "baseurl" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Skeleton className="h-4 flex-1" />
-                        <Skeleton className="h-7 w-7 rounded-md" />
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <BaseUrlCard
+            baseUrl={siteConfig.baseUrl}
+            loaded={siteConfig.loaded}
+            copied={copiedId === "baseurl"}
+            onCopy={() => copyToClipboard(siteConfig.baseUrl, "baseurl")}
+          />
 
-          {/* Keys Table */}
-          {loading ? (
-            <TableSkeleton rows={5} cols={6} />
-          ) : keys.length === 0 ? (
-            <EmptyState
-              icon={Key}
-              title="No API Keys Yet"
-              description="Create your first API key to start using the gateway"
-              action={
-                <Button size="sm" onClick={() => { setShowCreate(true); setNewKeyName(""); }}>
-                  <Plus className="mr-1.5 h-3.5 w-3.5" /> Create API Key
-                </Button>
-              }
-            />
-          ) : (
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Name</th>
-                      <th className="px-4 py-3 font-medium">Key</th>
-                      <th className="px-4 py-3 text-center font-medium">Status</th>
-                      <th className="px-4 py-3 text-right font-medium">Usage</th>
-                      <th className="px-4 py-3 text-right font-medium">Tokens</th>
-                      <th className="px-4 py-3 font-medium">Last Used</th>
-                      <th className="w-28 px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {keys.map((key) => (
-                      <tr key={key.id} className="hover:bg-muted/40">
-                        <td className="px-4 py-3">
-                          {editingId === key.id ? (
-                            <Input
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") handleUpdate(key.id, { name: editName });
-                                if (e.key === "Escape") setEditingId(null);
-                              }}
-                              className="h-8 text-xs"
-                              autoFocus
-                            />
-                          ) : (
-                            <span className="font-medium">{key.name}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <code className="font-mono text-xs text-muted-foreground">
-                              {showKey === key.id ? key.key : `${key.key.slice(0, 12)}...`}
-                            </code>
-                            <Button variant="ghost" size="icon-xs" onClick={() => setShowKey(showKey === key.id ? null : key.id)}>
-                              {showKey === key.id ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                            </Button>
-                            <Button variant="ghost" size="icon-xs" onClick={() => copyToClipboard(key.key, key.id)}>
-                              {copiedId === key.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={cn(
-                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                            key.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground"
-                          )}>
-                            <span className={cn("h-1.5 w-1.5 rounded-full", key.isActive ? "bg-emerald-400" : "bg-muted-foreground")} />
-                            {key.isActive ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-xs">{fmtT(key.usageCount)}</td>
-                        <td className="px-4 py-3 text-right tabular-nums text-xs">{fmtT(key.totalTokens)}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{key.lastUsed ? fmtDate(key.lastUsed) : "\u2014"}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1 justify-end">
-                            {editingId === key.id ? (
-                              <>
-                                <Button variant="ghost" size="icon-xs" onClick={() => handleUpdate(key.id, { name: editName })}>
-                                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                                </Button>
-                                <Button variant="ghost" size="icon-xs" onClick={() => setEditingId(null)}>
-                                  <AlertTriangle className="h-3.5 w-3.5" />
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button variant="ghost" size="icon-xs"
-                                  onClick={() => { setEditingId(key.id); setEditName(key.name); }}
-                                  title="Edit name">
-                                  <Edit3 className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon-xs"
-                                  onClick={() => handleRegenerate(key.id, key.name)}
-                                  title="Regenerate">
-                                  <RefreshCw className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon-xs"
-                                  className="text-muted-foreground/50 hover:text-destructive"
-                                  onClick={() => setConfirmDelete(key.id)}
-                                  title="Delete">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          <KeysTable
+            keys={keys}
+            loading={loading}
+            onCreate={openCreateDialog}
+            onEdit={openEditDialog}
+            onRevoke={setConfirmRevoke}
+          />
 
-          {/* Quick-config code snippet */}
-          {keys.some((k) => k.isActive) && (
-            <details className="group rounded-xl border border-border bg-card p-4">
-              <summary className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                <Terminal className="h-3.5 w-3.5" /> Quick Start &mdash; Copy &amp; Paste
-                <ChevronDown className="ml-auto h-3 w-3 transition-transform group-open:rotate-180" />
-              </summary>
-              <pre className="mt-4 overflow-x-auto rounded-xl bg-muted/30 p-4 font-mono text-[10px] leading-relaxed text-muted-foreground" suppressHydrationWarning>
-{`import OpenAI from "openai";
-
-const client = new OpenAI({
-  baseURL: "${siteCfg.baseUrl}",
-  apiKey: "${keys.find((k) => k.isActive)?.key.slice(0, 12) || "xpgw_"}...",
-});
-
-const response = await client.chat.completions.create({
-  model: "gpt-4o",
-  messages: [{ role: "user", content: "Hello!" }],
-});`}
-              </pre>
-            </details>
-          )}
+          <QuickStartCard
+            keys={keys}
+            baseUrl={siteConfig.baseUrl}
+          />
         </div>
       </div>
 
-      {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={(o) => { if (!o) setShowCreate(false); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                <Plus className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <DialogTitle>Create API Key</DialogTitle>
-            </div>
-            <DialogDescription>Create a new personal API key.</DialogDescription>
-          </DialogHeader>
-          {newSecret && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
-              <p className="font-medium text-amber-200">Copy this secret now. It will not be shown again.</p>
-              <div className="mt-2 flex items-center gap-2">
-                <code className="min-w-0 flex-1 break-all font-mono">{newSecret}</code>
-                <Button size="icon-sm" variant="ghost" onClick={() => copyToClipboard(newSecret, "new-secret")}>
-                  {copiedId === "new-secret" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-            </div>
-          )}
-          <div className="py-2">
-            <Label htmlFor="new-key-name">Key Name</Label>
-            <Input id="new-key-name" value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)}
-                  placeholder="e.g., Production Key" onKeyDown={(e) => e.key === "Enter" && handleCreate()} autoFocus className="bg-background" />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={!newKeyName.trim()}>
-              <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateKeyDialog
+        open={showCreate}
+        keyName={newKeyName}
+        isActive={newKeyActive}
+        expiresAt={newExpiresAt}
+        hasExpiry={newHasExpiry}
+        allModels={newAllModels}
+        allowedModels={newAllowedModels}
+        models={models}
+        onOpenChange={(open) => {
+          setShowCreate(open);
+          if (!open) {
+            setNewSecret(null);
+            setShowSecret(false);
+          }
+        }}
+        onKeyNameChange={setNewKeyName}
+        onStatusChange={setNewKeyActive}
+        onHasExpiryChange={setNewHasExpiry}
+        onExpiresAtChange={setNewExpiresAt}
+        onAllModelsChange={setNewAllModels}
+        onAllowedModelsChange={setNewAllowedModels}
+        onCreate={handleCreate}
+      />
 
-      {/* Delete confirmation */}
-      <Dialog open={!!confirmDelete} onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-destructive/10">
-                <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-              </div>
-              <DialogTitle>Delete API Key</DialogTitle>
+      <GeneratedKeyDialog
+        open={showSecret}
+        secret={newSecret}
+        copied={copiedId === "new-secret"}
+        onOpenChange={(open) => {
+          setShowSecret(open);
+          if (!open) setNewSecret(null);
+        }}
+        onCopy={() => newSecret && copyToClipboard(newSecret, "new-secret")}
+      />
+
+      <EditKeyDialog
+        open={!!editingId}
+        keyName={editName}
+        isActive={editActive}
+        expiresAt={editExpiresAt}
+        hasExpiry={editHasExpiry}
+        allModels={editAllModels}
+        allowedModels={editAllowedModels}
+        models={models}
+        onOpenChange={(open) => !open && setEditingId(null)}
+        onKeyNameChange={setEditName}
+        onStatusChange={setEditActive}
+        onHasExpiryChange={setEditHasExpiry}
+        onExpiresAtChange={setEditExpiresAt}
+
+        onAllModelsChange={setEditAllModels}
+        onAllowedModelsChange={setEditAllowedModels}
+        onSave={() =>
+          editingId &&
+          handleUpdate(editingId, {
+            name: editName,
+            isActive: editActive,
+            expiresAt: editHasExpiry && editExpiresAt ? new Date(editExpiresAt).toISOString() : null,
+            allModels: editAllModels,
+            allowedModels: editAllModels ? [] : editAllowedModels,
+          })
+        }
+      />
+
+      <RevokeKeyDialog
+        open={!!confirmRevoke}
+        onOpenChange={(open) => !open && setConfirmRevoke(null)}
+        onConfirm={() => {
+          if (confirmRevoke) {
+            handleDelete(confirmRevoke);
+          }
+        }}
+      />
+    </AppShell>
+  );
+}
+
+function PageHeader({ onCreate }: { onCreate: () => void }) {
+  return (
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+          <Key className="h-4 w-4 text-primary" /> API Keys
+        </div>
+        <h1 className="text-3xl font-semibold tracking-tight">API Keys</h1>
+        <p className="text-sm text-muted-foreground">
+          Manage your personal API keys for the AI Gateway.
+        </p>
+      </div>
+      <Button onClick={onCreate}>
+        <Plus className="h-3.5 w-3.5" /> New Key
+      </Button>
+    </header>
+  );
+}
+
+function BaseUrlCard({
+  baseUrl,
+  loaded,
+  copied,
+  onCopy,
+}: {
+  baseUrl: string;
+  loaded: boolean;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-start gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Globe className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Base URL</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use this base URL with any OpenAI-compatible SDK:
+            </p>
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted/30 p-3">
+              {loaded ? (
+                <>
+                  <code className="flex-1 font-mono text-xs text-primary">
+                    {baseUrl}
+                  </code>
+                  <Button variant="ghost" size="icon-sm" onClick={onCopy}>
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-7 w-7 rounded-md" />
+                </>
+              )}
             </div>
-            <DialogDescription>This permanently deletes this key. Services using it will stop working.</DialogDescription>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function KeysTable({
+  keys,
+  loading,
+  onCreate,
+  onEdit,
+  onRevoke,
+}: {
+  keys: ApiKeyItem[];
+  loading: boolean;
+  onCreate: () => void;
+  onEdit: (key: ApiKeyItem) => void;
+  onRevoke: (id: string) => void;
+}) {
+  if (loading) return <TableSkeleton rows={5} cols={6} />;
+
+  if (keys.length === 0) {
+    return (
+      <EmptyState
+        icon={Key}
+        title="No API Keys Yet"
+        description="Create your first API key to start using the gateway"
+        action={
+          <Button onClick={onCreate}>Create API Key</Button>
+        }
+      />
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 text-left text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Key</th>
+              <th className="px-4 py-3 text-center font-medium">Status</th>
+              <th className="px-4 py-3 text-right font-medium">Usage</th>
+              <th className="px-4 py-3 text-right font-medium">Tokens</th>
+              <th className="px-4 py-3 font-medium">Last Used</th>
+              <th className="w-24 px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {keys.map((key) => (
+              <tr key={key.id} className="hover:bg-muted/40">
+                <td className="px-4 py-3">
+                  <span className="font-medium">{key.name}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <code className="font-mono text-xs text-muted-foreground">
+                    {key.key}
+                  </code>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <StatusBadge isActive={key.isActive} />
+                </td>
+                <td className="px-4 py-3 text-right text-xs tabular-nums">
+                  {formatTokens(key.usageCount)}
+                </td>
+                <td className="px-4 py-3 text-right text-xs tabular-nums">
+                  {formatTokens(key.totalTokens)}
+                </td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">
+                  {key.lastUsed ? formatDate(key.lastUsed) : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onEdit(key)}
+                      title="Edit name and status"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground/50 hover:text-destructive"
+                      onClick={() => onRevoke(key.id)}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ isActive }: { isActive: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+        isActive
+          ? "bg-emerald-500/10 text-emerald-400"
+          : "bg-muted text-muted-foreground"
+      )}
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          isActive ? "bg-emerald-400" : "bg-muted-foreground"
+        )}
+      />
+      {isActive ? "Active" : "Inactive"}
+    </span>
+  );
+}
+
+function QuickStartCard({
+  keys,
+  baseUrl,
+}: {
+  keys: ApiKeyItem[];
+  baseUrl: string;
+}) {
+  const activeKey = keys.find((key) => key.isActive);
+  if (!activeKey || !baseUrl) return null;
+
+  return (
+    <details className="group rounded-xl border border-border bg-card p-4">
+      <summary className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+        <Terminal className="h-3.5 w-3.5" /> Quick Start — Copy &amp; Paste
+        <ChevronDown className="ml-auto h-3 w-3 transition-transform group-open:rotate-180" />
+      </summary>
+      <pre className="mt-4 overflow-x-auto rounded-xl bg-muted/30 p-4 font-mono text-[10px] leading-relaxed text-muted-foreground">
+{`import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "${baseUrl}",
+  apiKey: "${activeKey.key}",
+});`}
+      </pre>
+    </details>
+  );
+}
+
+interface CreateKeyDialogProps {
+  open: boolean;
+  keyName: string;
+  isActive: boolean;
+  onOpenChange: (open: boolean) => void;
+  onKeyNameChange: (value: string) => void;
+  onStatusChange: (value: boolean) => void;
+  onHasExpiryChange: (value: boolean) => void;
+  hasExpiry: boolean;
+  expiresAt: string;
+  allModels: boolean;
+  allowedModels: string[];
+  models: AvailableModel[];
+  onExpiresAtChange: (value: string) => void;
+  onAllModelsChange: (value: boolean) => void;
+  onAllowedModelsChange: (value: string[]) => void;
+  onCreate: () => void;
+}
+
+function CreateKeyDialog({
+  open,
+  keyName,
+  isActive,
+  onOpenChange,
+  onKeyNameChange,
+  onStatusChange,
+  onHasExpiryChange,
+  hasExpiry,
+  expiresAt,
+  allModels,
+  allowedModels,
+  models,
+  onExpiresAtChange,
+  onAllModelsChange,
+  onAllowedModelsChange,
+  onCreate,
+}: CreateKeyDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+        <div className="border-b border-border px-6 py-4">
+          <DialogHeader>
+            <DialogTitle className="text-base">Create API Key</DialogTitle>
+            <DialogDescription className="text-xs">
+              Create a new personal API key. The secret is shown only once.
+            </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDelete(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => { if (confirmDelete) handleDelete(confirmDelete); }}>
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+        </div>
+
+        <div className="flex max-h-[70vh] flex-col">
+          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+            <section>
+              <FormSection>General</FormSection>
+              <FormPanel className="space-y-3">
+                <div>
+                  <Label htmlFor="new-key-name">Key Name</Label>
+                  <Input
+                    id="new-key-name"
+                    value={keyName}
+                    onChange={(event) => onKeyNameChange(event.target.value)}
+                    placeholder="e.g., Production Key"
+                    autoFocus
+                    className="bg-background"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div>
+                      <Label htmlFor="new-key-expiry-toggle">Set expiration</Label>
+                      <p className="text-xs text-muted-foreground">Automatically disable this key after the selected date.</p>
+                    </div>
+                    <Switch checked={hasExpiry} onChange={onHasExpiryChange} />
+                  </div>
+                  {hasExpiry && (
+                    <div>
+                      <Label htmlFor="new-key-expiry">Expires At</Label>
+                      <Input id="new-key-expiry" type="datetime-local" value={expiresAt} onChange={(event) => onExpiresAtChange(event.target.value)} className="bg-background" />
+                    </div>
+                  )}
+                </div>
+                <ModelAccessField
+                  allModels={allModels}
+                  allowedModels={allowedModels}
+                  models={models}
+                  onAllModelsChange={onAllModelsChange}
+                  onAllowedModelsChange={onAllowedModelsChange}
+                  idPrefix="new-key"
+                />
+              </FormPanel>
+            </section>
+
+            <section>
+              <FormSection>Status</FormSection>
+              <FormPanel>
+                <StatusField isActive={isActive} onChange={onStatusChange} />
+              </FormPanel>
+            </section>
+          </div>
+
+          <DialogFooter className="border-t border-border bg-muted/10 px-6 py-4">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={onCreate} disabled={!keyName.trim()}>
+              <Sparkles className="h-3.5 w-3.5" /> Create
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </AppShell>
+        </div>
+
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface EditKeyDialogProps {
+  open: boolean;
+  keyName: string;
+  isActive: boolean;
+  hasExpiry: boolean;
+  expiresAt: string;
+  allModels: boolean;
+  allowedModels: string[];
+  models: AvailableModel[];
+  onOpenChange: (open: boolean) => void;
+  onKeyNameChange: (value: string) => void;
+  onStatusChange: (value: boolean) => void;
+  onHasExpiryChange: (value: boolean) => void;
+  onExpiresAtChange: (value: string) => void;
+  onAllModelsChange: (value: boolean) => void;
+  onAllowedModelsChange: (value: string[]) => void;
+  onSave: () => void;
+}
+
+interface GeneratedKeyDialogProps {
+  open: boolean;
+  secret: string | null;
+  copied: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCopy: () => void;
+}
+
+function GeneratedKeyDialog({
+  open,
+  secret,
+  copied,
+  onOpenChange,
+  onCopy,
+}: GeneratedKeyDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>API Key Created</DialogTitle>
+          <DialogDescription>
+            Copy this secret now. It will not be shown again.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 flex-1 break-all font-mono">{secret}</code>
+            <Button size="icon-sm" variant="ghost" onClick={onCopy}>
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditKeyDialog({
+  open,
+  keyName,
+  isActive,
+  hasExpiry,
+  expiresAt,
+  allModels,
+  allowedModels,
+  models,
+  onOpenChange,
+  onKeyNameChange,
+  onStatusChange,
+  onHasExpiryChange,
+  onExpiresAtChange,
+  onAllModelsChange,
+  onAllowedModelsChange,
+  onSave,
+}: EditKeyDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+        <div className="border-b border-border px-6 py-4">
+          <DialogHeader>
+            <DialogTitle className="text-base">Edit API Key</DialogTitle>
+            <DialogDescription className="text-xs">
+              Update the name and status for this API key.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave();
+          }}
+          className="flex max-h-[70vh] flex-col"
+        >
+          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+            <section>
+              <FormSection>General</FormSection>
+              <FormPanel className="space-y-3">
+                <div>
+                  <Label htmlFor="edit-key-name">Key Name</Label>
+                  <Input
+                    id="edit-key-name"
+                    value={keyName}
+                    onChange={(event) => onKeyNameChange(event.target.value)}
+                    autoFocus
+                    className="bg-background"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div>
+                      <Label htmlFor="edit-key-expiry-toggle">Set expiration</Label>
+                      <p className="text-xs text-muted-foreground">Automatically disable this key after the selected date.</p>
+                    </div>
+                    <Switch checked={hasExpiry} onChange={onHasExpiryChange} />
+                  </div>
+                  {hasExpiry && (
+                    <div>
+                      <Label htmlFor="edit-key-expiry">Expires At</Label>
+                      <Input id="edit-key-expiry" type="datetime-local" value={expiresAt} onChange={(event) => onExpiresAtChange(event.target.value)} className="bg-background" />
+                    </div>
+                  )}
+                </div>
+                <ModelAccessField
+                  allModels={allModels}
+                  allowedModels={allowedModels}
+                  models={models}
+                  onAllModelsChange={onAllModelsChange}
+                  onAllowedModelsChange={onAllowedModelsChange}
+                  idPrefix="edit-key"
+                />
+              </FormPanel>
+            </section>
+
+            <section>
+              <FormSection>Status</FormSection>
+              <FormPanel>
+                <StatusField isActive={isActive} onChange={onStatusChange} />
+              </FormPanel>
+            </section>
+          </div>
+
+          <DialogFooter className="border-t border-border bg-muted/10 px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!keyName.trim()}>
+              <Check className="h-3.5 w-3.5" /> Save Changes
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ModelAccessField({
+  allModels,
+  allowedModels,
+  models,
+  onAllModelsChange,
+  onAllowedModelsChange,
+  idPrefix,
+}: {
+  allModels: boolean;
+  allowedModels: string[];
+  models: AvailableModel[];
+  onAllModelsChange: (value: boolean) => void;
+  onAllowedModelsChange: (value: string[]) => void;
+  idPrefix: string;
+}) {
+  const toggleModel = (modelId: string) => {
+    const nextModels = allowedModels.includes(modelId)
+      ? allowedModels.filter((id) => id !== modelId)
+      : [...allowedModels, modelId];
+    onAllowedModelsChange(nextModels);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label>Model Access</Label>
+        <p className="text-xs text-muted-foreground">
+          Choose which models this API key can use.
+        </p>
+      </div>
+      <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3">
+        <input
+          type="checkbox"
+          checked={allModels}
+          onChange={(event) => onAllModelsChange(event.target.checked)}
+          className="h-4 w-4 accent-primary"
+        />
+        <span className="text-sm font-medium">Allow all models</span>
+      </label>
+      {!allModels && (
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Select allowed models
+          </p>
+          {models.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No active models available.</p>
+          ) : (
+            models.map((model) => (
+              <label
+                key={model.modelId}
+                htmlFor={`${idPrefix}-${model.modelId}`}
+                className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-muted/50"
+              >
+                <input
+                  id={`${idPrefix}-${model.modelId}`}
+                  type="checkbox"
+                  checked={allowedModels.includes(model.modelId)}
+                  onChange={() => toggleModel(model.modelId)}
+                  className="h-4 w-4 accent-primary"
+                />
+                <span className="min-w-0">
+                  <span className="block truncate">{model.name}</span>
+                  <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                    {model.modelId}
+                  </span>
+                </span>
+              </label>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusField({
+  isActive,
+  onChange,
+}: {
+  isActive: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <Label>Status</Label>
+        <p className="text-xs text-muted-foreground">
+          Allow this key to make requests.
+        </p>
+      </div>
+      <Switch checked={isActive} onChange={onChange} />
+    </div>
+  );
+}
+
+function RevokeKeyDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <DialogTitle>Delete API Key</DialogTitle>
+          </div>
+          <DialogDescription>
+            This permanently deletes this key and its usage history. Services using it will stop working.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

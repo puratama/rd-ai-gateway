@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
+    const { getSiteSettings } = await import("@/lib/site-settings");
+    const settings = await getSiteSettings();
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.replace("Bearer ", "");
 
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest) {
             keys: [{
               id: apiKey.id,
               name: apiKey.name,
-              key: apiKey.key ? `${apiKey.key.slice(0, 8)}...${apiKey.key.slice(-4)}` : "••••••••",
+              key: apiKey.key ? `${apiKey.key.slice(0, 8)}...${apiKey.key.slice(-4)}` : `${settings.apiKeyPrefix}••••••••`,
               createdAt: apiKey.createdAt,
               lastUsed: apiKey.lastUsed,
               isActive: apiKey.isActive,
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ keys: keys.map((key) => ({
       id: key.id,
       name: key.name,
-      key: maskApiKey(key.key),
+      key: maskApiKey(key.key, settings.apiKeyPrefix),
       createdAt: key.createdAt,
       lastUsed: key.lastUsed,
       isActive: key.isActive,

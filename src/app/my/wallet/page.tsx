@@ -1,5 +1,6 @@
 "use client";
 
+import { getApiErrorMessage } from "@/lib/api-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock, Download, Image as ImageIcon, Plus, QrCode, ReceiptText, RefreshCw, Wallet } from "lucide-react";
@@ -198,8 +199,8 @@ export default function WalletPage() {
         body: JSON.stringify({ amount: numericAmount }),
       });
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: "Failed to start top up." }));
-        throw new Error(err.error || "Failed to start top up.");
+        const err = await response.json().catch(() => null);
+        throw new Error(getApiErrorMessage(err, "Failed to start top up."));
       }
 
       const data = (await response.json()) as TopupResponse;
@@ -269,7 +270,7 @@ export default function WalletPage() {
     try {
       const res = await fetch("/api/wallet/topup/upload", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload gagal");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "Upload gagal"));
       setProofImage(data.url);
       toast.success("Bukti transfer diupload");
     } catch (err) {
@@ -293,8 +294,8 @@ export default function WalletPage() {
         }),
       });
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: "Gagal konfirmasi." }));
-        throw new Error(err.error || "Gagal konfirmasi.");
+        const err = await response.json().catch(() => null);
+        throw new Error(getApiErrorMessage(err, "Gagal konfirmasi."));
       }
       const data = await response.json();
       if (data.status === "paid") {
