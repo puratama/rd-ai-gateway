@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 import { validateQrisPayload } from "@/lib/qris";
 
@@ -97,6 +98,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { id, provider, name, serverKey, clientKey, environment, isActive, qrisPayload } = body;
@@ -137,6 +140,8 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const id = request.nextUrl.searchParams.get("id");
     if (!id) {

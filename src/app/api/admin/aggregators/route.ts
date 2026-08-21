@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 
 export async function GET() {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const aggregators = await prisma.aggregatorConfig.findMany({
       orderBy: { createdAt: "desc" },
@@ -25,6 +28,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { name, baseUrl, apiKey, isActive = true } = body;
@@ -53,6 +58,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { id, name, baseUrl, apiKey, isActive } = body;
@@ -83,6 +90,8 @@ export async function PUT(request: NextRequest) {
 
 // Delete aggregator
 export async function DELETE(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const id = request.nextUrl.searchParams.get("id");
     if (!id) {

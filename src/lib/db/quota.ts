@@ -233,6 +233,7 @@ export async function releaseUsageHold(
 /**
  * Release the hold and deduct the actual usage cost.
  * Calculates refund/charge difference and settles balance atomically.
+ * Returns the actual cost in IDR for usage recording.
  */
 export async function settleUsage(
   userId: string,
@@ -246,7 +247,7 @@ export async function settleUsage(
     heldTokens?: number;
     heldAmount?: number;
   }
-): Promise<void> {
+): Promise<number> {
   const { tier, packageId, pricing, heldTokens = 0, heldAmount = 0 } = holdInfo;
 
   if (tier === "package" && packageId) {
@@ -282,7 +283,11 @@ export async function settleUsage(
       where: { id: packageId, tokensRemaining: { lte: 0 } },
       data: { status: "depleted" },
     });
-    return;
+
+    // Actual cost in IDR based on token-plan pricing
+    const pCost = (promptTokens / 1000) * pricing.tokenPlanPrompt;
+    const cCost = (completionTokens / 1000) * pricing.tokenPlanCompletion;
+    return Math.ceil(pCost + cCost);
   }
 
   // PAYG settle
@@ -305,6 +310,8 @@ export async function settleUsage(
       data: { balance: { decrement: Math.abs(diff) } },
     });
   }
+
+  return actualCost;
 }
 
 // ====== App Models ======

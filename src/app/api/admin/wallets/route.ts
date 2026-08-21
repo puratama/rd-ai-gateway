@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
-
-async function requireSuperadmin() {
-  const session = await getSession();
-  return session?.role === "superadmin";
-}
+import { requireSuperadmin } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
-    if (!(await requireSuperadmin())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = (await request.json()) as { userId?: unknown; amount?: unknown };
     const userId = typeof body.userId === "string" ? body.userId : "";
     const amount = typeof body.amount === "number" ? body.amount : Number(body.amount);
@@ -30,8 +23,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
   }
 }
-
 export async function GET(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const page = parseInt(request.nextUrl.searchParams.get("page") || "1", 10);
     const limit = parseInt(request.nextUrl.searchParams.get("limit") || "20", 10);

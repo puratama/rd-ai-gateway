@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { id } = await request.json();
 

@@ -6,12 +6,11 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  DollarSign,
+  Coins,
   Gauge,
   Layers,
   Search,
   Sparkles,
-  X,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
@@ -135,8 +134,8 @@ export default function ModelsPage() {
             {[
               { label: "Total Models", value: pricingData.length, icon: Layers, tone: "text-blue-500" },
               { label: "Providers", value: providers.length, icon: Layers, tone: "text-violet-500" },
-              { label: "Cheapest Prompt", value: `${formatPrice(getMinPrice(pricingData))}/1M`, icon: DollarSign, tone: "text-emerald-500" },
-              { label: "Most Expensive", value: `${formatPrice(getMaxPrice(pricingData))}/1M`, icon: DollarSign, tone: "text-amber-500" },
+              { label: "Cheapest Prompt", value: `${formatPrice(getMinPrice(pricingData))}/1K`, icon: Coins, tone: "text-emerald-500" },
+              { label: "Most Expensive", value: `${formatPrice(getMaxPrice(pricingData))}/1K`, icon: Coins, tone: "text-amber-500" },
             ].map((stat) => {
               const Icon = stat.icon;
               return (
@@ -207,7 +206,7 @@ export default function ModelsPage() {
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                 >
-                  {field === "name" ? "Name" : field === "prompt" ? "Prompt $" : "Completion $"}
+                  {field === "name" ? "Name" : field === "prompt" ? "Prompt IDR" : "Completion IDR"}
                   <SortArrow field={field} />
                 </Button>
               ))}
@@ -277,14 +276,14 @@ export default function ModelsPage() {
                       </tr>
                     ))}
                     <tr className="border-t-2 border-primary/20 bg-primary/5">
-                      <td className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Prompt $/1M</td>
+                      <td className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Prompt IDR/1K</td>
                       {compareList.map((id) => {
                         const m = pricingData.find((m) => m.id === id);
                         return <td key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.prompt) : "-"}</td>;
                       })}
                     </tr>
                     <tr className="bg-primary/5">
-                      <td className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Completion $/1M</td>
+                      <td className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Completion IDR/1K</td>
                       {compareList.map((id) => {
                         const m = pricingData.find((m) => m.id === id);
                         return <td key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.completion) : "-"}</td>;
@@ -389,9 +388,9 @@ export default function ModelsPage() {
 
                         {/* Pricing */}
                         <div className="flex items-center gap-3 rounded-xl bg-muted/20 p-3">
-                          {renderPriceBadge(model.pricing.prompt, "Prompt /1M")}
+                          {renderPriceBadge(model.pricing.prompt, "Prompt /1K")}
                           <div className="h-8 w-px bg-border" />
-                          {renderPriceBadge(model.pricing.completion, "Output /1M")}
+                          {renderPriceBadge(model.pricing.completion, "Output /1K")}
                         </div>
 
                         {/* Expanded quality info */}

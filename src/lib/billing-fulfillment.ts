@@ -25,39 +25,13 @@ export async function handlePaidBilling(
     userId: string;
     type: string;
     amount: unknown;
-    planId: string | null;
-    description: string | null;
   }
 ) {
-  if (billing.type === "topup") {
-    await prisma.wallet.upsert({
-      where: { userId: billing.userId },
-      update: { balance: { increment: Number(billing.amount) } },
-      create: { userId: billing.userId, balance: Number(billing.amount) },
-    });
-    return;
-  }
+  if (billing.type !== "topup") return;
 
-  if (!billing.planId) {
-    return;
-  }
-
-  const plan = await prisma.plan.findUnique({ where: { id: billing.planId } });
-  if (!plan) {
-    return;
-  }
-
-  if (billing.type === "package_purchase") {
-    await prisma.userPackage.create({
-      data: {
-        userId: billing.userId,
-        planId: plan.id,
-        status: "active",
-        tokensTotal: plan.maxTokensPerPeriod,
-        tokensRemaining: plan.maxTokensPerPeriod,
-        expiresAt: addBillingPeriod(new Date(), plan.billingPeriod),
-        billingId: billing.id,
-      },
-    });
-  }
+  await prisma.wallet.upsert({
+    where: { userId: billing.userId },
+    update: { balance: { increment: Number(billing.amount) } },
+    create: { userId: billing.userId, balance: Number(billing.amount) },
+  });
 }

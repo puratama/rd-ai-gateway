@@ -95,7 +95,7 @@ model Wallet {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  balance   Decimal @default(0) // IDR
+  balance   Decimal @default(0) @db.Decimal(18, 2) // IDR
   updatedAt DateTime @updatedAt
 }
 
@@ -106,7 +106,7 @@ model Plan {
   name          String
   description   String?
   billingPeriod String // "daily" | "weekly" | "monthly" | "yearly"
-  price         Decimal // IDR
+  price         Decimal @db.Decimal(18, 2) // IDR
 
   // Quota limits
   maxTokensPerPeriod Int
@@ -168,7 +168,7 @@ model UsageRecord {
   completionTokens Int @default(0)
   totalTokens      Int @default(0)
 
-  cost     Decimal?
+  cost     Decimal? @db.Decimal(18, 6)
   endpoint String
 
   createdAt DateTime @default(now())
@@ -185,7 +185,7 @@ model BillingRecord {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   type   String // "topup" | "package_purchase" | "subscription"
-  amount Decimal // IDR
+  amount Decimal @db.Decimal(18, 2) // IDR
   status String  @default("pending") // pending | pending_confirmation | paid | failed | expired
 
   provider String? // "midtrans" | "xendit" | "qris" — payment channel used
@@ -271,17 +271,17 @@ model AppModel {
   maxOutputTokens Int?
 
   // Pricing — cost to us
-  costPer1kPrompt     Decimal?
-  costPer1kCompletion Decimal?
-  markupPercent       Decimal  @default(0)
+  costPer1kPrompt              Decimal? @db.Decimal(18, 6)
+  costPer1kCompletion           Decimal? @db.Decimal(18, 6)
+  markupPercent                 Decimal  @default(0) @db.Decimal(8, 2)
 
   // PAYG price (default, higher)
-  sellPricePer1kPrompt     Decimal?
-  sellPricePer1kCompletion Decimal?
+  sellPricePer1kPrompt          Decimal? @db.Decimal(18, 6)
+  sellPricePer1kCompletion       Decimal? @db.Decimal(18, 6)
 
   // Token Plan price (discounted, used when client has active UserPackage)
-  tokenPlanPricePer1kPrompt     Decimal?
-  tokenPlanPricePer1kCompletion Decimal?
+  tokenPlanPricePer1kPrompt     Decimal? @db.Decimal(18, 6)
+  tokenPlanPricePer1kCompletion  Decimal? @db.Decimal(18, 6)
 
   isActive Boolean @default(true)
 

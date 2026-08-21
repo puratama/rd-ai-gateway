@@ -79,6 +79,7 @@ const adminNavGroups: NavGroup[] = [
     items: [
       { href: '/admin/providers', label: 'Providers', icon: Server },
       { href: '/admin/models', label: 'Models', icon: Cpu },
+      { href: '/admin/model-pricing', label: 'Model Pricing', icon: CreditCard },
       { href: '/admin/plans', label: 'Plans', icon: CreditCard },
     ],
   },
@@ -136,10 +137,17 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
   useEffect(() => {
     void (async () => {
       try {
-        const [profileRes, balanceRes] = await Promise.all([
-          fetch("/api/user/profile").then((r) => (r.ok ? (r.json() as Promise<{ user: typeof user }>) : null)).catch(() => null),
-          fetch("/api/wallet/balance").then((r) => (r.ok ? (r.json() as Promise<{ balance: number }>) : null)).catch(() => null),
+        const [profileResponse, balanceResponse] = await Promise.all([
+          fetch("/api/user/profile"),
+          fetch("/api/wallet/balance"),
         ]);
+        if (profileResponse.status === 401 || balanceResponse.status === 401) {
+          localStorage.removeItem("xperimne-user");
+          router.replace("/login");
+          return;
+        }
+        const profileRes = profileResponse.ok ? await profileResponse.json() as { user: typeof user } : null;
+        const balanceRes = balanceResponse.ok ? await balanceResponse.json() as { balance: number } : null;
         if (profileRes?.user) setUser(profileRes.user);
         if (balanceRes) setWallet(balanceRes);
       } catch {
@@ -155,6 +163,8 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
     ? "Users"
     : pathname === "/admin/models"
     ? "Models"
+    : pathname === "/admin/model-pricing"
+    ? "Model Pricing"
     : pathname === "/admin/plans"
     ? "Plans"
     : pathname === "/admin/keys"

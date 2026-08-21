@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSession } from "@/lib/auth";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 
-async function requireSuperadmin() {
-  const session = await getSession();
-  return session?.role === "superadmin";
-}
-
 export async function GET(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
-    if (!(await requireSuperadmin())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const filter = request.nextUrl.searchParams.get("filter") ?? "pending";
 
     const where =

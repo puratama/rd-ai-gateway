@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 import { startTelegramPolling } from "@/lib/telegram";
-
-async function requireSuperadmin() {
-  const session = await getSession();
-  return session?.role === "superadmin";
-}
 
 const CONFIG_ID = "telegram"; // singleton row
 
 export async function GET() {
-  try {
-    if (!(await requireSuperadmin())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
 
+  try {
     const cfg = await prisma.telegramConfig.findUnique({ where: { id: CONFIG_ID } });
     return NextResponse.json({
       hasToken: Boolean(cfg?.botTokenEnc),
@@ -31,11 +25,9 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
-    if (!(await requireSuperadmin())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await request.json().catch(() => ({}));
     const data: Record<string, unknown> = {};
 

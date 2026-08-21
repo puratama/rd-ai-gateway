@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
 import { getSecret, COOKIE_NAME, EXPIRY, type SessionPayload } from "./auth-config";
+import { prisma } from "./db";
 
 export { COOKIE_NAME, EXPIRY, type SessionPayload };
 
@@ -13,8 +14,8 @@ export async function createSession(payload: SessionPayload): Promise<string> {
     .setExpirationTime(EXPIRY)
     .sign(getSecret());
 
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, {
+  const sessionCookies = await cookies();
+  sessionCookies.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -27,20 +28,26 @@ export async function createSession(payload: SessionPayload): Promise<string> {
 
 export async function getSession(): Promise<SessionPayload | null> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const sessionCookies = await cookies();
+    const token = sessionCookies.get(COOKIE_NAME)?.value;
     if (!token) return null;
 
     const { payload } = await jwtVerify(token, getSecret());
-    return payload as unknown as SessionPayload;
+    const session = payload as unknown as SessionPayload;
+    const user = await prisma.user.findUnique({
+      where: { id: session.sub },
+      select: { status: true, role: true },
+    });
+    if (!user || user.status !== "active") return null;
+    return { ...session, role: user.role as SessionPayload["role"] };
   } catch {
     return null;
   }
 }
 
 export async function destroySession(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
+  const sessionCookies = await cookies();
+  sessionCookies.delete(COOKIE_NAME);
 }
 
 // Edge-safe JWT verify (for middleware)

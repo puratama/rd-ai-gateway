@@ -5,8 +5,9 @@ import { getSecret, COOKIE_NAME } from "@/lib/auth-config";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect /admin routes (page + API)
-  if (!pathname.startsWith("/admin")) {
+  // Protect admin pages and API routes.
+  const isAdminRoute = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
+  if (!isAdminRoute) {
     return NextResponse.next();
   }
 
@@ -21,6 +22,14 @@ export async function middleware(request: NextRequest) {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     const role = payload.role as string | undefined;
+    const status = payload.status as string | undefined;
+
+    if (status !== "active") {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+      }
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
 
     if (role !== "superadmin") {
       if (pathname.startsWith("/api/")) {

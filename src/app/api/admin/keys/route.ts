@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const page = parseInt(request.nextUrl.searchParams.get("page") || "1", 10);
     const limit = parseInt(request.nextUrl.searchParams.get("limit") || "20", 10);

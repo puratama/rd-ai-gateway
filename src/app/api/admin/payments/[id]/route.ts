@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSession } from "@/lib/auth";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { reviewBillingPayment, ReviewError } from "@/lib/payment-review";
-
-async function requireSuperadmin() {
-  const session = await getSession();
-  return session?.role === "superadmin";
-}
 
 const DECISIONS = ["approve", "reject"] as const;
 type Decision = (typeof DECISIONS)[number];
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
-    if (!(await requireSuperadmin())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { id } = await params;
     const body = (await request.json()) as { decision?: unknown };
     const decision = body.decision;

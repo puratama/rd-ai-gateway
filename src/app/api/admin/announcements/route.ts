@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 
 // GET /api/admin/announcements - List all announcements (auth via middleware)
 export async function GET() {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { loadAnnouncements } = await import("@/lib/server-store");
     const announcements = await loadAnnouncements();
@@ -13,6 +16,8 @@ export async function GET() {
 
 // POST /api/admin/announcements - Create announcement
 export async function POST(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { createAnnouncement } = await import("@/lib/server-store");
     const body = await request.json();
@@ -30,6 +35,8 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/admin/announcements - Update announcement
 export async function PUT(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { updateAnnouncement } = await import("@/lib/server-store");
     const body = await request.json();
@@ -50,6 +57,8 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/admin/announcements?id=xxx - Delete announcement
 export async function DELETE(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { deleteAnnouncement } = await import("@/lib/server-store");
     const id = request.nextUrl.searchParams.get("id");

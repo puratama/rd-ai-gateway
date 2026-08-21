@@ -259,6 +259,7 @@ export async function POST(request: NextRequest) {
 
           // Settle or release the hold after the stream completes.
           if (userId) {
+            let usageCost = 0;
             try {
               const { settleUsage, releaseUsageHold } = await import("@/lib/db/quota");
               const promptTokens = estimateTokens(JSON.stringify(messages));
@@ -276,7 +277,7 @@ export async function POST(request: NextRequest) {
                 if (streamError) {
                   await releaseUsageHold(userId, holdInfo);
                 } else {
-                  await settleUsage(userId, model, promptTokens, completionTokens, holdInfo);
+                  usageCost = await settleUsage(userId, model, promptTokens, completionTokens, holdInfo);
                 }
               }
             } catch (e: unknown) {
@@ -298,6 +299,7 @@ export async function POST(request: NextRequest) {
                 completionTokens: estimateTokens(fullText),
                 totalTokens: estimateTokens(JSON.stringify(messages)) + estimateTokens(fullText),
                 endpoint: "/v1/chat/completions",
+                cost: usageCost,
               });
             } catch {/* non-critical */}
           }
@@ -326,6 +328,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Deduct cost for non-streaming
+    let usageCost = 0;
     if (userId) {
       const tier = (request as unknown as Record<string, unknown>)._billingTier as string;
       if (tier && tier !== "free") {
@@ -337,7 +340,7 @@ export async function POST(request: NextRequest) {
             data.usage?.completion_tokens ||
             estimateTokens(data.choices?.[0]?.message?.content || "");
 
-          await settleUsage(userId, model, promptTokens, completionTokens, {
+          usageCost = await settleUsage(userId, model, promptTokens, completionTokens, {
             tier: tier as "payg" | "package",
             packageId: (request as unknown as Record<string, unknown>)._billingPackageId as string | undefined,
             pricing: (request as unknown as Record<string, unknown>)._billingPricing as import("@/lib/db/quota").ModelPricing,
@@ -372,6 +375,7 @@ export async function POST(request: NextRequest) {
           completionTokens,
           totalTokens: promptTokens + completionTokens,
           endpoint: "/v1/chat/completions",
+          cost: usageCost,
         });
       } catch {/* non-critical */}
     }

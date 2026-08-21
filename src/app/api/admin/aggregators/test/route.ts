@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 
 /**
@@ -6,6 +7,8 @@ import { prisma } from "@/lib/db";
  * Test connection to an aggregator by sending a lightweight request.
  */
 export async function POST(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { id } = body;

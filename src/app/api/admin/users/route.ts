@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSession } from "@/lib/auth";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 
 const DEFAULT_PAGE = 1;
@@ -13,17 +13,12 @@ function toPositiveInt(value: string | null, fallback: number) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-async function requireSuperadmin() {
-  const session = await getSession();
-  return session?.role === "superadmin";
-}
+
 
 export async function GET(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
-    if (!(await requireSuperadmin())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const page = toPositiveInt(request.nextUrl.searchParams.get("page"), DEFAULT_PAGE);
     const limit = Math.min(toPositiveInt(request.nextUrl.searchParams.get("limit"), DEFAULT_LIMIT), MAX_LIMIT);
     const search = request.nextUrl.searchParams.get("search")?.trim();

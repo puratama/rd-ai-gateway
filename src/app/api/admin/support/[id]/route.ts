@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { loadTicket, replyAsAdmin, updateTicketStatus } from "@/lib/server-store";
 import { prisma } from "@/lib/db";
 
 // GET /api/admin/support/[id] — ticket detail
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { id } = await params;
     const ticket = await loadTicket(id);
@@ -18,6 +21,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
 // POST /api/admin/support/[id] — admin reply
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { id } = await params;
     const body = await request.json();
@@ -50,6 +55,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 // PUT /api/admin/support/[id] — update status
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { id } = await params;
     const body = await request.json();

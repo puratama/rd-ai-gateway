@@ -43,8 +43,6 @@ interface AppModelItem {
   provider: string;
   providerModelId: string | null;
   maxOutputTokens: number | null;
-  sellPricePer1kPrompt: number | null;
-  sellPricePer1kCompletion: number | null;
   isActive: boolean;
 }
 
@@ -61,8 +59,6 @@ interface ModelForm {
   provider: string;
   providerModelId: string;
   maxOutputTokens: number | null;
-  sellPricePer1kPrompt: number | null;
-  sellPricePer1kCompletion: number | null;
   isActive: boolean;
 }
 
@@ -159,12 +155,6 @@ function AdminModelsPageContent() {
                     <th className="px-4 py-3 font-medium">Provider Model ID</th>
                     <th className="px-4 py-3 font-medium">Public Model ID</th>
                     <th className="px-4 py-3 text-center font-medium">
-                      Sell/1M Prompt
-                    </th>
-                    <th className="px-4 py-3 text-center font-medium">
-                      Sell/1M Completion
-                    </th>
-                    <th className="px-4 py-3 text-center font-medium">
                       Status
                     </th>
                     <th className="px-4 py-3 font-medium sr-only">Actions</th>
@@ -184,16 +174,6 @@ function AdminModelsPageContent() {
                       </td>
                       <td className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
                         {m.modelId || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-center tabular-nums text-muted-foreground">
-                        {m.sellPricePer1kPrompt != null
-                          ? `IDR ${m.sellPricePer1kPrompt.toFixed(2)}`
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-center tabular-nums text-muted-foreground">
-                        {m.sellPricePer1kCompletion != null
-                          ? `IDR ${m.sellPricePer1kCompletion.toFixed(2)}`
-                          : "—"}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span
@@ -291,7 +271,7 @@ function AdminModelsPageContent() {
                 </div>
                 <DialogDescription className="text-xs mt-0.5">
                   {editing
-                    ? "Update public model ID, provider model ID, pricing, and availability."
+                    ? "Update public model ID, provider model ID, and availability."
                     : "Select provider model, then customize the public model ID shown to API clients."}
                 </DialogDescription>
               </div>
@@ -299,21 +279,14 @@ function AdminModelsPageContent() {
             <ModelForm
               model={editing}
               onSave={async (data) => {
-                if (editing) {
-                  await fetch("/api/admin/models", {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      id: editing.id,
-                      ...data,
-                    }),
-                  });
-                } else {
-                  await fetch("/api/admin/models", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data),
-                  });
+                const response = await fetch("/api/admin/models", {
+                  method: editing ? "PUT" : "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(editing ? { id: editing.id, ...data } : data),
+                });
+                if (!response.ok) {
+                  const error = await response.json().catch(() => null);
+                  throw new Error(getApiErrorMessage(error, "Failed to save model"));
                 }
                 setShowCreate(false);
                 setEditing(null);
@@ -378,8 +351,6 @@ function ModelForm({
           provider: model.provider,
           providerModelId: model.providerModelId || "",
           maxOutputTokens: model.maxOutputTokens,
-          sellPricePer1kPrompt: model.sellPricePer1kPrompt,
-          sellPricePer1kCompletion: model.sellPricePer1kCompletion,
           isActive: model.isActive,
         }
       : {
@@ -388,8 +359,6 @@ function ModelForm({
           provider: "",
           providerModelId: "",
           maxOutputTokens: null,
-          sellPricePer1kPrompt: null,
-          sellPricePer1kCompletion: null,
           isActive: true,
         }
   );
@@ -460,13 +429,15 @@ function ModelForm({
   const onNumericChange = (key: keyof ModelForm, raw: string) =>
     update(key, parseInt(digitsOnly(raw), 10) || 0);
 
-  const onPricingChange = (key: keyof ModelForm, raw: string) =>
-    update(key, parsePricing(raw));
-
   const handleSave = async () => {
     setSaving(true);
-    await onSave(form as unknown as Record<string, unknown>);
-    setSaving(false);
+    try {
+      await onSave(form as unknown as Record<string, unknown>);
+    } catch (error) {
+      setModelError(error instanceof Error ? error.message : "Failed to save model");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const selectedAggregator = aggregators.find((a) => a.id === selectedAggregatorId);
@@ -665,41 +636,6 @@ function ModelForm({
           </FormPanel>
         </section>
 
-        {/* ── Pricing ── */}
-        <section>
-          <FormSection>Pricing (IDR)</FormSection>
-          <FormPanel>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>
-                  Sell/1M Prompt
-                </Label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={fmtNumber(form.sellPricePer1kPrompt)}
-                  onChange={(e) => onPricingChange("sellPricePer1kPrompt", e.target.value)}
-                  placeholder="e.g. 10.000"
-                  className="bg-background"
-                />
-              </div>
-              <div>
-                <Label>
-                  Sell/1M Completion
-                </Label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={fmtNumber(form.sellPricePer1kCompletion)}
-                  onChange={(e) => onPricingChange("sellPricePer1kCompletion", e.target.value)}
-                  placeholder="e.g. 10.000"
-                  className="bg-background"
-                />
-              </div>
-            </div>
-          </FormPanel>
-        </section>
-
         {/* ── Status ── */}
         <section>
           <FormSection>Status</FormSection>
@@ -708,7 +644,7 @@ function ModelForm({
               <div>
                 <p className="text-sm font-medium">Model Active</p>
                 <p className="text-xs text-muted-foreground/60">
-                  When inactive, this model won't be available for API requests.
+                  When inactive, this model will not be available for API requests.
                 </p>
               </div>
               <Switch

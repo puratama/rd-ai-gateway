@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 
 interface AggregatorModel {
@@ -13,6 +14,8 @@ interface AggregatorModel {
  * Fetch available models from an aggregator's API.
  */
 export async function GET(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const id = request.nextUrl.searchParams.get("id");
     if (!id) {

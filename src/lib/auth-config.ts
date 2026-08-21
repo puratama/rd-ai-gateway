@@ -24,4 +24,5 @@ export interface SessionPayload extends JWTPayload {
   sub: string;
   email: string;
   role: "user" | "superadmin";
+  status: "active" | "suspended" | "banned";
 }

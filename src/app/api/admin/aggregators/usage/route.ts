@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 
 export async function GET(request: Request) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

@@ -37,9 +37,10 @@ export async function addServerUsageRecord(record: {
   completionTokens: number;
   totalTokens: number;
   endpoint: string;
+  cost?: number;
 }) {
   return prisma.$transaction(async (tx) => {
-    const created = await tx.usageRecord.create({ data: record });
+    const created = await tx.usageRecord.create({ data: { ...record, cost: record.cost ?? undefined } });
     if (record.apiKeyId) {
       await tx.apiKey.update({
         where: { id: record.apiKeyId },

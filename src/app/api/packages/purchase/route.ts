@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { addBillingPeriod } from "@/lib/billing-fulfillment";
 import { apiError, corsOptions, resolvePublicUser, withPublicCors } from "@/lib/public-api";
 
 export async function POST(request: NextRequest) {
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
     const userId = identity.user.id;
 
     const body = await request.json();
-    const { planId, expiresAt } = body as { planId: string; expiresAt?: string };
+    const { planId } = body as { planId?: string };
 
     if (!planId) {
       return NextResponse.json({ error: "planId required" }, { status: 400 });
@@ -21,7 +22,8 @@ export async function POST(request: NextRequest) {
     }
 
     const price = Number(plan.price);
-    const expiry = expiresAt ? new Date(expiresAt) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    // Expiry follows the plan's billing period (e.g. monthly → +1 month from purchase time).
+    const expiry = addBillingPeriod(new Date(), plan.billingPeriod);
 
     const userPackage = await prisma.$transaction(async (tx) => {
       const deducted = await tx.wallet.updateMany({

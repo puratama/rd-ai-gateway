@@ -45,7 +45,7 @@ export function dbModelToPricing(m: AdminModelRaw): ModelPricing {
 }
 
 export async function fetchPricingFromDB(): Promise<ModelPricing[]> {
-  const res = await fetch("/api/admin/models", { credentials: "include" });
+  const res = await fetch("/api/models", { credentials: "include" });
   if (!res.ok) return [];
   const data: AdminModelRaw[] = await res.json();
   return data.filter((m) => m.isActive).map(dbModelToPricing);

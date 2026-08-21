@@ -264,9 +264,13 @@ export function getProviders(): string[] {
 }
 
 export function formatPrice(price: number): string {
-  if (price < 0.01) return `$${price.toFixed(3)}`;
-  if (price < 1) return `$${price.toFixed(2)}`;
-  return `$${price.toFixed(2)}`;
+  if (price === 0) return "Gratis";
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(price);
 }
 
 export function getMinPrice(models: ModelPricing[]): number {

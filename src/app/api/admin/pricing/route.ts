@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { getAllPricedModels, bulkUpdateMarkup } from "@/lib/pricing-engine";
 import { prisma } from "@/lib/db";
 
 export async function GET() {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const models = await getAllPricedModels();
     const providers = await prisma.appModel.groupBy({ by: ["provider"], _count: true });
@@ -13,6 +16,8 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { action } = body;
@@ -27,7 +32,16 @@ export async function PUT(request: NextRequest) {
     }
 
     if (action === "update-model") {
-      const { id, markupPercent, costPer1kPrompt, costPer1kCompletion, tokenPlanPricePer1kPrompt, tokenPlanPricePer1kCompletion } = body;
+      const {
+        id,
+        markupPercent,
+        costPer1kPrompt,
+        costPer1kCompletion,
+        sellPricePer1kPrompt,
+        sellPricePer1kCompletion,
+        tokenPlanPricePer1kPrompt,
+        tokenPlanPricePer1kCompletion,
+      } = body;
       if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
       const m = await prisma.appModel.findUnique({ where: { id } });
@@ -44,6 +58,12 @@ export async function PUT(request: NextRequest) {
       const newCostC = typeof costPer1kCompletion === "number" && costPer1kCompletion >= 0
         ? costPer1kCompletion
         : Number(m.costPer1kCompletion || 0);
+      const newSellP = typeof sellPricePer1kPrompt === "number" && sellPricePer1kPrompt >= 0
+        ? sellPricePer1kPrompt
+        : calcSellPrice(newCostP, newMarkup);
+      const newSellC = typeof sellPricePer1kCompletion === "number" && sellPricePer1kCompletion >= 0
+        ? sellPricePer1kCompletion
+        : calcSellPrice(newCostC, newMarkup);
       const newTPP = typeof tokenPlanPricePer1kPrompt === "number" && tokenPlanPricePer1kPrompt >= 0
         ? tokenPlanPricePer1kPrompt
         : undefined;
@@ -55,8 +75,8 @@ export async function PUT(request: NextRequest) {
         markupPercent: newMarkup,
         costPer1kPrompt: newCostP,
         costPer1kCompletion: newCostC,
-        sellPricePer1kPrompt: calcSellPrice(newCostP, newMarkup),
-        sellPricePer1kCompletion: calcSellPrice(newCostC, newMarkup),
+        sellPricePer1kPrompt: newSellP,
+        sellPricePer1kCompletion: newSellC,
       };
       if (newTPP !== undefined) updateData.tokenPlanPricePer1kPrompt = newTPP;
       if (newTPC !== undefined) updateData.tokenPlanPricePer1kCompletion = newTPC;

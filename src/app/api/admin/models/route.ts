@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 
 // List all models
 export async function GET() {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const models = await prisma.appModel.findMany({ orderBy: { name: "asc" } });
     return NextResponse.json(models.map((m) => ({
@@ -12,20 +15,17 @@ export async function GET() {
       providerModelId: m.providerModelId,
       provider: m.provider,
       maxOutputTokens: m.maxOutputTokens,
-      sellPricePer1kPrompt: m.sellPricePer1kPrompt ? Number(m.sellPricePer1kPrompt) : null,
-      sellPricePer1kCompletion: m.sellPricePer1kCompletion ? Number(m.sellPricePer1kCompletion) : null,
       isActive: m.isActive,
     })));
-  } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+  } catch {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
 // Add new model
 export async function POST(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const {
@@ -61,15 +61,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ id: model.id, modelId: model.modelId, name: model.name }, { status: 201 });
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code: string }).code === "P2002") {
+      return NextResponse.json({ error: "Model ID already exists" }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
 // Update model (toggle active, pricing, etc.)
 export async function PUT(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { id, ...updates } = body;
@@ -78,16 +80,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "id required" }, { status: 400 });
     }
 
-    // Decimal fields that should be passed as-is to Prisma
-    const decimalFields = new Set(["sellPricePer1kPrompt", "sellPricePer1kCompletion"]);
     const data: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(updates)) {
-      if (value === undefined) continue;
-      if (decimalFields.has(key) && value !== null) {
-        data[key] = value; // Prisma accepts number for Decimal
-      } else {
-        data[key] = value;
-      }
+    const allowedFields = [
+      "modelId",
+      "name",
+      "provider",
+      "providerModelId",
+      "maxOutputTokens",
+      "isActive",
+    ] as const;
+    for (const key of allowedFields) {
+      if (updates[key] !== undefined) data[key] = updates[key];
     }
 
     if (Object.keys(data).length === 0) {
@@ -97,8 +100,13 @@ export async function PUT(request: NextRequest) {
     const model = await prisma.appModel.update({ where: { id }, data });
     return NextResponse.json({ id: model.id, modelId: model.modelId, updated: true });
   } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "code" in error) {
+      const code = (error as { code: string }).code;
+      if (code === "P2002") return NextResponse.json({ error: "Model ID already exists" }, { status: 409 });
+      if (code === "P2025") return NextResponse.json({ error: "Model not found" }, { status: 404 });
+    }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -106,6 +114,8 @@ export async function PUT(request: NextRequest) {
 
 // Delete model
 export async function DELETE(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const id = request.nextUrl.searchParams.get("id");
     if (!id) {
@@ -115,9 +125,9 @@ export async function DELETE(request: NextRequest) {
     await prisma.appModel.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code: string }).code === "P2025") {
+      return NextResponse.json({ error: "Model not found" }, { status: 404 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

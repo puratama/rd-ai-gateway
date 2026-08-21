@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 import {
   getSiteSettings,
   saveSiteSettings,
@@ -31,6 +32,8 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const body = await request.json();
     if (!body || typeof body !== "object") {

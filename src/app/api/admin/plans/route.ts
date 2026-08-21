@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
 
 // GET /api/admin/plans - List all plans (auth handled by middleware)
 export async function GET() {
+  const authError = await requireSuperadmin();
+  if (authError) {
+    return authError;
+  }
   try {
     const { loadPlans } = await import("@/lib/server-store");
     const plans = await loadPlans();
@@ -13,6 +18,8 @@ export async function GET() {
 
 // POST /api/admin/plans - Create a new plan
 export async function POST(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { createPlan } = await import("@/lib/server-store");
     const body = await request.json();
@@ -25,6 +32,8 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/admin/plans - Update a plan
 export async function PUT(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { updatePlan } = await import("@/lib/server-store");
     const body = await request.json();
@@ -44,6 +53,8 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/admin/plans?id=xxx - Delete a plan
 export async function DELETE(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const { deletePlan } = await import("@/lib/server-store");
     const id = request.nextUrl.searchParams.get("id");

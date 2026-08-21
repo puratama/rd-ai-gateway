@@ -35,6 +35,19 @@ interface CatalogPlan {
 
 const fmtNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
 
+const billingLabel = (period: string) => {
+  switch (period) {
+    case "daily":
+      return "1 hari";
+    case "weekly":
+      return "1 minggu";
+    case "yearly":
+      return "1 tahun";
+    default:
+      return "1 bulan";
+  }
+};
+
 function FeatureRow({ icon, label, enabled }: { icon: React.ReactNode; label: string; enabled: boolean }) {
   return (
     <div className="flex items-center justify-between gap-2 text-xs">
@@ -175,24 +188,24 @@ export default function PlanPage() {
                 return (
                   <Card
                     key={plan.id}
-                    className="animate-fade-in group relative overflow-hidden transition-all duration-300"
+                    className="animate-fade-in group relative overflow-hidden transition-all duration-300 group-hover"
                     style={{ animationDelay: `${i * 60}ms` }}
                   >
                     <CardContent className="flex flex-col gap-4 p-5">
                       <div>
-                        <p className="truncate text-sm font-semibold">{plan.name}</p>
-                        <p className="text-[11px] text-muted-foreground">Sekali bayar</p>
+                        <p className="truncate text-xl font-semibold">{plan.name}</p>
                       </div>
 
                       <div>
-                        <p className="text-[10px] font-medium tracking-widest text-muted-foreground uppercase">Harga</p>
+                        <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Harga</p>
                         <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground tabular-nums">
                           {plan.price === 0 ? "Gratis" : formatCurrency(plan.price)}
                         </p>
+                        <p className="mt-2 text-sm text-muted-foreground">Berlaku {billingLabel(plan.billingPeriod)}</p>
                       </div>
 
                       {plan.description && (
-                        <p className="line-clamp-2 text-xs text-muted-foreground">{plan.description}</p>
+                        <p className="line-clamp-2 group-hover:line-clamp-none text-sm text-muted-foreground">{plan.description}</p>
                       )}
 
                       <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-2.5">
@@ -204,10 +217,10 @@ export default function PlanPage() {
                         </div>
                       </div>
 
-                      <div className="space-y-2 rounded-lg border border-border/70 bg-muted/25 p-3">
+                      {/* <div className="space-y-2 rounded-lg border border-border/70 bg-muted/25 p-3">
                         <FeatureRow icon={<Gauge className="h-3.5 w-3.5" />} label="Streaming" enabled={plan.features.streaming} />
                         <FeatureRow icon={<ImageIcon className="h-3.5 w-3.5" />} label="Image generation" enabled={plan.features.imageGeneration} />
-                      </div>
+                      </div> */}
 
                       {plan.features.highlights.length > 0 && (
                         <ul className="space-y-1.5">
@@ -222,7 +235,6 @@ export default function PlanPage() {
 
                       <Button
                         className="mt-auto w-full"
-                        size="sm"
                         disabled={buying !== null}
                         onClick={() => setConfirmPlan(plan)}
                       >
