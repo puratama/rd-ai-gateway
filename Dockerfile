@@ -48,6 +48,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+# Prisma (generate/engines) menulis ke node_modules → wajib writable oleh nextjs.
+RUN chown -R nextjs:nodejs /app/node_modules
 
 # Static assets (public/, .next/static) + standalone server
 COPY --from=builder /app/public ./public
