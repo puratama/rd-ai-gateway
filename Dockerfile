@@ -47,6 +47,7 @@ RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 #   - tsx + dotenv      → dipakai seed (`tsx prisma/seed.ts` via prisma.config.ts)
 #   - bcryptjs + pg     → dependensi seed (hash password & driver adapter)
 #   - .bin/prisma       → supaya `npx prisma` menemukan binary lokal
+#     (hanya `prisma` — .cmd/.ps1 adalah binary khusus Windows, tidak ada di image Linux)
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
@@ -54,8 +55,6 @@ COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --from=builder /app/node_modules/pg ./node_modules/pg
 COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
-COPY --from=builder /app/node_modules/.bin/prisma.cmd ./node_modules/.bin/prisma.cmd
-COPY --from=builder /app/node_modules/.bin/prisma.ps1 ./node_modules/.bin/prisma.ps1
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/package.json ./package.json
