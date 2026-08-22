@@ -3,10 +3,9 @@
 # Next.js 16 (standalone output) + Prisma 7 (pg driver adapter)
 #
 # Stages:
-#   deps    → install full node_modules (termasuk prisma CLI, dipakai migrate)
+#   deps    → install full node_modules (termasuk prisma CLI, dipakai generate & manual)
 #   builder → prisma generate + next build (output standalone)
-#   migrate → one-shot: prisma migrate deploy (dipakai compose service `migrate`)
-#   runner  → image produksi minimal: standalone server + static assets
+#   runner  → standalone server + static assets + prisma CLI (untuk `npx prisma *` manual)
 # ============================================================
 
 # ---------- deps ----------
@@ -30,10 +29,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate && npm run build
 
-# ---------- migrate (one-shot: docker compose run --rm migrate) ----------
-FROM builder AS migrate
-CMD ["npx", "prisma", "migrate", "deploy"]
-
 # ---------- runner ----------
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -43,6 +38,28 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3035
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+
+# Prisma CLI (untuk manajemen prisma manual via `docker exec -it rdai-app sh`)
+# Catatan: hanya salin paket yang dibutuhkan, bukan seluruh node_modules,
+# supaya ukuran image tetap ringan. Terdiri dari:
+#   - prisma            → CLI (migrate, db push, validate, studio)
+#   - @prisma           → engine + client + konfigurasi (didominasi engine)
+#   - tsx + dotenv      → dipakai seed (`tsx prisma/seed.ts` via prisma.config.ts)
+#   - bcryptjs + pg     → dependensi seed (hash password & driver adapter)
+#   - .bin/prisma       → supaya `npx prisma` menemukan binary lokal
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
+COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+COPY --from=builder /app/node_modules/pg ./node_modules/pg
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+COPY --from=builder /app/node_modules/.bin/prisma.cmd ./node_modules/.bin/prisma.cmd
+COPY --from=builder /app/node_modules/.bin/prisma.ps1 ./node_modules/.bin/prisma.ps1
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Static assets (public/, .next/static) + standalone server
 COPY --from=builder /app/public ./public

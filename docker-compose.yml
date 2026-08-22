@@ -15,7 +15,10 @@
 #     (acuan: .env.production.example)
 #
 # Jalankan:  docker compose up -d --build
-# Migrate sekali:  docker compose run --rm migrate
+# Migrate manual DI DALAM container app (prisma CLI sudah dibundel):
+#   docker exec -it rdai-app sh
+#   npx prisma migrate deploy | db push --accept-data-loss | db seed | validate
+#   (studio: npx prisma studio --port 5555, lalu forward port bila perlu)
 # Cron (/api/cron/*, auth Bearer $CRON_SECRET) → jadwalkan dari luar, contoh host cron:
 #   0 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://APP_DOMAIN/api/cron/expire-packages
 #   0 0 1 * *  curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://APP_DOMAIN/api/cron/monthly-reset
@@ -40,21 +43,12 @@ services:
     networks:
       - internet-net
 
-  migrate:
-    build:
-      context: .
-      target: migrate
-    container_name: rdai-migrate
-    restart: "no"
-    env_file: .env
-    environment:
-      # Pakai service `postgres` sebagai host, bukan host dari .env
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rdai}?schema=public
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - internet-net
+  # Prisma CLI manual ada DI DALAM image app (runner).
+  # Masuk shell:  docker exec -it rdai-app sh
+  # Lalu contoh:  npx prisma migrate deploy
+  #               npx prisma db push --accept-data-loss
+  #               npx prisma db seed
+  #               npx prisma studio
 
   app:
     build:
@@ -72,8 +66,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.gateway.rule=Host(`${APP_DOMAIN:?set APP_DOMAIN in .env}`)"
