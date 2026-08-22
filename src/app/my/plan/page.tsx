@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/components/ui/format-currency";
+import { formatDate } from "@/components/ui/format-date";
 
 type UserPackage = {
   id: string;
@@ -44,8 +45,7 @@ type MyPlanData = {
 };
 
 const fmtNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
-const fmtDate = (d: string) =>
-  d ? new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—";
+const fmtDate = (d: string) => formatDate(d);
 
 function TokenBar({ used, max }: { used: number; max: number }) {
   const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;

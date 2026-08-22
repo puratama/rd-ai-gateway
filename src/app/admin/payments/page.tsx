@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { Tabs } from "@/components/ui/tabs";
 import { formatCurrency } from "@/components/ui/format-currency";
+import { formatDateTime } from "@/components/ui/format-date";
 
 interface PaymentRecord {
   id: string;
@@ -158,7 +159,7 @@ export default function AdminPaymentsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {new Date(r.createdAt).toLocaleString("id-ID")}
+                          {formatDateTime(r.createdAt)}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Button size="sm" variant="outline" onClick={() => setDetail(r)}>
@@ -211,7 +212,7 @@ export default function AdminPaymentsPage() {
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-muted-foreground shrink-0">Dibuat</span>
-                  <span className="text-right">{new Date(detail.createdAt).toLocaleString("id-ID")}</span>
+                  <span className="text-right">{formatDateTime(detail.createdAt)}</span>
                 </div>
                 {detail.orderId && (
                   <div className="flex items-center justify-between gap-4 text-sm">

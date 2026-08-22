@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatCurrency } from "@/components/ui/format-currency";
+import { formatDateTime } from "@/components/ui/format-date";
 
 type BalanceResponse = { balance: number };
 type TopupResponse = {
@@ -56,6 +57,11 @@ declare global {
 }
 
 const presets = [10000, 25000, 50000, 100000, 250000];
+
+const BILLING_TYPE_LABELS: Record<string, string> = {
+  topup: "Top up saldo",
+  package_purchase: "Pembelian paket",
+};
 
 
 function parseBilling(input: BillingResponse): BillingRecord[] {
@@ -418,8 +424,8 @@ export default function WalletPage() {
                     <div key={item.id ?? item.midtransOrderId ?? `${item.createdAt}-${index}`} className="rounded-lg border border-border bg-muted/40 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-medium">{item.type ?? "Wallet top up"}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString("id-ID")}</p>
+                          <p className="text-sm font-medium">{item.type ? (BILLING_TYPE_LABELS[item.type] ?? "Transaksi") : "Top up saldo"}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(item.createdAt)}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold">{formatCurrency(item.amount)}</p>

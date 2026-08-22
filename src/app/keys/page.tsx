@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { formatDateTime } from "@/components/ui/format-date";
 
 interface ApiKeyItem {
   id: string;
@@ -61,14 +62,7 @@ const formatTokens = (tokens: number) => {
   return tokens.toLocaleString();
 };
 
-const formatDate = (timestamp: string) =>
-  new Date(timestamp).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const formatDate = (timestamp: string) => formatDateTime(timestamp);
 
 export default function KeysPage() {
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { formatDateTime } from "@/components/ui/format-date";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { Tabs } from "@/components/ui/tabs";
@@ -93,13 +94,7 @@ function titleCase(value: string) {
 const categoryLabel = (category: string) => CATEGORY_LABELS[category] ?? titleCase(category);
 
 function formatTime(ts: number) {
-  return new Date(ts).toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTime(ts);
 }
 
 function StatusBadge({ status }: { status: string }) {

@@ -139,11 +139,11 @@ export async function POST(request: NextRequest) {
 
       // Store tier info for deduction after completion
       (request as unknown as Record<string, unknown>)._billingTier = balanceCheck.tier;
-      if (balanceCheck.tier === "package") {
+      if (balanceCheck.tier === "package" || balanceCheck.tier === "package_payg") {
         (request as unknown as Record<string, unknown>)._billingPackageId = balanceCheck.packageId;
         (request as unknown as Record<string, unknown>)._billingHeldTokens = balanceCheck.heldTokens;
       }
-      if (balanceCheck.tier === "payg") {
+      if (balanceCheck.tier === "payg" || balanceCheck.tier === "package_payg") {
         (request as unknown as Record<string, unknown>)._billingHeldAmount = balanceCheck.heldAmount;
       }
       if (balanceCheck.tier !== "free") {
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
         try {
           const { releaseUsageHold } = await import("@/lib/db/quota");
           const billing = request as unknown as Record<string, unknown>;
-          const tier = billing._billingTier as "payg" | "package" | undefined;
+          const tier = billing._billingTier as "payg" | "package" | "package_payg" | undefined;
           if (tier) {
             await releaseUsageHold(userId, {
               tier,
@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
               const promptTokens = estimateTokens(JSON.stringify(messages));
               const completionTokens = estimateTokens(fullText);
               const billing = request as unknown as Record<string, unknown>;
-              const tier = billing._billingTier as "payg" | "package" | undefined;
+              const tier = billing._billingTier as "payg" | "package" | "package_payg" | undefined;
               if (tier) {
                 const holdInfo = {
                   tier,
@@ -341,7 +341,7 @@ export async function POST(request: NextRequest) {
             estimateTokens(data.choices?.[0]?.message?.content || "");
 
           usageCost = await settleUsage(userId, model, promptTokens, completionTokens, {
-            tier: tier as "payg" | "package",
+            tier: tier as "payg" | "package" | "package_payg",
             packageId: (request as unknown as Record<string, unknown>)._billingPackageId as string | undefined,
             pricing: (request as unknown as Record<string, unknown>)._billingPricing as import("@/lib/db/quota").ModelPricing,
             heldTokens: (request as unknown as Record<string, unknown>)._billingHeldTokens as number | undefined,

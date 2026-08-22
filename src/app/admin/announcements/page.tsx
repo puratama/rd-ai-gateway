@@ -28,6 +28,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { toast } from "sonner";
+import { formatDate as formatDateValue } from "@/components/ui/format-date";
 
 interface Announcement {
   id: string;
@@ -118,8 +119,7 @@ function AdminAnnouncementsPageContent() {
     }
   };
 
-  const formatDate = (ts: number) =>
-    new Date(ts).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  const formatDate = (ts: number) => formatDateValue(ts);
 
   return (
     <AppShell variant="admin">

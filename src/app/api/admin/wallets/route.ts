@@ -62,14 +62,14 @@ export async function GET(request: NextRequest) {
       prisma.wallet.count({ where }),
     ]);
 
-    // Aggregate billing totals per wallet (last 30 days of billing)
+    // Aggregate actual usage cost per wallet (last 30 days)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const billingAgg = await prisma.billingRecord.groupBy({
+    const usageAgg = await prisma.usageRecord.groupBy({
       by: ["userId"],
-      where: { status: "completed", createdAt: { gte: thirtyDaysAgo } },
-      _sum: { amount: true },
+      where: { createdAt: { gte: thirtyDaysAgo } },
+      _sum: { cost: true },
     });
-    const monthlyBillingMap = new Map(billingAgg.map((b) => [b.userId, Number(b._sum.amount || 0)]));
+    const monthlySpendMap = new Map(usageAgg.map((u) => [u.userId, Number(u._sum.cost || 0)]));
 
     return NextResponse.json({
       wallets: wallets.map((w) => ({
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         balance: Number(w.balance),
         billingCount: w.user._count.billingRecords,
         usageCount: w.user._count.usageRecords,
-        monthlySpend: monthlyBillingMap.get(w.userId) || 0,
+        monthlySpend: monthlySpendMap.get(w.userId) || 0,
         updatedAt: w.updatedAt,
       })),
       total,

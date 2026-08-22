@@ -147,6 +147,7 @@ export async function holdBalanceOrTokens(
   | { ok: true; tier: "free" }
   | { ok: true; tier: "package"; packageId: string; pricing: ModelPricing; heldTokens: number }
   | { ok: true; tier: "payg"; pricing: ModelPricing; heldAmount: number }
+  | { ok: true; tier: "package_payg"; packageId: string; pricing: ModelPricing; heldTokens: number; heldAmount: number }
   | { ok: false; reason: string }
 > {
   const pricing = await getModelPricing(modelId);
@@ -163,32 +164,73 @@ export async function holdBalanceOrTokens(
     orderBy: [{ tokensRemaining: "desc" }, { expiresAt: "asc" }],
   });
 
-  if (activePackage) {
-    const estimatedTotalTokens = Math.max(100, estimatedPromptTokens * 3);
-    const updated = await prisma.userPackage.updateMany({
-      where: {
-        id: activePackage.id,
-        userId,
-        status: "active",
-        tokensRemaining: { gte: estimatedTotalTokens },
-      },
-      data: { tokensRemaining: { decrement: estimatedTotalTokens } },
-    });
+  const estimatedTotalTokens = Math.max(100, estimatedPromptTokens * 3);
 
-    if (updated.count === 1) {
-      return {
-        ok: true,
-        tier: "package",
-        packageId: activePackage.id,
-        pricing,
-        heldTokens: estimatedTotalTokens,
-      };
+  if (activePackage) {
+    const packageTokens = Number(activePackage.tokensRemaining);
+
+    if (packageTokens >= estimatedTotalTokens) {
+      // Full request covered by package
+      const updated = await prisma.userPackage.updateMany({
+        where: {
+          id: activePackage.id,
+          userId,
+          status: "active",
+          tokensRemaining: { gte: estimatedTotalTokens },
+        },
+        data: { tokensRemaining: { decrement: estimatedTotalTokens } },
+      });
+
+      if (updated.count === 1) {
+        return {
+          ok: true,
+          tier: "package",
+          packageId: activePackage.id,
+          pricing,
+          heldTokens: estimatedTotalTokens,
+        };
+      }
+    } else {
+      // Package covers what it has; wallet covers the rest (one request, two sources)
+      const wallet = await prisma.wallet.findUnique({ where: { userId } });
+      const walletTokens = estimatedTotalTokens - packageTokens;
+      const estCost = Math.ceil((walletTokens / 1000) * Math.max(pricing.paygPrompt, pricing.paygCompletion));
+      const balance = wallet ? Number(wallet.balance) : 0;
+
+      if (balance < estCost) {
+        const minTopup = Math.ceil(estCost / 10000) * 10000;
+        return {
+          ok: false,
+          reason: `Saldo tidak cukup. Butuh ~Rp${estCost.toLocaleString()}, saldo Rp${balance.toLocaleString()}. Minimal topup Rp${minTopup.toLocaleString()}.`,
+        };
+      }
+
+      const [pkgUpdated, walletUpdated] = await prisma.$transaction([
+        prisma.userPackage.updateMany({
+          where: { id: activePackage.id, userId, status: "active", tokensRemaining: { gte: packageTokens } },
+          data: { tokensRemaining: { decrement: packageTokens } },
+        }),
+        prisma.wallet.updateMany({
+          where: { userId, balance: { gte: estCost } },
+          data: { balance: { decrement: estCost } },
+        }),
+      ]);
+
+      if (pkgUpdated.count === 1 && walletUpdated.count === 1) {
+        return {
+          ok: true,
+          tier: "package_payg",
+          packageId: activePackage.id,
+          pricing,
+          heldTokens: packageTokens,
+          heldAmount: estCost,
+        };
+      }
     }
   }
 
   // 2. Try PAYG Wallet
   const wallet = await prisma.wallet.findUnique({ where: { userId } });
-  const estimatedTotalTokens = estimatedPromptTokens + estimatedPromptTokens * 2;
   const estCost = Math.ceil((estimatedTotalTokens / 1000) * Math.max(pricing.paygPrompt, pricing.paygCompletion));
   const balance = wallet ? Number(wallet.balance) : 0;
 
@@ -220,7 +262,7 @@ export async function holdBalanceOrTokens(
 export async function releaseUsageHold(
   userId: string,
   holdInfo: {
-    tier: "payg" | "package";
+    tier: "payg" | "package" | "package_payg";
     packageId?: string;
     pricing: ModelPricing;
     heldTokens?: number;
@@ -241,7 +283,7 @@ export async function settleUsage(
   promptTokens: number,
   completionTokens: number,
   holdInfo: {
-    tier: "payg" | "package";
+    tier: "payg" | "package" | "package_payg";
     packageId?: string;
     pricing: ModelPricing;
     heldTokens?: number;
@@ -285,6 +327,51 @@ export async function settleUsage(
     });
 
     // Actual cost in IDR based on token-plan pricing
+    const pCost = (promptTokens / 1000) * pricing.tokenPlanPrompt;
+    const cCost = (completionTokens / 1000) * pricing.tokenPlanCompletion;
+    return Math.ceil(pCost + cCost);
+  }
+
+  // Mixed: package covers tokens first, wallet covers the rest
+  if (tier === "package_payg" && packageId) {
+    const actualTokens = Math.max(0, promptTokens + completionTokens);
+    const packageCovered = Math.min(heldTokens, actualTokens);
+    const walletTokens = actualTokens - packageCovered;
+
+    // Settle package portion
+    const refund = heldTokens - packageCovered;
+    if (refund > 0) {
+      await prisma.userPackage.update({
+        where: { id: packageId },
+        data: { tokensRemaining: { increment: refund } },
+      });
+    }
+    // No surcharge possible on package here: heldTokens <= remaining, so wallet covers overflow.
+
+    // Ensure state clean
+    await prisma.userPackage.updateMany({
+      where: { id: packageId, tokensRemaining: { lte: 0 } },
+      data: { status: "depleted" },
+    });
+
+    // Settle wallet portion (tokens not covered by package)
+    const wCost = (walletTokens / 1000) * Math.max(pricing.paygPrompt, pricing.paygCompletion);
+    const walletCost = Math.ceil(wCost);
+    const diff = heldAmount - walletCost;
+
+    if (diff > 0) {
+      await prisma.wallet.update({
+        where: { userId },
+        data: { balance: { increment: diff } },
+      });
+    } else if (diff < 0) {
+      await prisma.wallet.update({
+        where: { userId },
+        data: { balance: { decrement: Math.abs(diff) } },
+      });
+    }
+
+    // Report combined actual cost for usage record
     const pCost = (promptTokens / 1000) * pricing.tokenPlanPrompt;
     const cCost = (completionTokens / 1000) * pricing.tokenPlanCompletion;
     return Math.ceil(pCost + cCost);

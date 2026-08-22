@@ -10,6 +10,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { toast } from "sonner";
+import { formatDateTime } from "@/components/ui/format-date";
 
 interface Message {
   authorRole: "user" | "admin";
@@ -43,9 +44,7 @@ function titleCase(value: string) {
 }
 
 function formatTime(ts: number) {
-  return new Date(ts).toLocaleString("id-ID", {
-    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-  });
+  return formatDateTime(ts);
 }
 
 function AdminSupportPageContent() {

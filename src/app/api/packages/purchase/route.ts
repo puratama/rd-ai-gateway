@@ -45,6 +45,19 @@ export async function POST(request: NextRequest) {
 
     if (!userPackage) return apiError("Insufficient balance", 402, "insufficient_balance", "billing_error");
 
+    // Record the package purchase transaction
+    await prisma.billingRecord.create({
+      data: {
+        userId,
+        type: "package_purchase",
+        amount: price,
+        status: "paid",
+        planId,
+        description: `Pembelian paket ${plan.name}`,
+        paidAt: new Date(),
+      },
+    });
+
     return withPublicCors(NextResponse.json({
       id: userPackage.id,
       planId,

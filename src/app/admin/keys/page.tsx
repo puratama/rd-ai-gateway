@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/components/ui/format-date";
 
 interface KeyItem {
   id: string;
@@ -32,7 +33,7 @@ interface KeysResponse {
 }
 
 const fmtNum = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocaleString();
-const fmtDate = (ts: string | null) => ts ? new Date(ts).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Never";
+const fmtDate = (ts: string | null) => ts ? formatDateTime(ts) : "Never";
 
 function AdminKeysPageContent() {
   const [keys, setKeys] = useState<KeyItem[]>([]);

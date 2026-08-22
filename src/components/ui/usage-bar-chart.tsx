@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Bar } from "react-chartjs-2";
 import { formatCurrency } from "@/components/ui/format-currency";
+import { formatShortDate } from "@/components/ui/format-date";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -27,10 +28,6 @@ interface UsageBarChartProps {
   heightClass?: string;
 }
 
-function shortDate(date: string) {
-  return new Date(date).toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
-}
-
 function formatNumber(n: number) {
   return new Intl.NumberFormat("id-ID").format(n);
 }
@@ -39,7 +36,7 @@ function formatNumber(n: number) {
 
 export function UsageBarChart({ data, heightClass = "h-72" }: UsageBarChartProps) {
   const chartData = useMemo(() => ({
-    labels: data.map((day) => shortDate(day.date)),
+    labels: data.map((day) => formatShortDate(day.date)),
     datasets: [{
       label: "Tokens",
       data: data.map((day) => day.tokens),

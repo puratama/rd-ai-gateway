@@ -20,6 +20,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { FormSelect } from "@/components/ui/form-select";
 import { toast } from "sonner";
 import { formatCurrency } from "@/components/ui/format-currency";
+import { formatDate } from "@/components/ui/format-date";
 
 interface AdminUser {
   id: string;
@@ -89,7 +90,7 @@ type UserDetail = AdminUser & {
 const roles = ["user", "superadmin"];
 const statuses = ["active", "suspended", "banned"];
 
-const fmtDate = (ts: string) => new Date(ts).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+const fmtDate = (ts: string) => formatDate(ts);
 const fmtT = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : n.toLocaleString();
 
 function StatusBadge({ status }: { status: string }) {

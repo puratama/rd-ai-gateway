@@ -11,6 +11,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { UsageBarChart } from "@/components/ui/usage-bar-chart";
 import { Tabs } from "@/components/ui/tabs";
 import { formatCurrency } from "@/components/ui/format-currency";
+import { formatDateTime } from "@/components/ui/format-date";
 
 interface ModelUsage {
   model: string;
@@ -65,19 +66,8 @@ const RANGE_DAYS: Record<RangeFilter, number> = {
 };
 
 const RECORDS_PER_PAGE = 10;
-const DATE_FORMATTER = new Intl.DateTimeFormat("id-ID", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 const number = new Intl.NumberFormat("id-ID");
-
-function shortDate(date: string) {
-  return new Date(date).toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
-}
 
 /** Generate ISO dates (UTC) for the full range, back-filling usage data */
 function fillDays(range: RangeFilter, byDay: DailyUsage[]): DailyUsage[] {
@@ -260,7 +250,7 @@ export default function UsagePage() {
                           <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No usage records.</td></tr>
                         ) : visibleRecords.map((record, index) => (
                           <tr key={`${record.datetime}-${index}`} className="border-b border-border/50">
-                            <td className="py-3 text-muted-foreground">{DATE_FORMATTER.format(new Date(record.datetime))}</td>
+                            <td className="py-3 text-muted-foreground">{formatDateTime(record.datetime)}</td>
                             <td className="py-3 font-medium">{record.model}</td>
                             <td className="py-3 text-right tabular-nums">{number.format(record.promptTokens)}</td>
                             <td className="py-3 text-right tabular-nums">{number.format(record.completionTokens)}</td>
