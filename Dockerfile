@@ -42,19 +42,20 @@ RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 # Prisma CLI (untuk manajemen prisma manual via `docker exec -it rdai-app sh`)
 # Catatan: hanya salin paket yang dibutuhkan, bukan seluruh node_modules,
 # supaya ukuran image tetap ringan. Terdiri dari:
-#   - prisma            → CLI (migrate, db push, validate, studio)
+#   - prisma            → CLI + wasm engine (migrate, db push, validate, studio)
 #   - @prisma           → engine + client + konfigurasi (didominasi engine)
 #   - tsx + dotenv      → dipakai seed (`tsx prisma/seed.ts` via prisma.config.ts)
 #   - bcryptjs + pg     → dependensi seed (hash password & driver adapter)
-#   - .bin/prisma       → supaya `npx prisma` menemukan binary lokal
-#     (hanya `prisma` — .cmd/.ps1 adalah binary khusus Windows, tidak ada di image Linux)
+# JANGAN salin node_modules/.bin/prisma: itu symlink yang di-resolve Docker
+# menjadi file index.js di .bin/, sehingga `__dirname` salah (cari wasm di .bin/).
+# Buat symlink ulang dengan RUN ln -s supaya __dirname menunjuk prisma/build/.
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
 COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --from=builder /app/node_modules/pg ./node_modules/pg
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+RUN mkdir -p /app/node_modules/.bin && ln -s ../prisma/build/index.js /app/node_modules/.bin/prisma
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/package.json ./package.json
