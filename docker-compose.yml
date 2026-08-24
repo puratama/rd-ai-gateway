@@ -3,7 +3,7 @@
 #
 # Reverse proxy: Traefik EKSTERNAL (dijalankan terpisah, di luar
 # compose ini) pada network bersama `internet-net`.
-# Referensi: docker-compose.yml rakitdigital (C:\Users\rizky\OneDrive\Documents\New folder).
+# Referensi: docker-compose.yml rakitdigital.
 #
 # Alur akses: Cloudflare Tunnel → Traefik :80 (HTTP) → app via label.
 # TLS/HTTPS ditangani Cloudflare; traefik hanya proxy HTTP.
@@ -11,15 +11,12 @@
 # Syarat:
 #   - network external sudah dibuat:  docker network create internet-net
 #   - instance Traefik host sudah attach ke `internet-net` dengan entrypoint `web`.
-#   - .env berisi APP_DOMAIN, POSTGRES_PASSWORD, dst.
+#   - file .env.production berisi APP_DOMAIN, POSTGRES_PASSWORD, dst.
 #     (acuan: .env.production.example)
 #
-# Jalankan:  docker compose up -d --build
-# Migrate manual DI DALAM container app (prisma CLI sudah dibundel):
-#   docker exec -it rdai-app sh
-#   npx prisma migrate deploy | db push --accept-data-loss | db seed | validate
-#   (studio: npx prisma studio --port 5555, lalu forward port bila perlu)
-# Cron (/api/cron/*, auth Bearer $CRON_SECRET) → jadwalkan dari luar, contoh host cron:
+# Jalankan:  docker compose --env-file .env.production up -d --build
+# Migrate otomatis via service `migrate` (jalan sekali, setelah postgres healthy).
+# Cron (/api/cron/*, auth Bearer $CRON_SECRET) → jadwalkan dari host cron:
 #   0 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://APP_DOMAIN/api/cron/expire-packages
 #   0 0 1 * *  curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://APP_DOMAIN/api/cron/monthly-reset
 # ============================================================
@@ -31,7 +28,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-rdai}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
       POSTGRES_DB: ${POSTGRES_DB:-rdai}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -43,7 +40,24 @@ services:
     networks:
       - internet-net
 
-  # Prisma CLI manual ada DI DALAM image app (runner).
+  # Service one-off untuk migrasi database (automatis setelah postgres healthy)
+  # Jalankan: docker compose --env-file .env.production up -d --build
+  migrate:
+    build:
+      context: .
+      target: deps
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-rdai}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && npx prisma db seed"]
+    networks:
+      - internet-net
+    restart: "no"
+
+  # Prisma CLI manual tersedia DI DALAM image app (runner).
   # Masuk shell:  docker exec -it rdai-app sh
   # Lalu contoh:  npx prisma migrate deploy
   #               npx prisma db push --accept-data-loss
@@ -58,17 +72,17 @@ services:
         NEXT_PUBLIC_INTERNAL_KEY: ${NEXT_PUBLIC_INTERNAL_KEY:-}
     container_name: rdai-app
     restart: unless-stopped
-    env_file: .env
+    env_file: .env.production
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rdai}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-rdai}?schema=public
       HOSTNAME: 0.0.0.0
       PORT: 3035
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gateway.rule=Host(`${APP_DOMAIN:?set APP_DOMAIN in .env}`)"
+      - "traefik.http.routers.gateway.rule=Host(`${APP_DOMAIN:?set APP_DOMAIN in .env.production}`)"
       - "traefik.http.services.gateway.loadbalancer.server.port=3035"
       - "traefik.http.routers.gateway.entrypoints=web"
     networks:
@@ -76,6 +90,11 @@ services:
 
 volumes:
   pgdata:
+    driver: local
+    driver_opts:
+      type: none
+      device: /srv/docker-volumes/rdai-postgres
+      o: bind
 
 networks:
   internet-net:
