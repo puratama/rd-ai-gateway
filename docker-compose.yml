@@ -52,7 +52,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    entrypoint: ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && npx prisma db seed"]
+    entrypoint: ["sh", "-c", "npx prisma generate && npx prisma migrate deploy"]
     networks:
       - internet-net
     restart: "no"
@@ -90,6 +90,10 @@ services:
 
 volumes:
   pgdata:
+    # Mount bind ke host untuk kemudahan backup dan pemantauan I/O di VPS
+    # Pastikan directory sudah ada sebelum deploy:
+    #   sudo mkdir -p /srv/docker-volumes/rdai-postgres
+    #   sudo chown -R 999:999 /srv/docker-volumes/rdai-postgres  (uid 999 = postgres di alpine)
     driver: local
     driver_opts:
       type: none
