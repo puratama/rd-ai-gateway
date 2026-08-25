@@ -45,14 +45,14 @@ services:
   migrate:
     build:
       context: .
-      target: deps
+      target: builder
     env_file: .env.production
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-rdai}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-rdai}?schema=public
     depends_on:
       postgres:
         condition: service_healthy
-    entrypoint: ["sh", "-c", "npx prisma generate && npx prisma migrate deploy"]
+    entrypoint: ["npx", "prisma", "migrate", "deploy"]
     networks:
       - internet-net
     restart: "no"
