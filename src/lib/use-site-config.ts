@@ -3,6 +3,16 @@
 import { useEffect, useState } from "react";
 import { siteConfig } from "@/lib/site-config";
 
+export interface PublicModelInfo {
+  modelId: string;
+  name: string;
+  provider: string;
+  maxOutputTokens: number | null;
+  paygPrompt: number | null;
+  paygCompletion: number | null;
+  planPrompt: number | null;
+}
+
 export interface PublicSiteConfig {
   siteName: string;
   tagline: string;
@@ -10,6 +20,7 @@ export interface PublicSiteConfig {
   logoUrl: string;
   logoMode: "logo" | "logo-name" | "name";
   baseUrl: string;
+  models: PublicModelInfo[];
   loaded: boolean;
 }
 
@@ -20,6 +31,7 @@ const FALLBACK: PublicSiteConfig = {
   logoUrl: "",
   logoMode: "logo-name",
   baseUrl: siteConfig.baseUrl,
+  models: [],
   loaded: false,
 };
 
