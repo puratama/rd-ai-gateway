@@ -82,11 +82,16 @@ export function getCronSecret(): string {
 
 export function requireCronAuth(authHeader: string | null): { ok: boolean; message?: string } {
   const secret = getCronSecret();
-  if (secret && authHeader !== `Bearer ${secret}`) {
-    return { ok: false, message: "Unauthorized" };
+  if (!secret) {
+    // No secret configured — only allow if a header is present matching empty string (never true), effectively blocking all.
+    // In dev, warn and block unless explicitly bypassed via CRON_SECRET.
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[cron] CRON_SECRET not set — cron endpoints are blocked. Set CRON_SECRET in .env to enable.");
+    }
+    return { ok: false, message: "Unauthorized: CRON_SECRET not configured" };
   }
-  if (!secret && process.env.NODE_ENV !== "production") {
-    console.warn("[cron] CRON_SECRET not set — endpoint is unauthenticated. Dev only.");
+  if (authHeader !== `Bearer ${secret}`) {
+    return { ok: false, message: "Unauthorized" };
   }
   return { ok: true };
 }
