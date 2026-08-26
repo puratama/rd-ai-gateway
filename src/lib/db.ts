@@ -8,6 +8,13 @@ function makeClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma || makeClient();
+export const prisma = globalForPrisma.prisma ?? makeClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (!globalForPrisma.prisma) {
+  globalForPrisma.prisma = prisma;
+  // Eager connect — buka koneksi pool saat module pertama di-load,
+  // bukan saat query pertama dieksekusi. Mencegah cold start error.
+  prisma.$connect().catch((e) => {
+    console.error("[db] failed to connect on startup:", e);
+  });
+}
