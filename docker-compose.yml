@@ -27,13 +27,13 @@ services:
     container_name: rdai-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-rdai}
+      POSTGRES_USER: ${POSTGRES_USER:-rdai-user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
-      POSTGRES_DB: ${POSTGRES_DB:-rdai}
+      POSTGRES_DB: ${POSTGRES_DB:-rdai-db}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rdai} -d ${POSTGRES_DB:-rdai}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rdai-user} -d ${POSTGRES_DB:-rdai-db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -49,7 +49,7 @@ services:
     container_name: rdai-migrate
     env_file: .env.production
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-rdai}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai-user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-rdai-db}?schema=public
     depends_on:
       postgres:
         condition: service_healthy
