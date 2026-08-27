@@ -6,7 +6,7 @@
 # Referensi: docker-compose.yml rakitdigital.
 #
 # Topologi network (DUA network):
-#   - `rdai-internal-net`  : bridge lokal, dibuat otomatis compose.
+#   - `rd-ai-network`  : bridge lokal, dibuat otomatis compose.
 #                            Untuk komunikasi antar service (postgres,
 #                            migrate, app). App connect DB via host
 #                            `postgres:5432` di network ini.
@@ -24,7 +24,7 @@
 #
 # Akses DB dari luar Docker (opsional, DBeaver/psql di host):
 #   postgres publish `0.0.0.0:5444:5432` → localhost:5444.
-#   App TIDAK pakai port ini; app tetap via `postgres:5432` (rdai-internal-net).
+#   App TIDAK pakai port ini; app tetap via `postgres:5432` (rd-ai-network).
 #
 # Jalankan:  docker compose --env-file .env.production up -d --build
 # Migrate otomatis via service `migrate` (jalan sekali, setelah postgres healthy).
@@ -52,7 +52,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - rdai-internal-net
+      - rd-ai-network
 
   # Service one-off untuk migrasi database (automatis setelah postgres healthy)
   # Jalankan: docker compose --env-file .env.production up -d --build
@@ -69,7 +69,7 @@ services:
         condition: service_healthy
     entrypoint: ["npx", "prisma", "migrate", "deploy"]
     networks:
-      - rdai-internal-net
+      - rd-ai-network
     restart: "no"
 
   # Prisma CLI manual tersedia DI DALAM image app (runner).
@@ -102,7 +102,7 @@ services:
       - "traefik.http.services.gateway.loadbalancer.server.port=3035"
       - "traefik.http.routers.gateway.entrypoints=web"
     networks:
-      - rdai-internal-net
+      - rd-ai-network
       - internet-net
 
 volumes:
@@ -110,7 +110,7 @@ volumes:
   uploads:
 
 networks:
-  rdai-internal-net:
+  rd-ai-network:
     driver: bridge
 
   internet-net:
