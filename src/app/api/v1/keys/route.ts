@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSuperadmin } from "@/lib/admin-auth";
+import { corsOptions } from "@/lib/public-api";
+
+export function OPTIONS() {
+  return corsOptions();
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,31 +13,29 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.replace("Bearer ", "");
 
-    // Only master admin key can list all keys
-    const { getInternalKeys } = await import("@/lib/auth");
-    const { internalKey, publicKey } = getInternalKeys();
-    if (token !== internalKey && token !== publicKey) {
-      // Regular user can only see their own key info
-      if (token) {
-        const { validateServerKey } = await import("@/lib/server-store");
-        const apiKey = await validateServerKey(token);
-        if (apiKey) {
-          return NextResponse.json({
-            keys: [{
-              id: apiKey.id,
-              name: apiKey.name,
-              key: apiKey.key ? `${apiKey.key.slice(0, 8)}...${apiKey.key.slice(-4)}` : `${settings.apiKeyPrefix}••••••••`,
-              createdAt: apiKey.createdAt,
-              lastUsed: apiKey.lastUsed,
-              isActive: apiKey.isActive,
-              usageCount: apiKey.usageCount,
-              totalTokens: apiKey.totalTokens,
-            }],
-          });
-        }
+    // Regular user (own API key): return own key info only
+    if (token) {
+      const { validateServerKey } = await import("@/lib/server-store");
+      const apiKey = await validateServerKey(token);
+      if (apiKey) {
+        return NextResponse.json({
+          keys: [{
+            id: apiKey.id,
+            name: apiKey.name,
+            key: apiKey.key ? `${apiKey.key.slice(0, 8)}...${apiKey.key.slice(-4)}` : `${settings.apiKeyPrefix}••••••••`,
+            createdAt: apiKey.createdAt,
+            lastUsed: apiKey.lastUsed,
+            isActive: apiKey.isActive,
+            usageCount: apiKey.usageCount,
+            totalTokens: apiKey.totalTokens,
+          }],
+        });
       }
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Admin (list all keys): requires superadmin session, not a shared static key
+    const authError = await requireSuperadmin();
+    if (authError) return authError;
 
     const { loadServerKeys, maskApiKey } = await import("@/lib/server-store");
     const keys = await loadServerKeys();
@@ -55,14 +59,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    const { getInternalKeys } = await import("@/lib/auth");
-    const { internalKey, publicKey } = getInternalKeys();
-    if (token !== internalKey && token !== publicKey) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authError = await requireSuperadmin();
+    if (authError) return authError;
 
     const body = await request.json();
     const { name } = body;
@@ -85,14 +83,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    const { getInternalKeys } = await import("@/lib/auth");
-    const { internalKey, publicKey } = getInternalKeys();
-    if (token !== internalKey && token !== publicKey) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authError = await requireSuperadmin();
+    if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

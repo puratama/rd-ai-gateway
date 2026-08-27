@@ -53,7 +53,11 @@ export async function GET() {
         ? "ok"
         : "degraded";
 
-  // Always 200 so the container stays "healthy" even if a dependency is down;
-  // the `status`/`dbOk` fields carry the real degraded/outage state.
-  return NextResponse.json({ status, dbOk, up, total: configs.length, checks });
+  // Reflect real readiness: 503 when the DB itself is unreachable (the app
+  // cannot serve requests without it). Aggregator outages are business-level
+  // degradation, not infra failure, so they keep 200 with `status: "degraded"`.
+  return NextResponse.json(
+    { status, dbOk, up, total: configs.length, checks },
+    { status: dbOk ? 200 : 503 },
+  );
 }

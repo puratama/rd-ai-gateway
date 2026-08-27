@@ -26,6 +26,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // API routes that support dual auth (API key or session): let the handler resolve auth
+  const isApiKeyRoute =
+    pathname.startsWith("/api/wallet/") ||
+    pathname.startsWith("/api/user/") ||
+    pathname.startsWith("/api/packages/");
+  const hasApiKeyHeader =
+    !!request.headers.get("x-api-key") ||
+    !!request.headers.get("authorization");
+  if (isApiKeyRoute && hasApiKeyHeader) {
+    return NextResponse.next();
+  }
+
   const token = request.cookies.get(COOKIE_NAME)?.value;
   if (!token) {
     if (pathname.startsWith("/api/")) {

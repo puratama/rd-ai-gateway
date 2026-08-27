@@ -96,23 +96,3 @@ export function requireCronAuth(authHeader: string | null): { ok: boolean; messa
   return { ok: true };
 }
 
-// Internal keys — wajib random di production
-export function getInternalKeys(): { internalKey: string; publicKey: string } {
-  const internalKey = process.env.INTERNAL_API_KEY || "";
-  const publicKey = process.env.NEXT_PUBLIC_INTERNAL_KEY || "";
-
-  if (process.env.NODE_ENV === "production") {
-    if (!internalKey || !publicKey) {
-      throw new Error("FATAL: INTERNAL_API_KEY and NEXT_PUBLIC_INTERNAL_KEY are required in production");
-    }
-    if (internalKey === "demo-key-xperimne" || publicKey === "demo-key-xperimne") {
-      throw new Error("FATAL: Default demo-key-xperimne cannot be used in production");
-    }
-  } else {
-    if (internalKey === "demo-key-xperimne" || publicKey === "demo-key-xperimne") {
-      console.warn("WARNING: Using insecure default demo-key-xperimne for internal routing. Generate random keys for production.");
-    }
-  }
-
-  return { internalKey, publicKey };
-}

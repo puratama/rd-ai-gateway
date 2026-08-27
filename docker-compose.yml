@@ -70,7 +70,6 @@ services:
       context: .
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost}
-        NEXT_PUBLIC_INTERNAL_KEY: ${NEXT_PUBLIC_INTERNAL_KEY:-}
     container_name: rdai-app
     restart: unless-stopped
     env_file: .env.production
@@ -81,6 +80,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    volumes:
+      - uploads:/app/public/uploads
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.gateway.rule=Host(`${APP_DOMAIN:?set APP_DOMAIN in .env.production}`)"
@@ -91,6 +92,7 @@ services:
 
 volumes:
   pgdata:
+  uploads:
 
 networks:
   internet-net:
