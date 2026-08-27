@@ -75,7 +75,7 @@ services:
     restart: unless-stopped
     env_file: .env.production
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-rdai}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai-user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-rdai-db}?schema=public
       HOSTNAME: 0.0.0.0
       PORT: 3035
     depends_on:
