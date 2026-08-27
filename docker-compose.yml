@@ -2,8 +2,16 @@
 # Xperimne AI Gateway — stack: postgres + migrate + app
 #
 # Reverse proxy: Traefik EKSTERNAL (dijalankan terpisah, di luar
-# compose ini) pada network bersama `internet-net`.
+# compose ini) pada network external `internet-net`.
 # Referensi: docker-compose.yml rakitdigital.
+#
+# Topologi network (DUA network):
+#   - `rdai-internal-net`  : bridge lokal, dibuat otomatis compose.
+#                            Untuk komunikasi antar service (postgres,
+#                            migrate, app). App connect DB via host
+#                            `postgres:5432` di network ini.
+#   - `internet-net`       : external (harus dibuat manual di host).
+#                            Hanya `app` yang attach — jalur app ↔ Traefik.
 #
 # Alur akses: Cloudflare Tunnel → Traefik :80 (HTTP) → app via label.
 # TLS/HTTPS ditangani Cloudflare; traefik hanya proxy HTTP.
@@ -13,6 +21,10 @@
 #   - instance Traefik host sudah attach ke `internet-net` dengan entrypoint `web`.
 #   - file .env.production berisi APP_DOMAIN, POSTGRES_PASSWORD, dst.
 #     (acuan: .env.production.example)
+#
+# Akses DB dari luar Docker (opsional, DBeaver/psql di host):
+#   postgres publish `0.0.0.0:5444:5432` → localhost:5444.
+#   App TIDAK pakai port ini; app tetap via `postgres:5432` (rdai-internal-net).
 #
 # Jalankan:  docker compose --env-file .env.production up -d --build
 # Migrate otomatis via service `migrate` (jalan sekali, setelah postgres healthy).
@@ -26,6 +38,8 @@ services:
     image: postgres:16-alpine
     container_name: rdai-postgres
     restart: unless-stopped
+    ports:
+      - 0.0.0.0:5444:5432
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-rdai-user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
@@ -38,7 +52,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - internet-net
+      - rdai-internal-net
 
   # Service one-off untuk migrasi database (automatis setelah postgres healthy)
   # Jalankan: docker compose --env-file .env.production up -d --build
@@ -55,7 +69,7 @@ services:
         condition: service_healthy
     entrypoint: ["npx", "prisma", "migrate", "deploy"]
     networks:
-      - internet-net
+      - rdai-internal-net
     restart: "no"
 
   # Prisma CLI manual tersedia DI DALAM image app (runner).
@@ -88,6 +102,7 @@ services:
       - "traefik.http.services.gateway.loadbalancer.server.port=3035"
       - "traefik.http.routers.gateway.entrypoints=web"
     networks:
+      - rdai-internal-net
       - internet-net
 
 volumes:
@@ -95,5 +110,8 @@ volumes:
   uploads:
 
 networks:
+  rdai-internal-net:
+    driver: bridge
+
   internet-net:
     external: true
