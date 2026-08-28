@@ -4,7 +4,12 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  const { startTelegramPolling } = await import("./lib/telegram");
-  // No-op when not configured/disabled; polling loop re-reads config each turn.
-  await startTelegramPolling();
+  try {
+    const { startTelegramPolling } = await import("./lib/telegram");
+    // No-op when not configured/disabled; polling loop re-reads config each turn.
+    await startTelegramPolling();
+  } catch (err) {
+    // Boot-time DB blip must not crash the server (which flips it unhealthy).
+    console.error("[instrumentation] startTelegramPolling failed (continuing):", err);
+  }
 }

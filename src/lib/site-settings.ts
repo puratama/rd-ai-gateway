@@ -1,5 +1,4 @@
 import "server-only";
-import { cache } from "react";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { siteConfig } from "@/lib/site-config";
@@ -36,8 +35,8 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** Merged site settings (DB overrides defaults). Cached per request; falls back to defaults if DB is unavailable. */
-export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
+/** Merged site settings (DB overrides defaults). Falls back to defaults if DB is unavailable. */
+export async function getSiteSettings(): Promise<SiteSettings> {
   try {
     const row = await prisma.siteSetting.findUnique({
       where: { key: STORAGE_KEY },
@@ -52,7 +51,7 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
     // DB unavailable -> defaults keep the site renderable.
   }
   return SITE_SETTINGS_DEFAULTS;
-});
+}
 
 /** Persist settings (merged over current stored value). */
 export async function saveSiteSettings(

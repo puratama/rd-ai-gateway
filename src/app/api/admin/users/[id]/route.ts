@@ -28,8 +28,12 @@ function isStatus(value: unknown): value is Status {
 async function findUser(id: string) {
   return prisma.user.findUnique({
     where: { id },
-    include: {
-      apiKeys: true,
+    select: {
+      id: true, email: true, name: true, role: true, status: true,
+      emailVerified: true, createdAt: true, updatedAt: true,
+      apiKeys: {
+        select: { id: true, name: true, key: true, isActive: true, totalTokens: true, lastUsed: true },
+      },
       wallet: true,
       packages: { include: { plan: true }, orderBy: { createdAt: "desc" } },
       usageRecords: { orderBy: { createdAt: "desc" }, take: 50 },

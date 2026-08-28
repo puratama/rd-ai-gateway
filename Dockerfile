@@ -21,9 +21,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 # Env `NEXT_PUBLIC_*` yang wajib di-inline saat build
 ARG NEXT_PUBLIC_APP_URL
-ARG NEXT_PUBLIC_INTERNAL_KEY
-ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL} \
-    NEXT_PUBLIC_INTERNAL_KEY=${NEXT_PUBLIC_INTERNAL_KEY}
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 # Copy deps (production) then install dev deps for build
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
@@ -53,6 +51,11 @@ COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Ensure the uploads mount point exists with correct ownership BEFORE the
+# named volume is first attached — Docker seeds a new volume's initial
+# content/perms from the image directory it overlays.
+RUN mkdir -p public/uploads && chown nextjs:nodejs public/uploads
 
 # Healthcheck berbasis Node.js (lebih portabel dari wget)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \

@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { resolvePublicUser } from "@/lib/public-api";
 import { prisma } from "@/lib/db";
 
-export async function GET() {
-  const session = await getSession();
-  if (!session) {
+export async function GET(request: NextRequest) {
+  const identity = await resolvePublicUser(request);
+  if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: session.sub },
+    where: { id: identity.user.id },
     select: { id: true, email: true, name: true, role: true, createdAt: true },
   });
 
@@ -21,8 +21,8 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
+  const identity = await resolvePublicUser(request);
+  if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -38,7 +38,7 @@ export async function PUT(request: NextRequest) {
     if (name !== undefined) data.name = name;
 
     const user = await prisma.user.update({
-      where: { id: session.sub },
+      where: { id: identity.user.id },
       data,
       select: { id: true, email: true, name: true, role: true, createdAt: true },
     });

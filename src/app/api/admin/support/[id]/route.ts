@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSuperadmin } from "@/lib/admin-auth";
 import { loadTicket, replyAsAdmin, updateTicketStatus } from "@/lib/server-store";
 import { prisma } from "@/lib/db";
+import { requireSuperadmin } from "@/lib/admin-auth";
 
 // GET /api/admin/support/[id] — ticket detail
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

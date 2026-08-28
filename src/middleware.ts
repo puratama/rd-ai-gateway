@@ -5,9 +5,36 @@ import { getSecret, COOKIE_NAME } from "@/lib/auth-config";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Protect admin pages and API routes.
   const isAdminRoute = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
-  if (!isAdminRoute) {
+  const isUserRoute =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/keys") ||
+    pathname.startsWith("/usage") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/my/") ||
+    pathname.startsWith("/plan") ||
+    pathname.startsWith("/models") ||
+    pathname.startsWith("/support") ||
+    pathname.startsWith("/payment/") ||
+    pathname.startsWith("/api/user/") ||
+    pathname.startsWith("/api/wallet/") ||
+    pathname.startsWith("/api/packages/") ||
+    pathname.startsWith("/api/support/") ||
+    pathname.startsWith("/api/notifications/");
+
+  if (!isAdminRoute && !isUserRoute) {
+    return NextResponse.next();
+  }
+
+  // API routes that support dual auth (API key or session): let the handler resolve auth
+  const isApiKeyRoute =
+    pathname.startsWith("/api/wallet/") ||
+    pathname.startsWith("/api/user/") ||
+    pathname.startsWith("/api/packages/");
+  const hasApiKeyHeader =
+    !!request.headers.get("x-api-key") ||
+    !!request.headers.get("authorization");
+  if (isApiKeyRoute && hasApiKeyHeader) {
     return NextResponse.next();
   }
 
@@ -31,7 +58,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    if (role !== "superadmin") {
+    // Admin routes: require superadmin role
+    if (isAdminRoute && role !== "superadmin") {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Forbidden: superadmin access required" }, { status: 403 });
       }
@@ -48,5 +76,22 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/api/admin/:path*",
+    "/dashboard/:path*",
+    "/keys/:path*",
+    "/usage/:path*",
+    "/settings/:path*",
+    "/my/:path*",
+    "/plan/:path*",
+    "/models/:path*",
+    "/support/:path*",
+    "/payment/:path*",
+    "/api/user/:path*",
+    "/api/wallet/:path*",
+    "/api/packages/:path*",
+    "/api/support/:path*",
+    "/api/notifications/:path*",
+  ],
 };

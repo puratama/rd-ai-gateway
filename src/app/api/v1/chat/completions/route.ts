@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { routeRequest } from "@/lib/llm-router";
+import { publicCorsHeaders, corsOptions } from "@/lib/public-api-contract";
 
 // Derived provider from model ID — must match plan's allowedProviders
 function deriveProvider(modelId: string): string {
@@ -17,13 +18,20 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Validate API Key (server-side)
+    // 1. Validate API Key (server-side) — /api/v1/* is API-key-only
     const authHeader = request.headers.get("authorization");
     const apiKeyHeader = request.headers.get("x-api-key");
     let apiKeyId: string | null = null;
     let userId: string | null = null;
 
-    if (authHeader || apiKeyHeader) {
+    if (!authHeader && !apiKeyHeader) {
+      return new Response(
+        JSON.stringify({ error: { message: "Authentication required", type: "authentication_error", param: null, code: "invalid_api_key" } }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    {
       const token = apiKeyHeader || authHeader!.replace(/^Bearer\s+/i, "").trim();
       const { validateServerKey } = await import("@/lib/server-store");
       const apiKey = await validateServerKey(token);
@@ -48,24 +56,6 @@ export async function POST(request: NextRequest) {
       return new Response(
         JSON.stringify({ error: "messages and model are required" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 3. Resolve session user, then require an authenticated billing identity.
-    if (!apiKeyId) {
-      try {
-        const { getSession } = await import("@/lib/auth");
-        const session = await getSession();
-        if (session?.sub) userId = session.sub;
-      } catch {
-        // Handled by the explicit unauthorized response below.
-      }
-    }
-
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -312,8 +302,7 @@ export async function POST(request: NextRequest) {
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
           "X-Provider": result.provider,
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
+          ...publicCorsHeaders,
         },
       });
     }
@@ -383,8 +372,7 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify({ ...data, _provider: result.provider }), {
       headers: {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
+        ...publicCorsHeaders,
       },
     });
   } catch (error: unknown) {
@@ -400,12 +388,6 @@ function estimateTokens(text: string): number {
   return Math.ceil((text?.length || 0) / 4);
 }
 
-export async function OPTIONS() {
-  return new Response(null, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
-    },
-  });
+export function OPTIONS() {
+  return corsOptions();
 }

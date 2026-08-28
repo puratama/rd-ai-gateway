@@ -53,7 +53,6 @@ async function resolveUserPlan(
   try {
     const { prisma } = await import("@/lib/db");
 
-    // Try API key first
     const authHeader = request.headers.get("authorization");
     const apiKeyHeader = request.headers.get("x-api-key");
     if (authHeader || apiKeyHeader) {
@@ -71,14 +70,6 @@ async function resolveUserPlan(
           },
         };
       }
-    }
-
-    // Fallback: session (chat page)
-    const { getSession } = await import("@/lib/auth");
-    const session = await getSession();
-    if (session?.sub) {
-      const plan = await getUserPlan(prisma, session.sub);
-      return { userId: session.sub, plan };
     }
   } catch {
     // ignore

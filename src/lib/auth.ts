@@ -82,32 +82,17 @@ export function getCronSecret(): string {
 
 export function requireCronAuth(authHeader: string | null): { ok: boolean; message?: string } {
   const secret = getCronSecret();
-  if (secret && authHeader !== `Bearer ${secret}`) {
-    return { ok: false, message: "Unauthorized" };
+  if (!secret) {
+    // No secret configured — only allow if a header is present matching empty string (never true), effectively blocking all.
+    // In dev, warn and block unless explicitly bypassed via CRON_SECRET.
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[cron] CRON_SECRET not set — cron endpoints are blocked. Set CRON_SECRET in .env to enable.");
+    }
+    return { ok: false, message: "Unauthorized: CRON_SECRET not configured" };
   }
-  if (!secret && process.env.NODE_ENV !== "production") {
-    console.warn("[cron] CRON_SECRET not set — endpoint is unauthenticated. Dev only.");
+  if (authHeader !== `Bearer ${secret}`) {
+    return { ok: false, message: "Unauthorized" };
   }
   return { ok: true };
 }
 
-// Internal keys — wajib random di production
-export function getInternalKeys(): { internalKey: string; publicKey: string } {
-  const internalKey = process.env.INTERNAL_API_KEY || "";
-  const publicKey = process.env.NEXT_PUBLIC_INTERNAL_KEY || "";
-
-  if (process.env.NODE_ENV === "production") {
-    if (!internalKey || !publicKey) {
-      throw new Error("FATAL: INTERNAL_API_KEY and NEXT_PUBLIC_INTERNAL_KEY are required in production");
-    }
-    if (internalKey === "demo-key-xperimne" || publicKey === "demo-key-xperimne") {
-      throw new Error("FATAL: Default demo-key-xperimne cannot be used in production");
-    }
-  } else {
-    if (internalKey === "demo-key-xperimne" || publicKey === "demo-key-xperimne") {
-      console.warn("WARNING: Using insecure default demo-key-xperimne for internal routing. Generate random keys for production.");
-    }
-  }
-
-  return { internalKey, publicKey };
-}

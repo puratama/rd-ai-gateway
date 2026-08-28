@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { corsOptions, withPublicCors } from "@/lib/public-api";
+import { requireSuperadmin } from "@/lib/admin-auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,10 +17,9 @@ export async function GET(request: NextRequest) {
       validateServerKey,
     } = await import("@/lib/server-store");
 
-    const { getInternalKeys } = await import("@/lib/auth");
-    const { internalKey } = getInternalKeys();
+    const isAdmin = !(await requireSuperadmin());
 
-    if (token === internalKey) {
+    if (isAdmin) {
       // Admin - can see all usage or specific key
       const allKeys = await loadServerKeys();
       if (keyId) {

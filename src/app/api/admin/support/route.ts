@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireSuperadmin } from "@/lib/admin-auth";
 import { loadAdminTickets } from "@/lib/server-store";
+import { requireSuperadmin } from "@/lib/admin-auth";
 
-// GET /api/admin/support — list all tickets (auth via middleware)
+// GET /api/admin/support — list all tickets
 export async function GET() {
   const authError = await requireSuperadmin();
   if (authError) return authError;

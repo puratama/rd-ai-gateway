@@ -80,7 +80,7 @@ function AdminPageContent() {
           <EmptyState
             icon={LayoutDashboard}
             title="No Data"
-            description="Configure INTERNAL_API_KEY to access admin"
+            description="No stats available"
           />
         )}
 

@@ -21,6 +21,8 @@ const ALLOWED_KEYS = new Set([
 const API_KEY_PREFIX_RE = /^[A-Za-z0-9_-]{1,32}$/;
 
 export async function GET() {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     return NextResponse.json(await getSiteSettings());
   } catch (error: unknown) {

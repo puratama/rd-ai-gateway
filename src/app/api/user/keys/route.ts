@@ -43,9 +43,6 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  // #region debug-point A:post-entry
-  fetch("http://127.0.0.1:7777/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: "api-key-create-500", runId: "pre-fix", hypothesisId: "A", location: "src/app/api/user/keys/route.ts:POST", msg: "[DEBUG] API key create entered", data: { hasContentType: !!request.headers.get("content-type") }, ts: Date.now() }) }).catch(() => {});
-  // #endregion
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -62,9 +59,6 @@ export async function POST(request: NextRequest) {
 
   const settings = await getSiteSettings();
   const secret = generateApiKey(settings.apiKeyPrefix);
-  // #region debug-point B:payload
-  fetch("http://127.0.0.1:7777/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: "api-key-create-500", runId: "pre-fix", hypothesisId: "B", location: "src/app/api/user/keys/route.ts:POST", msg: "[DEBUG] API key create payload parsed", data: { hasName: !!name, isActive, hasExpiry: !!expiresAt, expiryValid: !expiresAt || !Number.isNaN(new Date(expiresAt).getTime()), allModels, allowedModelsCount: Array.isArray(allowedModels) ? allowedModels.length : -1 }, ts: Date.now() }) }).catch(() => {});
-  // #endregion
 
   const newKey = await prisma.apiKey.create({
     data: {

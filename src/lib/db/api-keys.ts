@@ -28,7 +28,7 @@ export async function loadServerKeys() {
     select: {
       id: true, key: true, name: true, userId: true, isActive: true,
       usageCount: true, totalTokens: true, lastUsed: true, createdAt: true,
-      user: true,
+      user: { select: { id: true, name: true, email: true } },
     },
   });
 }

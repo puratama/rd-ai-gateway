@@ -141,7 +141,8 @@ function AppShellContent({ children, variant = "user" }: AppShellProps) {
           fetch("/api/user/profile"),
           fetch("/api/wallet/balance"),
         ]);
-        if (profileResponse.status === 401 || balanceResponse.status === 401) {
+        // Only redirect to login if the profile (session) check fails
+        if (profileResponse.status === 401) {
           localStorage.removeItem("xperimne-user");
           router.replace("/login");
           return;

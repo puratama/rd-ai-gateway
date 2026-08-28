@@ -13,9 +13,17 @@ setInterval(() => {
   }
 }, SWEEP_MS).unref();
 
+// Deployment has exactly one trusted reverse proxy in front (Traefik, see
+// docker-compose.yml — app has no published host port, only reachable via
+// the proxy network). Traefik appends the real peer IP as the LAST entry of
+// X-Forwarded-For; earlier entries can be forged by the client, so trust
+// only the last hop instead of the client-controlled first one.
 function clientIp(request: Request): string {
   const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
+  if (fwd) {
+    const parts = fwd.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1]!;
+  }
   return request.headers.get("x-real-ip") || "unknown";
 }
 
