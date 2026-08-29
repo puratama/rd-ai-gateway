@@ -21,6 +21,12 @@
   --color-destructive-foreground: oklch(0.98 0.01 20);
   --color-popover: oklch(0.265 0.062 247);
   --color-popover-foreground: oklch(0.97 0.015 240);
+  --color-success: oklch(0.70 0.15 145);
+  --color-success-foreground: oklch(0.13 0.04 250);
+  --color-warning: oklch(0.75 0.15 85);
+  --color-warning-foreground: oklch(0.13 0.04 250);
+  --color-info: oklch(0.70 0.12 230);
+  --color-info-foreground: oklch(0.13 0.04 250);
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
@@ -38,12 +44,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(113, 113, 122, 0.3);
+  background: color-mix(in oklch, var(--color-muted-foreground) 30%, transparent);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(113, 113, 122, 0.5);
+  background: color-mix(in oklch, var(--color-muted-foreground) 50%, transparent);
 }
 
 /* Prevent layout shift from scrollbar */
@@ -83,19 +89,17 @@ a {
   cursor: pointer;
 }
 
-/* Smooth transitions for theme changes */
-*,
-*::before,
-*::after {
-  transition-property: background-color, border-color;
+/* Smooth transitions for interactive elements */
+button, a, input, textarea, select, [role="button"], [role="tab"] {
+  transition-property: background-color, border-color, color, box-shadow, transform;
   transition-duration: 150ms;
   transition-timing-function: ease-in-out;
 }
 
 /* Markdown content styles */
 .prose pre {
-  background-color: rgba(39, 39, 42, 0.8) !important;
-  border: 1px solid rgba(63, 63, 70, 0.5);
+  background-color: color-mix(in oklch, var(--color-card) 80%, transparent) !important;
+  border: 1px solid color-mix(in oklch, var(--color-border) 50%, transparent);
   border-radius: 0.75rem;
   padding: 1rem;
   overflow-x: auto;
@@ -107,7 +111,7 @@ a {
   font-size: 0.8125rem;
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
-  background-color: rgba(39, 39, 42, 0.5);
+  background-color: color-mix(in oklch, var(--color-card) 50%, transparent);
 }
 
 .prose pre code {
@@ -137,7 +141,7 @@ a {
 .prose h4 {
   margin: 1em 0 0.5em;
   font-weight: 600;
-  color: #e4e4e7;
+  color: var(--color-foreground);
 }
 
 .prose h1 { font-size: 1.25rem; }
@@ -145,25 +149,25 @@ a {
 .prose h3 { font-size: 1rem; }
 
 .prose blockquote {
-  border-left: 3px solid rgba(52, 211, 153, 0.3);
+  border-left: 3px solid color-mix(in oklch, var(--color-primary) 30%, transparent);
   padding-left: 1rem;
   margin: 0.5em 0;
-  color: #a1a1aa;
+  color: var(--color-muted-foreground);
 }
 
 .prose a {
-  color: #34d399;
+  color: var(--color-primary);
   text-decoration: underline;
-  text-decoration-color: rgba(52, 211, 153, 0.3);
+  text-decoration-color: color-mix(in oklch, var(--color-primary) 30%, transparent);
   text-underline-offset: 2px;
 }
 
 .prose a:hover {
-  text-decoration-color: #34d399;
+  text-decoration-color: var(--color-primary);
 }
 
 .prose hr {
-  border-color: rgba(63, 63, 70, 0.5);
+  border-color: color-mix(in oklch, var(--color-border) 50%, transparent);
   margin: 1em 0;
 }
 
@@ -176,15 +180,25 @@ a {
 
 .prose th,
 .prose td {
-  border: 1px solid rgba(63, 63, 70, 0.5);
+  border: 1px solid color-mix(in oklch, var(--color-border) 50%, transparent);
   padding: 0.5rem 0.75rem;
   text-align: left;
 }
 
 .prose th {
-  background-color: rgba(39, 39, 42, 0.5);
+  background-color: color-mix(in oklch, var(--color-card) 50%, transparent);
   font-weight: 600;
-  color: #e4e4e7;
+  color: var(--color-foreground);
+}
+
+/* Status dot glow (HealthBadge) */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-success) 35%, transparent); }
+  50% { box-shadow: 0 0 0 6px transparent; }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 /* Animations */

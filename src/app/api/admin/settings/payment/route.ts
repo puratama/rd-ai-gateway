@@ -32,6 +32,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireSuperadmin();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { provider, name, serverKey, clientKey, environment, isActive, qrisPayload } = body;

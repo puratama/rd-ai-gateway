@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { handlePaidBilling } from "./billing-fulfillment";
+import { markBillingPaidOnce } from "./db/billing";
 
 export type ReviewDecision = "approve" | "reject";
 
@@ -30,18 +31,23 @@ export async function reviewBillingPayment(
     throw new ReviewError("Only pending_confirmation payments can be reviewed", 409);
   }
 
-  const updated = await prisma.billingRecord.update({
-    where: { id },
-    data: {
-      status: decision === "approve" ? "paid" : "failed",
-      paidAt: decision === "approve" ? new Date() : billing.paidAt,
-      verifiedAt: new Date(),
-    },
-  });
-
   if (decision === "approve") {
-    await handlePaidBilling(updated);
+    // Atomic paid transition — fulfills exactly once across review/webhook races
+    const marked = await markBillingPaidOnce({ id });
+    await prisma.billingRecord.update({
+      where: { id },
+      data: { verifiedAt: new Date() },
+    });
+    if (marked) {
+      await handlePaidBilling(billing);
+    }
+    return { status: "paid" };
   }
 
-  return { status: updated.status };
+  await prisma.billingRecord.update({
+    where: { id },
+    data: { status: "failed", verifiedAt: new Date() },
+  });
+
+  return { status: "failed" };
 }

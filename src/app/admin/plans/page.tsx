@@ -1,12 +1,15 @@
 "use client";
 
+
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
+
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { FormSelect, type SelectOption } from "@/components/ui/form-select";
 import {
   Plus,
   Edit3,
   Trash2,
-  AlertTriangle,
   CreditCard,
   GripVertical,
 } from "lucide-react";
@@ -18,16 +21,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { toast } from "sonner";
@@ -155,7 +160,7 @@ function AdminPlansPageContent() {
       <div className="h-full overflow-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Plans</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Plans</h1>
             <p className="text-sm text-muted-foreground">Manage membership plans and pricing.</p>
           </div>
           <Button className="gap-1.5" onClick={() => { setShowCreate(true); setEditingPlan(null); }}>
@@ -176,60 +181,55 @@ function AdminPlansPageContent() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Nama</th>
-                    <th className="px-4 py-3 font-medium">Harga</th>
-                    <th className="px-4 py-3 text-center font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">Total Token</th>
-                    <th className="px-4 py-3 text-center font-medium">Models</th>
-                    <th className="w-16 px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-muted/50 text-left text-muted-foreground">
+                  <TableRow>
+                    <TableHead className="px-4 py-3 font-medium">Nama</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Harga</TableHead>
+                    <TableHead className="px-4 py-3 text-center font-medium">Status</TableHead>
+                    <TableHead className="px-4 py-3 text-right font-medium">Total Token</TableHead>
+                    <TableHead className="px-4 py-3 text-center font-medium">Models</TableHead>
+                    <TableHead className="w-16 px-4 py-3" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
                   {plans.map((plan) => (
-                    <tr key={plan.id} className="hover:bg-muted/40">
-                      <td className="px-4 py-3">
+                    <TableRow key={plan.id} className="hover:bg-muted/40">
+                      <TableCell className="px-4 py-3">
                         <p className="font-medium">{plan.name}</p>
                         {plan.description && (
                           <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-50">
                             {plan.description}
                           </p>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         {plan.price === 0 ? (
-                          <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-full">
+                          <Badge variant="success" size="sm">
                             Free
-                          </span>
+                          </Badge>
                         ) : (
                           <span className="text-xs font-medium">
                             {formatCurrency(plan.price)}
                           </span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                          plan.isActive
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : "bg-muted text-muted-foreground"
-                        )}>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-center">
+                        <Badge variant={plan.isActive ? "success" : "secondary"} size="sm">
                           <span className={cn(
                             "h-1.5 w-1.5 rounded-full",
-                            plan.isActive ? "bg-emerald-400" : "bg-muted-foreground"
+                            plan.isActive ? "bg-success" : "bg-muted-foreground"
                           )} />
                           {plan.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs">
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right text-xs">
                         {formatNumber(plan.features.maxTokensPerMonth)}
-                      </td>
-                      <td className="px-4 py-3 text-center text-xs">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-center text-xs">
                         {plan.features.allModels ? "All" : plan.features.allowedModels.length}
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         <div className="flex gap-1">
                           <Button
                             variant="ghost"
@@ -252,11 +252,11 @@ function AdminPlansPageContent() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}
@@ -271,8 +271,8 @@ function AdminPlansPageContent() {
             }
           }}
         >
-          <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-            <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader className="flex-row items-center gap-3 space-y-0">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                 <CreditCard className="h-4 w-4 text-primary" />
               </div>
@@ -284,7 +284,7 @@ function AdminPlansPageContent() {
                     : "Create a membership plan or token package with quota and access rules."}
                 </DialogDescription>
               </div>
-            </div>
+            </DialogHeader>
             <PlanEditor
               plan={editingPlan}
               onSave={async (data) => {
@@ -328,35 +328,18 @@ function AdminPlansPageContent() {
           </DialogContent>
         </Dialog>
 
-        <Dialog
+        <ConfirmDialog
           open={!!deletingPlanId}
-          onOpenChange={(open) => {
-            if (!open) {
-              setDeletingPlanId(null);
-            }
-          }}
-        >
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-destructive/10">
-                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                </div>
-                <DialogTitle>Delete Plan</DialogTitle>
-              </div>
-              <DialogDescription>
-                Permanently delete this plan. Users with active packages
-                on this plan cannot be removed.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline">Cancel</Button>} />
-              <Button variant="destructive" onClick={handleDeletePlan}>
+            onOpenChange={(open) => { if (!open) setDeletingPlanId(null); }}
+            title="Delete Plan"
+            description="Permanently delete this plan. Users with active packages on this plan cannot be removed."
+            confirmLabel={
+              <>
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete Plan
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              </>
+            }
+            onConfirm={handleDeletePlan}
+          />
       </div>
     </AppShell>
   );
@@ -523,8 +506,8 @@ function PlanEditor({
   };
 
   return (
-    <div className="flex flex-col max-h-[70vh]">
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+    <>
+      <DialogBody className="space-y-5">
         {editorError && (
           <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
             {editorError}
@@ -541,7 +524,6 @@ function PlanEditor({
                 value={form.name || ""}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="e.g. Pro"
-                className="bg-background"
               />
             </div>
             <div>
@@ -569,9 +551,8 @@ function PlanEditor({
                   value={fmtNumber(form.price)}
                   onChange={(e) => onNumericChange("price", e.target.value)}
                   placeholder="e.g. 50.000"
-                  className="bg-background"
                 />
-                <p className="text-[10px] text-muted-foreground/60 mt-1">
+                <p className="text-xs text-muted-foreground/60 mt-1">
                   0 = free plan
                 </p>
               </div>
@@ -606,9 +587,8 @@ function PlanEditor({
                 value={fmtNumber(form.features.maxTokensPerMonth)}
                 onChange={(e) => onNumericChange("maxTokensPerMonth", e.target.value)}
                 placeholder="e.g. 1.000.000"
-                className="bg-background"
               />
-              <p className="text-[10px] text-muted-foreground/60 mt-1">
+              <p className="text-xs text-muted-foreground/60 mt-1">
                 Jatah token di paket. Berlaku untuk paket &amp; token plan.
               </p>
             </div>
@@ -669,7 +649,7 @@ function PlanEditor({
             {!form.features.allProviders && (
               <div>
                 <Label>
-                  Allowed Providers <span className="text-red-500">*</span>
+                  Allowed Providers <span className="text-destructive">*</span>
                 </Label>
                 <FormSelect
                   isMulti
@@ -688,11 +668,11 @@ function PlanEditor({
                   noOptionsMessage="Belum ada provider terdaftar (kelola di Admin → Aggregator)."
                 />
                 {form.features.allowedProviders.length === 0 ? (
-                  <p className="text-[10px] text-amber-500 mt-1">
+                  <p className="text-xs text-warning mt-1">
                     Wajib pilih minimal satu provider.
                   </p>
                 ) : (
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  <p className="text-xs text-muted-foreground/60 mt-1">
                     Hanya provider yang dipilih yang diizinkan.
                   </p>
                 )}
@@ -715,7 +695,7 @@ function PlanEditor({
             {!form.features.allModels && (
               <div>
                 <Label>
-                  Allowed Models <span className="text-red-500">*</span>
+                  Allowed Models <span className="text-destructive">*</span>
                 </Label>
                 <FormSelect
                   isMulti
@@ -741,9 +721,10 @@ function PlanEditor({
                   return (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {orphan.map((m) => (
-                        <span
+                        <Badge
                           key={m}
-                          className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-500 text-[10px] px-2 py-0.5"
+                          variant="warning"
+                          size="sm"
                         >
                           {m}
                           <Button
@@ -751,23 +732,23 @@ function PlanEditor({
                             variant="ghost"
                             size="icon-xs"
                             onClick={() => toggleList("allowedModels", m)}
-                            className="h-auto w-auto p-0 hover:text-amber-300 leading-none"
+                            className="h-auto w-auto p-0 hover:text-warning leading-none"
                             aria-label={`Remove orphan model ${m}`}
                             title="Remove orphan model"
                           >
                             ×
                           </Button>
-                        </span>
+                        </Badge>
                       ))}
                     </div>
                   );
                 })()}
                 {form.features.allowedModels.length === 0 ? (
-                  <p className="text-[10px] text-amber-500 mt-1">
+                  <p className="text-xs text-warning mt-1">
                     Wajib pilih minimal satu model.
                   </p>
                 ) : (
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  <p className="text-xs text-muted-foreground/60 mt-1">
                     Hanya model yang dipilih yang diizinkan. Partial match: &quot;gpt&quot; cocok dengan &quot;gpt-4o&quot;, dst.
                   </p>
                 )}
@@ -785,11 +766,11 @@ function PlanEditor({
               onAdd={(v) => addToList("highlights", v)}
             />
             {form.features.highlights.length === 0 ? (
-              <p className="text-[10px] text-muted-foreground/60">
+              <p className="text-xs text-muted-foreground/60">
                 Belum ada highlight. Tambahkan teks bebas seperti &quot;Full support&quot;, &quot;Priority queue&quot;, dll.
               </p>
             ) : (
-              <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border/70">
+              <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
                 {form.features.highlights.map((f, i) => (
                   <li
                     key={f}
@@ -851,17 +832,17 @@ function PlanEditor({
             </div>
           </FormPanel>
         </section>
-      </div>
+      </DialogBody>
 
       {/* ── Footer ── */}
-      <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
+      <DialogFooter>
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? (
             <>
-              <svg className="animate-spin -ml-1 mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+              <svg className="animate-spin motion-reduce:animate-none -ml-1 mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
@@ -871,8 +852,8 @@ function PlanEditor({
             isEdit ? "Update" : "Create"
           )}
         </Button>
-      </div>
-    </div>
+      </DialogFooter>
+    </>
   );
 }
 

@@ -1,5 +1,9 @@
 "use client";
 
+
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
+
 import { useCallback, useEffect, useState } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
@@ -7,8 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -179,13 +186,13 @@ export default function AdminModelPricingPage() {
         <div className="space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold">Model Pricing</h1>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Model Pricing</h1>
               <p className="text-sm text-muted-foreground">
                 Monitor and manage model costs, markup, and token plan pricing.
               </p>
             </div>
             <Button variant="outline" size="icon-lg" onClick={() => void fetchPricing()} disabled={loading} aria-label="Refresh model pricing" title="Refresh model pricing">
-              <RefreshCw className={loading ? "animate-spin" : ""} />
+              <RefreshCw className={loading ? "animate-spin motion-reduce:animate-none" : ""} />
             </Button>
           </div>
 
@@ -198,51 +205,51 @@ export default function AdminModelPricingPage() {
               description="Add a model first to configure pricing."
             />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Model</th>
-                      <th className="px-4 py-3 font-medium">Cost Prompt/1K</th>
-                      <th className="px-4 py-3 font-medium">Cost Completion/1K</th>
-                      <th className="px-4 py-3 font-medium">Markup</th>
-                      <th className="px-4 py-3 font-medium">Sell Prompt/1K</th>
-                      <th className="px-4 py-3 font-medium">Sell Completion/1K</th>
-                      <th className="px-4 py-3 font-medium">Status</th>
-                      <th className="w-16 px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+                <Table className="w-full text-sm">
+                  <TableHeader className="bg-muted/50 text-left text-muted-foreground">
+                    <TableRow>
+                      <TableHead className="px-4 py-3 font-medium">Model</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Cost Prompt/1K</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Cost Completion/1K</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Markup</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Sell Prompt/1K</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Sell Completion/1K</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Status</TableHead>
+                      <TableHead className="w-16 px-4 py-3" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border">
                     {models.map((model) => (
-                      <tr key={model.id} className="hover:bg-muted/40">
-                        <td className="px-4 py-3">
+                      <TableRow key={model.id} className="hover:bg-muted/40">
+                        <TableCell className="px-4 py-3">
                           <div className="min-w-44">
                             <p className="font-medium">{model.name}</p>
                             <p className="truncate text-xs text-muted-foreground" title={model.modelId}>
                               {model.provider} · {model.modelId}
                             </p>
                           </div>
-                        </td>
-                        <td className="px-4 py-3 tabular-nums">{formatPrice(model.costPer1kPrompt)}</td>
-                        <td className="px-4 py-3 tabular-nums">{formatPrice(model.costPer1kCompletion)}</td>
-                        <td className="px-4 py-3 tabular-nums">{formatNumber(model.markupPercent)}%</td>
-                        <td className="px-4 py-3 tabular-nums font-medium">{formatPrice(model.sellPricePer1kPrompt)}</td>
-                        <td className="px-4 py-3 tabular-nums font-medium">{formatPrice(model.sellPricePer1kCompletion)}</td>
-                        <td className="px-4 py-3">
-                          <span className={model.isActive ? "text-emerald-600" : "text-muted-foreground"}>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 tabular-nums">{formatPrice(model.costPer1kPrompt)}</TableCell>
+                        <TableCell className="px-4 py-3 tabular-nums">{formatPrice(model.costPer1kCompletion)}</TableCell>
+                        <TableCell className="px-4 py-3 tabular-nums">{formatNumber(model.markupPercent)}%</TableCell>
+                        <TableCell className="px-4 py-3 tabular-nums font-medium">{formatPrice(model.sellPricePer1kPrompt)}</TableCell>
+                        <TableCell className="px-4 py-3 tabular-nums font-medium">{formatPrice(model.sellPricePer1kCompletion)}</TableCell>
+                        <TableCell className="px-4 py-3">
+                          <span className={model.isActive ? "text-success" : "text-muted-foreground"}>
                             {model.isActive ? "Active" : "Inactive"}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-right">
                           <Button variant="outline" size="icon-sm" onClick={() => openEditor(model)} aria-label={`Edit pricing ${model.name}`} title="Edit pricing">
                             <Edit3 className="h-3 w-3" />
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </div>
           )}
@@ -250,15 +257,15 @@ export default function AdminModelPricingPage() {
       </div>
 
       <Dialog open={Boolean(editingModel)} onOpenChange={closeEditor}>
-        <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-          <div className="border-b border-border px-6 py-4">
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
             <DialogTitle className="text-base">Edit Model Pricing</DialogTitle>
             <DialogDescription className="text-xs mt-0.5">
               {editingModel?.name} · all values use IDR per 1K tokens.
             </DialogDescription>
-          </div>
+          </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <DialogBody>
             {draft && (
               <div className="space-y-5">
               {/* ── Biaya (Harga Modal) ── */}
@@ -273,12 +280,12 @@ export default function AdminModelPricingPage() {
                     <div className="space-y-2">
                       <Label htmlFor="cost-prompt">Cost Prompt/1K</Label>
                       <Input className="bg-background" id="cost-prompt" type="text" inputMode="decimal" value={draft.costPer1kPrompt} onChange={(event) => updateDraft("costPer1kPrompt", event.target.value)} />
-                      <p className="text-[11px] text-muted-foreground/60">Biaya token input (pertanyaan).</p>
+                      <p className="text-xs text-muted-foreground/60">Biaya token input (pertanyaan).</p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="cost-completion">Cost Completion/1K</Label>
                       <Input className="bg-background" id="cost-completion" type="text" inputMode="decimal" value={draft.costPer1kCompletion} onChange={(event) => updateDraft("costPer1kCompletion", event.target.value)} />
-                      <p className="text-[11px] text-muted-foreground/60">Biaya token output (jawaban).</p>
+                      <p className="text-xs text-muted-foreground/60">Biaya token output (jawaban).</p>
                     </div>
                   </div>
                 </FormPanel>
@@ -335,14 +342,14 @@ export default function AdminModelPricingPage() {
                     <div className="space-y-2">
                       <Label htmlFor="token-plan-prompt">Token Plan Prompt/1K</Label>
                       <Input className="bg-background" id="token-plan-prompt" type="text" inputMode="decimal" value={draft.tokenPlanPricePer1kPrompt} onChange={(event) => updateDraft("tokenPlanPricePer1kPrompt", event.target.value)} onBlur={() => { if (draft) setDraft(clampDraft(draft)); }} />
-                      <p className="text-[11px] text-muted-foreground/60">
+                      <p className="text-xs text-muted-foreground/60">
                         Rentang {formatPrice(draft.costPer1kPrompt)} – {formatPrice(draft.sellPricePer1kPrompt)} (cost – harga jual).
                       </p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="token-plan-completion">Token Plan Completion/1K</Label>
                       <Input className="bg-background" id="token-plan-completion" type="text" inputMode="decimal" value={draft.tokenPlanPricePer1kCompletion} onChange={(event) => updateDraft("tokenPlanPricePer1kCompletion", event.target.value)} onBlur={() => { if (draft) setDraft(clampDraft(draft)); }} />
-                      <p className="text-[11px] text-muted-foreground/60">
+                      <p className="text-xs text-muted-foreground/60">
                         Rentang {formatPrice(draft.costPer1kCompletion)} – {formatPrice(draft.sellPricePer1kCompletion)} (cost – harga jual).
                       </p>
                     </div>
@@ -351,17 +358,17 @@ export default function AdminModelPricingPage() {
               </section>
               </div>
             )}
-          </div>
+          </DialogBody>
 
           {/* ── Footer ── */}
-          <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
+          <DialogFooter className="bg-muted/10">
             <Button variant="outline" onClick={() => closeEditor(false)} disabled={saving}>
               Cancel
             </Button>
             <Button onClick={() => void savePricing()} disabled={saving || !draft}>
               {saving ? "Saving..." : "Save Pricing"}
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppShell>

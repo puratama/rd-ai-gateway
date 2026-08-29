@@ -55,7 +55,7 @@ function FeatureRow({ icon, label, enabled }: { icon: React.ReactNode; label: st
         {icon} {label}
       </span>
       {enabled ? (
-        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+        <Check className="h-3.5 w-3.5 shrink-0 text-success" />
       ) : (
         <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
       )}
@@ -133,7 +133,7 @@ export default function PlanPage() {
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Crown className="h-4 w-4 text-primary" /> Token Plan
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight">Paket Token</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Paket Token</h1>
               <p className="text-sm text-muted-foreground">Pilih paket token, bayar dari saldo wallet.</p>
             </div>
             <div className="flex items-center gap-3">
@@ -226,7 +226,7 @@ export default function PlanPage() {
                         <ul className="space-y-1.5">
                           {plan.features.highlights.map((h) => (
                             <li key={h} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
                               {h}
                             </li>
                           ))}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, Eye, EyeOff, Lock, Mail, RefreshCw, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -80,7 +80,7 @@ export default function RegisterPage() {
                 Kami sudah mengirim link verifikasi ke <span className="font-medium text-foreground">{email}</span>.
                 Klik link itu untuk mengaktifkan akun kamu, lalu login.
               </p>
-              <Link href="/login" className="inline-flex w-full h-11 items-center justify-center rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90">
+              <Link href="/login" className={buttonVariants({ variant: "default", className: "h-11 w-full" })}>
                 Masuk sekarang
               </Link>
               <Button
@@ -105,9 +105,9 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <AuthBrand />
 
-        <Card className="border-border bg-card/95 shadow-2xl shadow-primary/10">
+        <Card className="bg-card ring-1 ring-border/40">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">Buat akun</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight">Buat akun</CardTitle>
             <p className="text-sm text-muted-foreground">Mulai bangun dengan 500+ model AI</p>
           </CardHeader>
           <CardContent>
@@ -145,7 +145,7 @@ export default function RegisterPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="pl-9 h-11 bg-background"
+                    className="pl-9 bg-background"
                     required
                     autoComplete="email"
                   />
@@ -162,24 +162,26 @@ export default function RegisterPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="pl-9 pr-10 h-11 bg-background"
+                    className="pl-9 pr-10 bg-background"
                     required
                     minLength={8}
                     autoComplete="new-password"
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">Minimal 8 karakter</p>
               </div>
 
-              <Button type="submit" className="w-full h-11" disabled={loading}>
+              <Button type="submit" size="lg" className="w-full" disabled={loading}>
                 {loading ? "Membuat akun..." : "Buat Akun"}
                 {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
               </Button>

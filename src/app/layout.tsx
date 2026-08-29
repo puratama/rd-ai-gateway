@@ -34,7 +34,7 @@ export default function RootLayout({
     >
       {/* Inline critical style: apply dark bg + color-scheme before the CSS chunk loads, prevents white flash (FOUC) on every navigation. */}
       <head>
-        <style>{`html{background-color:#01142b;color-scheme:dark}`}</style>
+        <style>{`html{background-color:var(--color-background);color-scheme:dark}`}</style>
       </head>
       <body className="h-full bg-background text-foreground font-sans">
         {children}

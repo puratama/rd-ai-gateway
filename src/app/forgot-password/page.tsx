@@ -44,9 +44,9 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         <AuthBrand />
 
-        <Card className="border-border bg-card/95 shadow-2xl shadow-primary/10">
+        <Card className="bg-card ring-1 ring-border/40">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">Lupa password</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight">Lupa password</CardTitle>
             <p className="text-sm text-muted-foreground">Kami akan kirim link reset ke email kamu</p>
           </CardHeader>
           <CardContent>
@@ -89,7 +89,7 @@ export default function ForgotPasswordPage() {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full h-11" disabled={loading}>
+                <Button type="submit" size="lg" className="w-full" disabled={loading}>
                   {loading ? "Mengirim..." : "Kirim link reset"}
                 </Button>
               </form>

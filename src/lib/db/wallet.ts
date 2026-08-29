@@ -15,10 +15,11 @@ export async function topupWallet(userId: string, amount: number) {
 }
 
 export async function deductWallet(userId: string, amount: number) {
-  const wallet = await prisma.wallet.findUnique({ where: { userId } });
-  if (!wallet || Number(wallet.balance) < amount) return null;
-  return prisma.wallet.update({
-    where: { userId },
+  // Atomic guard: only decrement when balance is sufficient (no check-then-act race)
+  const updated = await prisma.wallet.updateMany({
+    where: { userId, balance: { gte: amount } },
     data: { balance: { decrement: amount } },
   });
+  if (updated.count !== 1) return null;
+  return prisma.wallet.findUnique({ where: { userId } });
 }

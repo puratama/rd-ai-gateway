@@ -1,5 +1,7 @@
 "use client";
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
 import { Suspense, useState, useEffect, useCallback } from "react";
 import {
   Plus,
@@ -7,7 +9,6 @@ import {
   Trash2,
   RefreshCw,
   Server,
-  AlertTriangle,
   BarChart3,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
@@ -22,12 +23,14 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -142,7 +145,7 @@ function AdminProvidersPageContent() {
       <div className="h-full overflow-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Providers</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Providers</h1>
             <p className="text-sm text-muted-foreground">
               Manage API provider connections and credentials.
             </p>
@@ -169,47 +172,47 @@ function AdminProvidersPageContent() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Nama</th>
-                    <th className="px-4 py-3 font-medium">Base URL</th>
-                    <th className="px-4 py-3 font-medium">API Key</th>
-                    <th className="px-4 py-3 text-center font-medium">Status</th>
-                    <th className="w-40 px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-muted/50 text-left text-muted-foreground">
+                  <TableRow>
+                    <TableHead className="px-4 py-3 font-medium">Nama</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Base URL</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">API Key</TableHead>
+                    <TableHead className="px-4 py-3 text-center font-medium">Status</TableHead>
+                    <TableHead className="w-40 px-4 py-3" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
                   {providers.map((p) => (
-                    <tr key={p.id} className="hover:bg-muted/40">
-                      <td className="px-4 py-3 font-medium">{p.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                    <TableRow key={p.id} className="hover:bg-muted/40">
+                      <TableCell className="px-4 py-3 font-medium">{p.name}</TableCell>
+                      <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
                         {p.baseUrl}
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         <span className={cn(
                           p.hasApiKey
-                            ? "text-emerald-400 text-xs"
+                            ? "text-success text-xs"
                             : "text-muted-foreground text-xs"
                         )}>
                           {p.hasApiKey ? "••••••••" : "None"}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-center">
                         <span className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
                           p.isActive
-                            ? "bg-emerald-500/10 text-emerald-400"
+                            ? "bg-success/10 text-success"
                             : "bg-muted text-muted-foreground"
                         )}>
                           <span className={cn(
                             "h-1.5 w-1.5 rounded-full",
-                            p.isActive ? "bg-emerald-400" : "bg-muted-foreground"
+                            p.isActive ? "bg-success" : "bg-muted-foreground"
                           )} />
                           {p.isActive ? "Active" : "Inactive"}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
@@ -221,9 +224,9 @@ function AdminProvidersPageContent() {
                           </Button>
                           {testResults[p.id] && (
                             <span className={cn(
-                              "text-[10px] mr-1",
+                              "text-xs mr-1",
                               testResults[p.id].ok
-                                ? "text-emerald-400"
+                                ? "text-success"
                                 : "text-destructive"
                             )}>
                               {testResults[p.id].ok
@@ -241,7 +244,7 @@ function AdminProvidersPageContent() {
                           >
                             <RefreshCw className={cn(
                               "h-3.5 w-3.5",
-                              testingId === p.id && "animate-spin"
+                              testingId === p.id && "animate-spin motion-reduce:animate-none"
                             )} />
                           </Button>
                           <Button
@@ -264,11 +267,11 @@ function AdminProvidersPageContent() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}
@@ -280,8 +283,8 @@ function AdminProvidersPageContent() {
             if (!open) { setShowCreate(false); setEditing(null); }
           }}
         >
-          <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-            <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader className="flex-row items-center gap-3 space-y-0">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                 <Server className="h-4 w-4 text-primary" />
               </div>
@@ -295,7 +298,7 @@ function AdminProvidersPageContent() {
                     : "Register a new API provider connection."}
                 </DialogDescription>
               </div>
-            </div>
+            </DialogHeader>
             <ProviderForm
               provider={editing}
               onSave={async (data) => {
@@ -322,106 +325,101 @@ function AdminProvidersPageContent() {
         </Dialog>
 
         {/* Delete Confirmation */}
-        <Dialog
+        <ConfirmDialog
           open={!!deletingId}
           onOpenChange={(open) => { if (!open) setDeletingId(null); }}
-        >
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-destructive/10">
-                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                </div>
-                <DialogTitle>Delete Provider</DialogTitle>
-              </div>
-              <DialogDescription>
-                Ini akan menghapus konfigurasi provider secara permanen.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline">Cancel</Button>} />
-              <Button variant="destructive" onClick={handleDelete}>
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          title="Delete Provider"
+          description="Ini akan menghapus konfigurasi provider secara permanen."
+          confirmLabel={
+            <>
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+            </>
+          }
+          onConfirm={handleDelete}
+        />
 
         {/* Usage Modal */}
         <Dialog
           open={!!usageProvider}
           onOpenChange={(open) => { if (!open) { setUsageProvider(null); setUsageData(null); } }}
         >
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Usage: {usageProvider?.name}</DialogTitle>
-              <DialogDescription>Penggunaan API melalui provider ini.</DialogDescription>
-            </DialogHeader>
-            {usageLoading ? (
-              <div className="flex items-center justify-center py-12 text-muted-foreground">
-                <RefreshCw className="h-5 w-5 animate-spin" />
+          <DialogContent showCloseButton={false}>
+            <DialogHeader className="flex-row items-center gap-3 space-y-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <BarChart3 className="h-4 w-4 text-primary" />
               </div>
-            ) : usageData ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold">{usageData.totalTokens.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">Total Tokens</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold">{usageData.totalRequests.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">Total Requests</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold">{usageData.modelCount}</p>
-                      <p className="text-xs text-muted-foreground">Models Used</p>
-                    </CardContent>
-                  </Card>
-                </div>
-                {usageData.details.length > 0 ? (
-                  <div className="overflow-hidden rounded-xl border border-border bg-card">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/50 text-left text-muted-foreground">
-                          <tr>
-                            <th className="px-4 py-3 font-medium">Model</th>
-                            <th className="px-4 py-3 font-medium">Provider</th>
-                            <th className="px-4 py-3 text-right font-medium">Requests</th>
-                            <th className="px-4 py-3 text-right font-medium">Tokens</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {usageData.details.map((d, i) => (
-                            <tr key={i} className="hover:bg-muted/40">
-                              <td className="px-4 py-3 font-medium">{d.model}</td>
-                              <td className="px-4 py-3 text-muted-foreground">{d.provider}</td>
-                              <td className="px-4 py-3 text-right">{d.requests.toLocaleString()}</td>
-                              <td className="px-4 py-3 text-right">{d.totalTokens.toLocaleString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+              <div>
+                <DialogTitle className="text-base">Usage: {usageProvider?.name}</DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">Penggunaan API melalui provider ini.</DialogDescription>
+              </div>
+            </DialogHeader>
+            <DialogBody>
+                {usageLoading ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <RefreshCw className="h-5 w-5 animate-spin motion-reduce:animate-none" />
+                  </div>
+                ) : usageData ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <Card>
+                        <CardContent className="p-4 text-center">
+                          <p className="text-2xl font-bold">{usageData.totalTokens.toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground">Total Tokens</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-4 text-center">
+                          <p className="text-2xl font-bold">{usageData.totalRequests.toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground">Total Requests</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-4 text-center">
+                          <p className="text-2xl font-bold">{usageData.modelCount}</p>
+                          <p className="text-xs text-muted-foreground">Models Used</p>
+                        </CardContent>
+                      </Card>
                     </div>
+                    {usageData.details.length > 0 ? (
+                      <div className="overflow-hidden rounded-xl border border-border bg-card">
+                        <div className="overflow-x-auto">
+                          <Table className="w-full text-sm">
+                            <TableHeader className="bg-muted/50 text-left text-muted-foreground">
+                              <TableRow>
+                                <TableHead className="px-4 py-3 font-medium">Model</TableHead>
+                                <TableHead className="px-4 py-3 font-medium">Provider</TableHead>
+                                <TableHead className="px-4 py-3 text-right font-medium">Requests</TableHead>
+                                <TableHead className="px-4 py-3 text-right font-medium">Tokens</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody className="divide-y divide-border">
+                              {usageData.details.map((d, i) => (
+                                <TableRow key={i} className="hover:bg-muted/40">
+                                  <TableCell className="px-4 py-3 font-medium">{d.model}</TableCell>
+                                  <TableCell className="px-4 py-3 text-muted-foreground">{d.provider}</TableCell>
+                                  <TableCell className="px-4 py-3 text-right">{d.requests.toLocaleString()}</TableCell>
+                                  <TableCell className="px-4 py-3 text-right">{d.totalTokens.toLocaleString()}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="py-4 text-center text-sm text-muted-foreground">
+                        Tidak ada data penggunaan model.
+                      </p>
+                    )}
                   </div>
                 ) : (
-                  <p className="py-4 text-center text-sm text-muted-foreground">
-                    Tidak ada data penggunaan model.
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Tidak ada data penggunaan.
                   </p>
                 )}
-              </div>
-            ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                Tidak ada data penggunaan.
-              </p>
-            )}
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline">Close</Button>} />
-            </DialogFooter>
+              </DialogBody>
+              <DialogFooter>
+                <DialogClose render={<Button variant="outline">Close</Button>} />
+              </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -459,8 +457,8 @@ function ProviderForm({
   };
 
   return (
-    <div className="flex flex-col max-h-[70vh]">
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+    <>
+      <DialogBody className="space-y-5">
         {/* ── General ── */}
         <section>
           <FormSection>General</FormSection>
@@ -521,18 +519,18 @@ function ProviderForm({
             </div>
           </FormPanel>
         </section>
-      </div>
+      </DialogBody>
 
       {/* ── Footer ── */}
-      <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
+      <DialogFooter>
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
         <Button onClick={handleSave} disabled={saving || !form.name || !form.baseUrl}>
           {saving ? "Menyimpan..." : provider ? "Update" : "Create"}
         </Button>
-      </div>
-    </div>
+      </DialogFooter>
+    </>
   );
 }
 

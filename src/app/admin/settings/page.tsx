@@ -9,7 +9,6 @@ import {
   Save,
   Building2,
   Globe,
-  AlertTriangle,
   Image,
   Link2,
   FileText,
@@ -43,9 +42,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogBody,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ImageUploadField } from "@/components/ui/image-upload-field";
@@ -55,7 +55,7 @@ type SettingsTabId = "site" | "payment" | "telegram";
 
 export default function AdminSettingsPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-32"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-32"><div className="animate-spin motion-reduce:animate-none h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>}>
       <AdminSettingsContent />
     </Suspense>
   );
@@ -75,7 +75,7 @@ function AdminSettingsContent() {
     <AppShell variant="admin">
       <div className="h-full overflow-auto p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold">Settings</h1>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Settings</h1>
           <p className="text-sm text-muted-foreground">
             Konfigurasi payment gateway.
           </p>
@@ -168,7 +168,7 @@ function PaymentGatewaySection() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Payment Gateways</h2>
+          <h2 className="text-lg font-bold tracking-tight">Payment Gateways</h2>
           <p className="text-xs text-muted-foreground">
             Konfigurasi payment gateway (Midtrans / Xendit).
           </p>
@@ -213,10 +213,10 @@ function PaymentGatewaySection() {
                   <TableCell className="px-4 py-3">
                     <span
                       className={cn(
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
                         g.provider === "midtrans"
-                          ? "bg-blue-500/10 text-blue-400"
-                          : "bg-violet-500/10 text-violet-400"
+                          ? "bg-info/10 text-info"
+                          : "bg-primary/10 text-primary"
                       )}
                     >
                       {PROVIDER_LABELS[g.provider] || g.provider}
@@ -230,7 +230,7 @@ function PaymentGatewaySection() {
                     <span
                       className={
                         (g.provider === "qris" ? g.hasQrisPayload : g.hasServerKey)
-                          ? "text-emerald-400 text-xs"
+                          ? "text-success text-xs"
                           : "text-muted-foreground text-xs"
                       }
                     >
@@ -241,7 +241,7 @@ function PaymentGatewaySection() {
                     <span
                       className={
                         g.hasClientKey
-                          ? "text-emerald-400 text-xs"
+                          ? "text-success text-xs"
                           : "text-muted-foreground text-xs"
                       }
                     >
@@ -251,16 +251,16 @@ function PaymentGatewaySection() {
                   <TableCell className="px-4 py-3 text-center">
                     <span
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
                         g.isActive
-                          ? "bg-emerald-500/10 text-emerald-400"
+                          ? "bg-success/10 text-success"
                           : "bg-muted text-muted-foreground"
                       )}
                     >
                       <span
                         className={cn(
                           "h-1.5 w-1.5 rounded-full",
-                          g.isActive ? "bg-emerald-400" : "bg-muted-foreground"
+                          g.isActive ? "bg-success" : "bg-muted-foreground"
                         )}
                       />
                       {g.isActive ? "Active" : "Inactive"}
@@ -309,8 +309,8 @@ function PaymentGatewaySection() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-          <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader className="flex-row items-center gap-3 space-y-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
               <Building2 className="h-4 w-4 text-primary" />
             </div>
@@ -324,7 +324,7 @@ function PaymentGatewaySection() {
                   : "Tambah payment gateway baru."}
               </DialogDescription>
             </div>
-          </div>
+          </DialogHeader>
           <GatewayForm
             gateway={editing}
             onSave={async (data) => {
@@ -356,33 +356,19 @@ function PaymentGatewaySection() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog
+      <ConfirmDialog
         open={!!deletingId}
-        onOpenChange={(o) => {
-          if (!o) setDeletingId(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-destructive/10">
-                <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-              </div>
-              <DialogTitle>Delete Gateway</DialogTitle>
-            </div>
-            <DialogDescription>
-              Ini akan menghapus konfigurasi payment gateway secara permanen.
-              Transaksi yang menggunakan gateway ini akan gagal.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline">Batal</Button>} />
-            <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 className="h-3.5 w-3.5" /> Hapus
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={(o) => { if (!o) setDeletingId(null); }}
+        title="Delete Gateway"
+        description="Ini akan menghapus konfigurasi payment gateway secara permanen. Transaksi yang menggunakan gateway ini akan gagal."
+        cancelLabel="Batal"
+        confirmLabel={
+          <>
+            <Trash2 className="h-3.5 w-3.5" /> Hapus
+          </>
+        }
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
@@ -446,8 +432,8 @@ function GatewayForm({
   };
 
   return (
-    <div className="flex flex-col max-h-[70vh]">
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+    <>
+      <DialogBody className="space-y-5">
         {formError && (
           <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
             {formError}
@@ -509,8 +495,8 @@ function GatewayForm({
                     rows={4}
                     className="bg-background font-mono text-xs"
                   />
-                  <p className="mt-1 text-[11px] text-muted-foreground/70">
-                    String EMVCo "000201..." milik merchant. Akan di-mask: tag 01 jadi dinamis (12) dan tag 54 berisi nominal, CRC16 dihitung ulang. Peringatan: QR statis yang di-mask tidak dijamin diterima semua bank/e-wallet.
+                  <p className="mt-1 text-xs text-muted-foreground/70">
+                    String EMVCo &ldquo;000201...&rdquo; milik merchant. Akan di-mask: tag 01 jadi dinamis (12) dan tag 54 berisi nominal, CRC16 dihitung ulang. Peringatan: QR statis yang di-mask tidak dijamin diterima semua bank/e-wallet.
                   </p>
                 </div>
                 <div>
@@ -605,18 +591,18 @@ function GatewayForm({
             </div>
           </FormPanel>
         </section>
-      </div>
+      </DialogBody>
 
       {/* ── Footer ── */}
-      <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
+      <DialogFooter>
         <Button variant="outline" onClick={onClose}>
           Batal
         </Button>
         <Button onClick={handleSave} disabled={saving || !form.name}>
           {saving ? "Menyimpan..." : gateway ? "Update" : "Tambah"}
         </Button>
-      </div>
-    </div>
+      </DialogFooter>
+    </>
   );
 }
 
@@ -704,7 +690,7 @@ function TelegramSection() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Telegram Bot</h2>
+          <h2 className="text-lg font-bold tracking-tight">Telegram Bot</h2>
           <p className="text-xs text-muted-foreground">
             Jalur verifikasi pembayaran manual (QRIS) lewat bot Telegram.
           </p>
@@ -753,7 +739,7 @@ function TelegramSection() {
                 className="h-9 flex-1 bg-background"
               />
               {hasToken && (
-                <span className="shrink-0 text-xs text-emerald-400">Terpasang</span>
+                <span className="shrink-0 text-xs text-success">Terpasang</span>
               )}
             </div>
           </div>
@@ -767,8 +753,8 @@ function TelegramSection() {
               className="bg-background font-mono text-xs"
               placeholder={"123456789\n987654321"}
             />
-            <p className="mt-1 text-[11px] text-muted-foreground/70">
-              Buka bot ini di Telegram, kirim /start, lalu salin "Chat ID Anda" ke sini (satu per
+            <p className="mt-1 text-xs text-muted-foreground/70">
+              Buka bot ini di Telegram, kirim /start, lalu salin &ldquo;Chat ID Anda&rdquo; ke sini (satu per
               baris). Chat yang terdaftar menerima notifikasi bukti pembayaran dan bisa
               approve/reject.
             </p>
@@ -804,7 +790,7 @@ function SiteField({
     <div>
       <Label>{label}</Label>
       {children}
-      {hint && <p className="mt-1 text-[11px] text-muted-foreground/70">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-muted-foreground/70">{hint}</p>}
     </div>
   );
 }
@@ -882,7 +868,7 @@ function SiteSettingsSection() {
     <div className="w-full space-y-4 animate-in fade-in duration-200">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Site Settings</h2>
+          <h2 className="text-lg font-bold tracking-tight">Site Settings</h2>
           <p className="text-xs text-muted-foreground">
             Nama situs, branding, dan metadata diterapkan di seluruh situs.
           </p>

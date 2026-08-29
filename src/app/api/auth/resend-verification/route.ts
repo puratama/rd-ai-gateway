@@ -4,10 +4,14 @@ import { sendEmail, buildVerifyHtml, getVerifyUrl, getSiteName } from "@/lib/ema
 import { randomBytes } from "crypto";
 import { rateLimit } from "@/lib/rate-limit";
 
+// Balasan identik untuk semua kasus (terdaftar/tidak, terkirim/gagal) — anti user-enumeration.
+const GENERIC_RESPONSE = {
+  message: "Jika email terdaftar dan belum terverifikasi, link verifikasi sudah dikirim ke inbox kamu.",
+};
+
 /**
  * POST /api/auth/resend-verification
- * Kirim ulang email verifikasi. Balasan selalu sukses untuk email yang tidak
- * terdaftar (anti user-enumeration), tapi body-nya dibedakan via `sent`.
+ * Kirim ulang email verifikasi. Respons selalu sukses generik (anti user-enumeration).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -44,30 +48,13 @@ export async function POST(request: NextRequest) {
           subject: `Verifikasi Email - ${await getSiteName()}`,
           html: await buildVerifyHtml(getVerifyUrl(verifyToken)),
         });
-        return NextResponse.json({
-          sent: true,
-          message: "Email verifikasi sudah dikirim ulang. Cek inbox kamu.",
-        });
-      } catch {
-        return NextResponse.json(
-          { sent: false, error: "Gagal mengirim email. Coba lagi nanti atau hubungi support." },
-          { status: 500 }
-        );
+      } catch (e) {
+        // Gagal kirim pun dibalas generik — jangan bocorkan status pengiriman.
+        console.error("[resend-verification] sendEmail failed:", e);
       }
     }
 
-    if (user?.emailVerified) {
-      return NextResponse.json(
-        { sent: false, error: "Email ini sudah terverifikasi. Silakan login." },
-        { status: 400 }
-      );
-    }
-
-    // Email tidak terdaftar — balas sukses tapi tidak kirim apa-apa
-    return NextResponse.json({
-      sent: false,
-      message: "Jika email terdaftar, link verifikasi sudah dikirim ke inbox kamu.",
-    });
+    return NextResponse.json(GENERIC_RESPONSE);
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

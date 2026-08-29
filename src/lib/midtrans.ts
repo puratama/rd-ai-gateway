@@ -3,7 +3,7 @@
 // All config (server key, environment) loaded from PaymentGatewayConfig DB table.
 // Configure via Admin > Settings > Payment Gateway
 
-import { createHash } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { getPaymentConfig } from "./payment-config";
 
 let _cachedServerKey: string | null = null;
@@ -130,7 +130,9 @@ export function verifySignature(notification: MidtransNotification): boolean {
     .update(notification.order_id + notification.status_code + notification.gross_amount + serverKey)
     .digest("hex");
 
-  return hash === notification.signature_key;
+  const a = Buffer.from(hash, "utf8");
+  const b = Buffer.from(String(notification.signature_key ?? ""), "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 // Check transaction status

@@ -9,6 +9,7 @@ interface EmptyStateProps {
   description?: string;
   action?: React.ReactNode;
   className?: string;
+  interactive?: boolean;
 }
 
 function EmptyState({
@@ -17,9 +18,17 @@ function EmptyState({
   description,
   action,
   className,
+  interactive = false,
 }: EmptyStateProps) {
   return (
-    <Card className={cn("ring-0 border border-dashed border-border/50 bg-transparent", className)}>
+    <Card
+      interactive={interactive}
+      className={cn(
+        "ring-0 border border-dashed border-border/50 bg-transparent transition-colors",
+        interactive && "hover:bg-card/50",
+        className
+      )}
+    >
       <CardContent className="flex flex-col items-center gap-4 p-6 text-center">
         <div className="relative">
           <span className="absolute inset-0 -z-10 scale-125 rounded-full bg-primary/10 blur-xl" />

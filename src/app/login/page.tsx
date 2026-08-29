@@ -85,9 +85,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <AuthBrand />
 
-        <Card className="border-border bg-card/95 shadow-2xl shadow-primary/10">
+        <Card className="bg-card ring-1 ring-border/40">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">Selamat datang kembali</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight">Selamat datang kembali</CardTitle>
             <p className="text-sm text-muted-foreground">Masuk ke dashboard kamu</p>
           </CardHeader>
           <CardContent>
@@ -119,7 +119,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="pl-9 pr-10 h-11 bg-background"
+                    className="pl-9 pr-10 bg-background"
                     required
                     autoComplete="current-password"
                   />
@@ -152,16 +152,17 @@ export default function LoginPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-11"
+                  size="lg"
+                  className="w-full"
                   onClick={handleResend}
                   disabled={resending}
                 >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${resending ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`w-4 h-4 mr-2 ${resending ? "animate-spin motion-reduce:animate-none" : ""}`} />
                   {resending ? "Mengirim ulang..." : "Kirim ulang email verifikasi"}
                 </Button>
               )}
 
-              <Button type="submit" className="w-full h-11" disabled={loading}>
+              <Button type="submit" size="lg" className="w-full" disabled={loading}>
                 {loading ? "Memproses..." : "Masuk"}
                 {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
               </Button>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { mapTransactionStatus, verifySignature, initMidtrans } from "@/lib/midtrans";
 import { handlePaidBilling } from "@/lib/billing-fulfillment";
+import { markBillingPaidOnce } from "@/lib/db/billing";
 import type { MidtransNotification } from "@/lib/midtrans";
 
 export async function POST(request: NextRequest) {
@@ -27,20 +28,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Billing record not found" }, { status: 404 });
     }
 
-    const normalizedStatus = normalizeBillingStatus(
-      mapTransactionStatus(notification.transaction_status, notification.fraud_status)
-    );
+    const mappedStatus = mapTransactionStatus(notification.transaction_status, notification.fraud_status);
 
-    const updatedBilling = await prisma.billingRecord.update({
-      where: { id: billing.id },
-      data: {
-        status: normalizedStatus,
-        paidAt: normalizedStatus === "paid" ? new Date() : billing.paidAt,
-      },
-    });
+    // Refund on an already-paid billing: never silently downgrade to failed —
+    // flag for manual review instead.
+    if (mappedStatus === "refunded" && billing.status === "paid") {
+      console.warn(
+        `[midtrans] refund notification for already-paid billing ${billing.id} (order ${notification.order_id}) — manual review required`
+      );
+      return NextResponse.json({ ok: true });
+    }
 
-    if (normalizedStatus === "paid" && billing.status !== "paid") {
-      await handlePaidBilling(updatedBilling);
+    const normalizedStatus = normalizeBillingStatus(mappedStatus);
+
+    if (normalizedStatus === "paid") {
+      // Amount guard: never fulfill if the paid amount differs from the billed amount
+      const notifiedAmount = Number(notification.gross_amount);
+      if (!Number.isFinite(notifiedAmount) || Math.abs(notifiedAmount - Number(billing.amount)) > 0.01) {
+        console.warn(
+          `[midtrans] gross_amount mismatch for order ${notification.order_id}: got ${notification.gross_amount}, expected ${billing.amount}`
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      // Atomic paid transition — fulfills exactly once across webhook/confirm races
+      const marked = await markBillingPaidOnce({ id: billing.id });
+      if (marked) {
+        await handlePaidBilling(billing);
+      }
+    } else {
+      await prisma.billingRecord.update({
+        where: { id: billing.id },
+        data: { status: normalizedStatus },
+      });
     }
 
     return NextResponse.json({ ok: true });

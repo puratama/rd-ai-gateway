@@ -63,7 +63,11 @@ export async function verifyTokenEdge(token: string): Promise<SessionPayload | n
 // Central password hashing — AES-style SHA256 with AUTH_SALT.
 // For production: use bcrypt/argon2. (YAGNI for now.)
 export function hashPassword(password: string): string {
-  const currentSalt = process.env.AUTH_SALT || "xperimne-salt";
+  const salt = process.env.AUTH_SALT;
+  if (!salt && process.env.NODE_ENV === "production") {
+    throw new Error("FATAL: AUTH_SALT environment variable is required in production");
+  }
+  const currentSalt = salt || "xperimne-salt";
   return createHash("sha256").update(password + currentSalt).digest("hex");
 }
 

@@ -32,9 +32,9 @@ interface Ticket {
 }
 
 const statusColors: Record<string, string> = {
-  open: "bg-amber-500/15 text-amber-500",
-  in_progress: "bg-blue-500/15 text-blue-500",
-  resolved: "bg-emerald-500/15 text-emerald-500",
+  open: "bg-warning/15 text-warning",
+  in_progress: "bg-info/15 text-info",
+  resolved: "bg-success/15 text-success",
   closed: "bg-muted text-muted-foreground",
 };
 const filterTabs = ["all", "open", "in_progress", "resolved"] as const;
@@ -80,9 +80,9 @@ function AdminSupportPageContent() {
 
   const stats = [
     { label: "Total", value: tickets.length, badge: "text-foreground" },
-    { label: "Open", value: tickets.filter((t) => t.status === "open").length, badge: "text-amber-500" },
-    { label: "In Progress", value: tickets.filter((t) => t.status === "in_progress").length, badge: "text-blue-500" },
-    { label: "Resolved", value: tickets.filter((t) => t.status === "resolved").length, badge: "text-emerald-500" },
+    { label: "Open", value: tickets.filter((t) => t.status === "open").length, badge: "text-warning" },
+    { label: "In Progress", value: tickets.filter((t) => t.status === "in_progress").length, badge: "text-info" },
+    { label: "Resolved", value: tickets.filter((t) => t.status === "resolved").length, badge: "text-success" },
   ];
 
   const handleReply = async () => {
@@ -129,7 +129,7 @@ function AdminSupportPageContent() {
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Support Tickets</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Support Tickets</h1>
             <p className="text-sm text-muted-foreground">Reply to user support tickets and manage their lifecycle.</p>
           </div>
           <Button variant="outline" size="icon-lg" onClick={fetchTickets} aria-label="Refresh support tickets" title="Refresh support tickets">
@@ -223,7 +223,7 @@ function AdminSupportPageContent() {
                   <p className="mt-1 truncate text-xs text-muted-foreground">
                     {t.userEmail} <span className="mx-2">·</span> {titleCase(t.category)} <span className="mx-2">·</span> {titleCase(t.priority)} Priority
                   </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">updated {formatTime(t.updatedAt)}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">updated {formatTime(t.updatedAt)}</p>
                 </button>
               ))}
             </div>
@@ -254,7 +254,7 @@ function AdminSupportPageContent() {
                   <div className="space-y-3 max-h-[45vh] overflow-auto pr-1">
                     {activeTicket.messages.map((m, i) => (
                       <div key={i} className={cn("max-w-[85%] w-fit wrap-break-word rounded-xl border px-3 py-2 text-sm", m.authorRole === "admin" ? "border-primary/25 bg-primary/15 ml-auto" : "border-border/70 bg-muted/60")}>
-                        <div className={cn("mb-1 text-[11px] font-medium", m.authorRole === "admin" ? "text-primary" : "text-muted-foreground")}>
+                        <div className={cn("mb-1 text-xs font-medium", m.authorRole === "admin" ? "text-primary" : "text-muted-foreground")}>
                           {m.authorRole === "admin" ? "Support team" : activeTicket.userEmail} <span className="mx-2">·</span> {formatTime(m.createdAt)}
                         </div>
                         <p className="whitespace-pre-wrap">{m.body}</p>

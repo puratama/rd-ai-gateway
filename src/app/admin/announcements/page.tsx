@@ -1,5 +1,7 @@
 "use client";
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
 import { Suspense, useState, useEffect, useCallback } from "react";
 import {
   Plus,
@@ -18,11 +20,13 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogBody,
   DialogTitle,
   DialogDescription,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
@@ -126,7 +130,7 @@ function AdminAnnouncementsPageContent() {
       <div className="h-full overflow-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Announcements</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Announcements</h1>
             <p className="text-sm text-muted-foreground">Manage announcements shown on guest and client pages.</p>
           </div>
           <Button className="gap-1.5" onClick={openCreate}>
@@ -156,31 +160,31 @@ function AdminAnnouncementsPageContent() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Title</th>
-                    <th className="px-4 py-3 font-medium">Description</th>
-                    <th className="px-4 py-3 text-center font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Created</th>
-                    <th className="w-24 px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-muted/50 text-left text-muted-foreground">
+                  <TableRow>
+                    <TableHead className="px-4 py-3 font-medium">Title</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Description</TableHead>
+                    <TableHead className="px-4 py-3 text-center font-medium">Status</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Created</TableHead>
+                    <TableHead className="w-24 px-4 py-3" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
                   {announcements.map((a) => (
-                    <tr key={a.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">{a.title}</td>
-                      <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{a.description}</td>
-                      <td className="px-4 py-3 text-center">
+                    <TableRow key={a.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="px-4 py-3 font-medium">{a.title}</TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground max-w-xs truncate">{a.description}</TableCell>
+                      <TableCell className="px-4 py-3 text-center">
                         <span className={cn(
                           "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-                          a.isActive ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"
+                          a.isActive ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
                         )}>
                           {a.isActive ? "Active" : "Inactive"}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(a.createdAt)}</td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">{formatDate(a.createdAt)}</TableCell>
+                      <TableCell className="px-4 py-3">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon-sm" onClick={() => openEdit(a)} aria-label="Edit announcement" title="Edit announcement">
                             <Edit3 className="w-4 h-4" />
@@ -190,19 +194,19 @@ function AdminAnnouncementsPageContent() {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}
 
         {/* Create/Edit Dialog */}
         <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) setModalOpen(false); }}>
-          <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden">
-            <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader className="flex-row items-center gap-3 space-y-0">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                 <Megaphone className="h-4 w-4 text-primary" />
               </div>
@@ -212,8 +216,8 @@ function AdminAnnouncementsPageContent() {
                   {form.id ? "Update announcement details." : "Announcement appears as a bar above the navbar."}
                 </DialogDescription>
               </div>
-            </div>
-            <div className="p-6 space-y-4">
+            </DialogHeader>
+            <DialogBody className="space-y-4 p-6">
               <div>
                 <Label>Title</Label>
                 <Input
@@ -249,7 +253,7 @@ function AdminAnnouncementsPageContent() {
                   {formError}
                 </div>
               )}
-            </div>
+            </DialogBody>
             <DialogFooter className="border-t border-border px-6 py-4">
               <DialogClose render={<Button variant="outline">Cancel</Button>} />
               <Button onClick={handleSave} disabled={saving}>
@@ -260,27 +264,18 @@ function AdminAnnouncementsPageContent() {
         </Dialog>
 
         {/* Delete Dialog */}
-        <Dialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-destructive/10">
-                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                </div>
-                <DialogTitle>Delete Announcement</DialogTitle>
-              </div>
-              <DialogDescription>
-                Permanently delete this announcement. It will disappear from all pages immediately.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline">Cancel</Button>} />
-              <Button variant="destructive" onClick={handleDelete}>
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+          open={!!deletingId}
+          onOpenChange={(open) => { if (!open) setDeletingId(null); }}
+          title="Delete Announcement"
+          description="Permanently delete this announcement. It will disappear from all pages immediately."
+          confirmLabel={
+            <>
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+            </>
+          }
+          onConfirm={handleDelete}
+        />
       </div>
     </AppShell>
   );

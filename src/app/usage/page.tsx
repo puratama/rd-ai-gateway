@@ -1,5 +1,7 @@
 "use client";
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, BarChart3, Coins, Hash, RefreshCw } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
@@ -180,7 +182,7 @@ export default function UsagePage() {
                 <Card>
                   <CardContent className="p-5">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Hash className="h-4 w-4 text-blue-500" /> Requests ({RANGE_LABEL[range]})
+                      <Hash className="h-4 w-4 text-info" /> Requests ({RANGE_LABEL[range]})
                     </div>
                     <div className="mt-3 text-3xl font-semibold">{number.format(usage.totalRequests)}</div>
                   </CardContent>
@@ -188,7 +190,7 @@ export default function UsagePage() {
                 <Card>
                   <CardContent className="p-5">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <BarChart3 className="h-4 w-4 text-emerald-500" /> Tokens ({RANGE_LABEL[range]})
+                      <BarChart3 className="h-4 w-4 text-success" /> Tokens ({RANGE_LABEL[range]})
                     </div>
                     <div className="mt-3 text-3xl font-semibold">{number.format(usage.totalTokens)}</div>
                   </CardContent>
@@ -196,7 +198,7 @@ export default function UsagePage() {
                 <Card>
                   <CardContent className="p-5">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Coins className="h-4 w-4 text-amber-500" /> Cost ({RANGE_LABEL[range]})
+                      <Coins className="h-4 w-4 text-warning" /> Cost ({RANGE_LABEL[range]})
                     </div>
                     <div className="mt-3 text-3xl font-semibold">{formatCurrency(usage.totalCost)}</div>
                   </CardContent>
@@ -235,30 +237,30 @@ export default function UsagePage() {
                     <span className="text-xs text-muted-foreground">Waktu lokal</span>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="border-b border-border text-left text-xs text-muted-foreground">
-                        <tr>
-                          <th className="py-2 font-medium">Datetime</th>
-                          <th className="py-2 font-medium">Model</th>
-                          <th className="py-2 text-right font-medium">Input</th>
-                          <th className="py-2 text-right font-medium">Output</th>
-                          <th className="py-2 text-right font-medium">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
+                    <Table className="w-full text-sm">
+                      <TableHeader className="border-b border-border text-left text-xs text-muted-foreground">
+                        <TableRow>
+                          <TableHead className="py-2 font-medium">Datetime</TableHead>
+                          <TableHead className="py-2 font-medium">Model</TableHead>
+                          <TableHead className="py-2 text-right font-medium">Input</TableHead>
+                          <TableHead className="py-2 text-right font-medium">Output</TableHead>
+                          <TableHead className="py-2 text-right font-medium">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y">
                         {usage.records.length === 0 ? (
-                          <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No usage records.</td></tr>
+                          <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No usage records.</TableCell></TableRow>
                         ) : visibleRecords.map((record, index) => (
-                          <tr key={`${record.datetime}-${index}`} className="border-b border-border/50">
-                            <td className="py-3 text-muted-foreground">{formatDateTime(record.datetime)}</td>
-                            <td className="py-3 font-medium">{record.model}</td>
-                            <td className="py-3 text-right tabular-nums">{number.format(record.promptTokens)}</td>
-                            <td className="py-3 text-right tabular-nums">{number.format(record.completionTokens)}</td>
-                            <td className="py-3 text-right font-medium tabular-nums">{number.format(record.totalTokens)}</td>
-                          </tr>
+                          <TableRow key={`${record.datetime}-${index}`} className="border-b border-border/50">
+                            <TableCell className="py-3 text-muted-foreground">{formatDateTime(record.datetime)}</TableCell>
+                            <TableCell className="py-3 font-medium">{record.model}</TableCell>
+                            <TableCell className="py-3 text-right tabular-nums">{number.format(record.promptTokens)}</TableCell>
+                            <TableCell className="py-3 text-right tabular-nums">{number.format(record.completionTokens)}</TableCell>
+                            <TableCell className="py-3 text-right font-medium tabular-nums">{number.format(record.totalTokens)}</TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                   <Pagination page={recordsPage} pageCount={recordPageCount} onPageChange={setRecordsPage} />
                 </CardContent>
@@ -268,30 +270,30 @@ export default function UsagePage() {
                 <CardContent className="p-5">
                   <h2 className="mb-4 text-sm font-semibold">Per-model usage</h2>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="border-b border-border text-left text-xs text-muted-foreground">
-                        <tr>
-                          <th className="py-2 font-medium">Model</th>
-                          <th className="py-2 text-right font-medium">Tokens</th>
-                          <th className="py-2 text-right font-medium">Cost</th>
-                          <th className="py-2 text-right font-medium">Requests</th>
-                          <th className="py-2 text-right font-medium">% Tokens</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
+                    <Table className="w-full text-sm">
+                      <TableHeader className="border-b border-border text-left text-xs text-muted-foreground">
+                        <TableRow>
+                          <TableHead className="py-2 font-medium">Model</TableHead>
+                          <TableHead className="py-2 text-right font-medium">Tokens</TableHead>
+                          <TableHead className="py-2 text-right font-medium">Cost</TableHead>
+                          <TableHead className="py-2 text-right font-medium">Requests</TableHead>
+                          <TableHead className="py-2 text-right font-medium">% Tokens</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y">
                         {usage.byModel.length === 0 ? (
-                          <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No model usage in this period.</td></tr>
+                          <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No model usage in this period.</TableCell></TableRow>
                         ) : usage.byModel.map((model) => (
-                          <tr key={model.model} className="border-b border-border/50">
-                            <td className="py-3 font-medium">{model.model}</td>
-                            <td className="py-3 text-right tabular-nums">{number.format(model.tokens)}</td>
-                            <td className="py-3 text-right tabular-nums">{formatCurrency(model.cost)}</td>
-                            <td className="py-3 text-right tabular-nums">{number.format(model.requests)}</td>
-                            <td className="py-3 text-right tabular-nums">{usage.totalTokens ? ((model.tokens / usage.totalTokens) * 100).toFixed(1) : "0.0"}%</td>
-                          </tr>
+                          <TableRow key={model.model} className="border-b border-border/50">
+                            <TableCell className="py-3 font-medium">{model.model}</TableCell>
+                            <TableCell className="py-3 text-right tabular-nums">{number.format(model.tokens)}</TableCell>
+                            <TableCell className="py-3 text-right tabular-nums">{formatCurrency(model.cost)}</TableCell>
+                            <TableCell className="py-3 text-right tabular-nums">{number.format(model.requests)}</TableCell>
+                            <TableCell className="py-3 text-right tabular-nums">{usage.totalTokens ? ((model.tokens / usage.totalTokens) * 100).toFixed(1) : "0.0"}%</TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </CardContent>
               </Card>}

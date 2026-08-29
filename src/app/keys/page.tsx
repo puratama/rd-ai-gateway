@@ -1,5 +1,7 @@
 "use client";
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
 import { useCallback, useEffect, useState, startTransition } from "react";
 import {
   AlertTriangle,
@@ -24,11 +26,13 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogBody,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { FormPanel, FormSection } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -387,7 +391,7 @@ function BaseUrlCard({
                   </code>
                   <Button variant="ghost" size="icon-sm" onClick={onCopy}>
                     {copied ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      <Check className="h-3.5 w-3.5 text-success" />
                     ) : (
                       <Copy className="h-3.5 w-3.5" />
                     )}
@@ -438,42 +442,42 @@ function KeysTable({
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Key</th>
-              <th className="px-4 py-3 text-center font-medium">Status</th>
-              <th className="px-4 py-3 text-right font-medium">Usage</th>
-              <th className="px-4 py-3 text-right font-medium">Tokens</th>
-              <th className="px-4 py-3 font-medium">Last Used</th>
-              <th className="w-24 px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
+        <Table className="w-full text-sm">
+          <TableHeader className="bg-muted/50 text-left text-muted-foreground">
+            <TableRow>
+              <TableHead className="px-4 py-3 font-medium">Name</TableHead>
+              <TableHead className="px-4 py-3 font-medium">Key</TableHead>
+              <TableHead className="px-4 py-3 text-center font-medium">Status</TableHead>
+              <TableHead className="px-4 py-3 text-right font-medium">Usage</TableHead>
+              <TableHead className="px-4 py-3 text-right font-medium">Tokens</TableHead>
+              <TableHead className="px-4 py-3 font-medium">Last Used</TableHead>
+              <TableHead className="w-24 px-4 py-3" />
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-border">
             {keys.map((key) => (
-              <tr key={key.id} className="hover:bg-muted/40">
-                <td className="px-4 py-3">
+              <TableRow key={key.id} className="hover:bg-muted/40">
+                <TableCell className="px-4 py-3">
                   <span className="font-medium">{key.name}</span>
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3">
                   <code className="font-mono text-xs text-muted-foreground">
                     {key.key}
                   </code>
-                </td>
-                <td className="px-4 py-3 text-center">
+                </TableCell>
+                <TableCell className="px-4 py-3 text-center">
                   <StatusBadge isActive={key.isActive} />
-                </td>
-                <td className="px-4 py-3 text-right text-xs tabular-nums">
+                </TableCell>
+                <TableCell className="px-4 py-3 text-right text-xs tabular-nums">
                   {formatTokens(key.usageCount)}
-                </td>
-                <td className="px-4 py-3 text-right text-xs tabular-nums">
+                </TableCell>
+                <TableCell className="px-4 py-3 text-right text-xs tabular-nums">
                   {formatTokens(key.totalTokens)}
-                </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">
+                </TableCell>
+                <TableCell className="px-4 py-3 text-xs text-muted-foreground">
                   {key.lastUsed ? formatDate(key.lastUsed) : "—"}
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3">
                   <div className="flex justify-end gap-1">
                     <Button
                       variant="ghost"
@@ -493,11 +497,11 @@ function KeysTable({
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -505,22 +509,15 @@ function KeysTable({
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-        isActive
-          ? "bg-emerald-500/10 text-emerald-400"
-          : "bg-muted text-muted-foreground"
-      )}
-    >
+    <Badge variant={isActive ? "success" : "secondary"} size="sm">
       <span
         className={cn(
           "h-1.5 w-1.5 rounded-full",
-          isActive ? "bg-emerald-400" : "bg-muted-foreground"
+          isActive ? "bg-success" : "bg-muted-foreground"
         )}
       />
       {isActive ? "Active" : "Inactive"}
-    </span>
+    </Badge>
   );
 }
 
@@ -540,7 +537,7 @@ function QuickStartCard({
         <Terminal className="h-3.5 w-3.5" /> Quick Start — Copy &amp; Paste
         <ChevronDown className="ml-auto h-3 w-3 transition-transform group-open:rotate-180" />
       </summary>
-      <pre className="mt-4 overflow-x-auto rounded-xl bg-muted/30 p-4 font-mono text-[10px] leading-relaxed text-muted-foreground">
+      <pre className="mt-4 overflow-x-auto rounded-xl bg-muted/30 p-4 font-mono text-xs leading-relaxed text-muted-foreground">
 {`import OpenAI from "openai";
 
 const client = new OpenAI({
@@ -591,18 +588,15 @@ function CreateKeyDialog({
 }: CreateKeyDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
-        <div className="border-b border-border px-6 py-4">
-          <DialogHeader>
-            <DialogTitle className="text-base">Create API Key</DialogTitle>
-            <DialogDescription className="text-xs">
-              Create a new personal API key. The secret is shown only once.
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">Create API Key</DialogTitle>
+          <DialogDescription className="text-xs">
+            Create a new personal API key. The secret is shown only once.
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="flex max-h-[70vh] flex-col">
-          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        <DialogBody className="space-y-5">
             <section>
               <FormSection>General</FormSection>
               <FormPanel className="space-y-3">
@@ -649,9 +643,9 @@ function CreateKeyDialog({
                 <StatusField isActive={isActive} onChange={onStatusChange} />
               </FormPanel>
             </section>
-          </div>
+          </DialogBody>
 
-          <DialogFooter className="border-t border-border bg-muted/10 px-6 py-4">
+          <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
@@ -659,7 +653,6 @@ function CreateKeyDialog({
               <Sparkles className="h-3.5 w-3.5" /> Create
             </Button>
           </DialogFooter>
-        </div>
 
       </DialogContent>
     </Dialog>
@@ -709,7 +702,7 @@ function GeneratedKeyDialog({
             Copy this secret now. It will not be shown again.
           </DialogDescription>
         </DialogHeader>
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+        <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-xs">
           <div className="flex items-center gap-2">
             <code className="min-w-0 flex-1 break-all font-mono">{secret}</code>
             <Button size="icon-sm" variant="ghost" onClick={onCopy}>
@@ -745,24 +738,22 @@ function EditKeyDialog({
 }: EditKeyDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
-        <div className="border-b border-border px-6 py-4">
-          <DialogHeader>
-            <DialogTitle className="text-base">Edit API Key</DialogTitle>
-            <DialogDescription className="text-xs">
-              Update the name and status for this API key.
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">Edit API Key</DialogTitle>
+          <DialogDescription className="text-xs">
+            Update the name and status for this API key.
+          </DialogDescription>
+        </DialogHeader>
 
         <form
           onSubmit={(event) => {
             event.preventDefault();
             onSave();
           }}
-          className="flex max-h-[70vh] flex-col"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          <DialogBody className="space-y-5">
             <section>
               <FormSection>General</FormSection>
               <FormPanel className="space-y-3">
@@ -808,9 +799,9 @@ function EditKeyDialog({
                 <StatusField isActive={isActive} onChange={onStatusChange} />
               </FormPanel>
             </section>
-          </div>
+          </DialogBody>
 
-          <DialogFooter className="border-t border-border bg-muted/10 px-6 py-4">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
@@ -890,7 +881,7 @@ function ModelAccessField({
                 />
                 <span className="min-w-0">
                   <span className="block truncate">{model.name}</span>
-                  <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                  <span className="block truncate font-mono text-xs text-muted-foreground">
                     {model.modelId}
                   </span>
                 </span>

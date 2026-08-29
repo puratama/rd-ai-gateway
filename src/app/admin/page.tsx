@@ -71,7 +71,7 @@ function AdminPageContent() {
     <AppShell variant="admin">
       <div className="h-full overflow-auto p-6 space-y-6">
         {error && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive">
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
             {error}
           </div>
         )}
@@ -87,7 +87,7 @@ function AdminPageContent() {
         {stats && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div>
-              <h1 className="text-2xl font-semibold">Dashboard</h1>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Dashboard</h1>
               <p className="text-sm text-muted-foreground">Overview of platform metrics.</p>
             </div>
 
@@ -155,9 +155,9 @@ function AdminPageContent() {
                   ) : (
                     <>
                       <div className="flex justify-between"><span className="text-muted-foreground">Total Revenue</span><span className="font-semibold">{formatCurrency(stats.revenue.totalRevenue)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="text-amber-500">{formatCurrency(stats.revenue.pendingRevenue)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Completed</span><span className="text-emerald-500">{stats.revenue.completedPayments}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Pending Payments</span><span className="text-amber-500">{stats.revenue.pendingPayments}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="text-warning">{formatCurrency(stats.revenue.pendingRevenue)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Completed</span><span className="text-success">{stats.revenue.completedPayments}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Pending Payments</span><span className="text-warning">{stats.revenue.pendingPayments}</span></div>
                     </>
                   )}
                 </CardContent>
@@ -194,7 +194,7 @@ function AdminPageContent() {
                   ) : (
                     <>
                       <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span>{stats.packages.total}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Active</span><span className="text-emerald-500">{stats.packages.active}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Active</span><span className="text-success">{stats.packages.active}</span></div>
                       {Object.entries(stats.packages.byPlan).map(([planId, count]) => (
                         <div key={planId} className="flex justify-between">
                           <span className="text-muted-foreground capitalize">{planId}</span>
@@ -257,11 +257,11 @@ function AdminPageContent() {
                           <div
                             className={cn(
                               "w-full rounded-t transition-all",
-                              isToday ? "bg-primary" : "bg-muted hover:bg-muted-foreground/20"
+                              isToday ? "bg-primary" : "bg-muted hover:bg-muted/60"
                             )}
                             style={{ height: `${Math.max(height, count > 0 ? 4 : 1)}%` }}
                           />
-                          <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50">
+                          <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-50">
                             {date}: {formatNumber(count)} tokens
                           </div>
                         </div>

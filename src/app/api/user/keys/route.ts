@@ -4,12 +4,43 @@ import { prisma } from "@/lib/db";
 import { generateApiKey, hashApiKey, maskApiKey } from "@/lib/db/api-keys";
 import { getSiteSettings } from "@/lib/site-settings";
 
-function toPublicKey(
-  key: { id: string; key: string | null; name: string; createdAt: Date; lastUsed: Date | null; isActive: boolean; expiresAt: Date | null; allModels: boolean; allowedModels: string[]; usageCount: number; totalTokens: number },
-  prefix: string
-) {
+const publicKeySelect = {
+  id: true,
+  key: true,
+  name: true,
+  createdAt: true,
+  lastUsed: true,
+  isActive: true,
+  expiresAt: true,
+  allModels: true,
+  allowedModels: true,
+  usageCount: true,
+  totalTokens: true,
+} as const;
+
+type PublicKeyRow = {
+  id: string; key: string | null; name: string; createdAt: Date; lastUsed: Date | null;
+  isActive: boolean; expiresAt: Date | null; allModels: boolean; allowedModels: string[];
+  usageCount: number; totalTokens: number;
+};
+
+function toPublicKey(key: PublicKeyRow, prefix: string) {
   const maskedKey = maskApiKey(key.key, prefix);
-  return { ...key, key: maskedKey, displayKey: maskedKey };
+  // Explicit pick — no spread, so sensitive columns (keyHash) can never leak.
+  return {
+    id: key.id,
+    name: key.name,
+    key: maskedKey,
+    displayKey: maskedKey,
+    createdAt: key.createdAt,
+    lastUsed: key.lastUsed,
+    isActive: key.isActive,
+    expiresAt: key.expiresAt,
+    allModels: key.allModels,
+    allowedModels: key.allowedModels,
+    usageCount: key.usageCount,
+    totalTokens: key.totalTokens,
+  };
 }
 
 export async function GET() {
@@ -21,19 +52,7 @@ export async function GET() {
   const settings = await getSiteSettings();
   const keys = await prisma.apiKey.findMany({
     where: { userId: session.sub },
-    select: {
-      id: true,
-      key: true,
-      name: true,
-      createdAt: true,
-      lastUsed: true,
-      isActive: true,
-      expiresAt: true,
-      allModels: true,
-      allowedModels: true,
-      usageCount: true,
-      totalTokens: true,
-    },
+    select: publicKeySelect,
     orderBy: { createdAt: "desc" },
   });
 
@@ -71,6 +90,7 @@ export async function POST(request: NextRequest) {
       allowedModels: Array.isArray(allowedModels) ? allowedModels : [],
       userId: session.sub,
     },
+    select: publicKeySelect,
   });
 
   return NextResponse.json(
@@ -113,19 +133,7 @@ export async function PUT(request: NextRequest) {
   const updated = await prisma.apiKey.update({
     where: { id },
     data,
-    select: {
-      id: true,
-      key: true,
-      name: true,
-      createdAt: true,
-      lastUsed: true,
-      isActive: true,
-      expiresAt: true,
-      allModels: true,
-      allowedModels: true,
-      usageCount: true,
-      totalTokens: true,
-    },
+    select: publicKeySelect,
   });
 
   return NextResponse.json({ key: toPublicKey(updated, settings.apiKeyPrefix) });

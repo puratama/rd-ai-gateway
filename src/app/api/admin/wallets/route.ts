@@ -6,17 +6,39 @@ export async function POST(request: NextRequest) {
   const authError = await requireSuperadmin();
   if (authError) return authError;
   try {
-    const body = (await request.json()) as { userId?: unknown; amount?: unknown };
+    const body = (await request.json()) as { userId?: unknown; amount?: unknown; description?: unknown };
     const userId = typeof body.userId === "string" ? body.userId : "";
     const amount = typeof body.amount === "number" ? body.amount : Number(body.amount);
+    const description = typeof body.description === "string" ? body.description.trim() : "";
     if (!userId || !Number.isFinite(amount) || amount === 0) {
       return NextResponse.json({ error: "userId and a non-zero amount are required" }, { status: 400 });
     }
+    if (!description) {
+      return NextResponse.json({ error: "description is required" }, { status: 400 });
+    }
 
-    const wallet = await prisma.wallet.upsert({
-      where: { userId },
-      update: { balance: { increment: amount } },
-      create: { userId, balance: amount },
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 400 });
+    }
+
+    const wallet = await prisma.$transaction(async (tx) => {
+      const w = await tx.wallet.upsert({
+        where: { userId },
+        update: { balance: { increment: amount } },
+        create: { userId, balance: amount },
+      });
+      await tx.billingRecord.create({
+        data: {
+          userId,
+          type: "admin_adjustment",
+          amount,
+          status: "paid",
+          description,
+          paidAt: new Date(),
+        },
+      });
+      return w;
     });
     return NextResponse.json({ balance: Number(wallet.balance) });
   } catch (error: unknown) {

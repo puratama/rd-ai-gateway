@@ -69,10 +69,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
 
-    const { createServerKey } = await import("@/lib/server-store");
+    const { createServerKey, maskApiKey } = await import("@/lib/server-store");
+    const { getSiteSettings } = await import("@/lib/site-settings");
+    const settings = await getSiteSettings();
     const newKey = await createServerKey(name.trim());
 
-    return NextResponse.json({ key: { ...newKey, key: newKey.secret, secret: newKey.secret } }, { status: 201 });
+    // Explicit field pick — never spread the raw DB row (it contains keyHash).
+    // Plaintext secret returned once, here only.
+    return NextResponse.json({
+      key: {
+        id: newKey.id,
+        name: newKey.name,
+        key: maskApiKey(newKey.key, settings.apiKeyPrefix),
+        createdAt: newKey.createdAt,
+        lastUsed: newKey.lastUsed,
+        isActive: newKey.isActive,
+        usageCount: newKey.usageCount,
+        totalTokens: newKey.totalTokens,
+        secret: newKey.secret,
+      },
+    }, { status: 201 });
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },

@@ -94,14 +94,16 @@ export default function ResetPasswordPage() {
                     minLength={8}
                     autoComplete="new-password"
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => setShow(!show)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     aria-label={show ? "Sembunyikan password" : "Tampilkan password"}
                   >
                     {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">Minimal 8 karakter</p>
               </div>
@@ -116,7 +118,7 @@ export default function ResetPasswordPage() {
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     placeholder="••••••••"
-                    className="pl-9 pr-10 h-11 bg-background"
+                    className="pl-9 pr-10 bg-background"
                     required
                     minLength={8}
                     autoComplete="new-password"
@@ -124,7 +126,7 @@ export default function ResetPasswordPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full h-11" disabled={loading}>
+              <Button type="submit" size="lg" className="w-full" disabled={loading}>
                 {loading ? "Menyimpan..." : "Reset password"}
                 {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
               </Button>

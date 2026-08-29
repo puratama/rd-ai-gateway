@@ -2,35 +2,18 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Check, ChevronDown, Copy } from "lucide-react";
-import { Fraunces, Figtree, IBM_Plex_Mono } from "next/font/google";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { HealthBadge } from "@/components/HealthBadge";
+import { ModelCard } from "@/components/ModelCard";
+import { PricingCard } from "@/components/PricingCard";
 import { useSiteConfig } from "@/lib/use-site-config";
-
-/* ---------------------------------- fonts ---------------------------------- */
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  variable: "--font-fraunces",
-  display: "swap",
-});
-
-const figtree = Figtree({
-  subsets: ["latin"],
-  variable: "--font-figtree",
-  display: "swap",
-});
-
-const plex = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-plex",
-  display: "swap",
-});
-
-const serif = "[font-family:var(--font-fraunces),Georgia,serif]";
-const mono = "[font-family:var(--font-plex),ui-monospace,monospace]";
+import { siteConfig } from "@/lib/site-config";
+import { FALLBACK_TIERS, planToTier, type PricingTier } from "@/lib/pricing-tiers";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SectionMark } from "@/components/ui/section-mark";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /* ----------------------------------- data ---------------------------------- */
 
@@ -51,57 +34,6 @@ const steps = [
     desc: "Arahkan SDK OpenAI ke base URL gateway. Ubah satu baris kode — aplikasi yang sudah ada tetap berjalan.",
   },
 ];
-
-interface PricingTier {
-  name: string;
-  price: string;
-  description: string;
-  features: string[];
-  cta: string;
-  popular: boolean;
-}
-
-const FALLBACK_TIERS: PricingTier[] = [
-  { name: "Starter", price: "Gratis", description: "Untuk mencoba platform", features: ["1.000 token/hari", "Model dasar", "Community support"], cta: "Mulai", popular: false },
-  { name: "Pro", price: "Rp 99K", description: "Untuk developer serius", features: ["1 juta token / 30 hari", "Semua model", "Streaming & analytics"], cta: "Beli Paket", popular: true },
-  { name: "Enterprise", price: "Custom", description: "Untuk tim dan bisnis", features: ["Volume besar", "Dukungan khusus", "SLA"], cta: "Hubungi Kami", popular: false },
-];
-
-interface PlanRaw {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  billingPeriod: string;
-  features: Record<string, unknown>;
-  isActive: boolean;
-}
-
-function planToTier(p: PlanRaw): PricingTier {
-  const f = p.features;
-  const feats: string[] = [];
-  if (f.maxTokensPerMonth) feats.push(`${Number(f.maxTokensPerMonth).toLocaleString("id-ID")} token`);
-  if (f.streaming) feats.push("Streaming");
-  if (f.imageGeneration) feats.push("Image generation");
-  if (f.allowedModels && Array.isArray(f.allowedModels) && f.allowedModels.length > 0) feats.push(`${f.allowedModels.length} model`);
-  else feats.push("Semua model");
-
-  return {
-    name: p.name,
-    price: p.price === 0 ? "Gratis" : `Rp ${Number(p.price).toLocaleString("id-ID")}`,
-    description: p.description || p.name,
-    features: feats,
-    cta: p.price === 0 ? "Mulai" : "Beli Paket",
-    popular: p.name.toLowerCase().includes("pro"),
-  };
-}
-
-const HEALTH_META = {
-  checking: { label: "Memeriksa status…", cls: "text-neutral-500", dot: "bg-neutral-400" },
-  ok: { label: "Semua sistem beroperasi", cls: "text-emerald-700", dot: "bg-emerald-600" },
-  degraded: { label: "Performa menurun", cls: "text-amber-700", dot: "bg-amber-600" },
-  down: { label: "Gangguan terdeteksi", cls: "text-red-700", dot: "bg-red-600" },
-} as const;
 
 const faqs = [
   {
@@ -130,43 +62,15 @@ const faqs = [
   },
 ];
 
-function Pulse({ className }: { className?: string }) {
-  return <div className="animate-pulse rounded-sm bg-neutral-200" />;
-}
-
-function formatPrice(n: number): string {
-  return n === 0 ? "Gratis" : n % 1 === 0 ? n.toLocaleString("id-ID") : n.toLocaleString("id-ID", { maximumFractionDigits: 4 });
-}
-
-function priceLabel(n: number | null): string {
-  return !n ? "Gratis" : `Rp ${formatPrice(n)}`;
-}
-
-/* Label seksi gaya Swiss: nomor di margin kiri */
-function SectionMark({ no, label }: { no: string; label: string }) {
-  return (
-    <p className={`flex items-baseline gap-3 text-sm uppercase tracking-[0.24em] text-neutral-400 ${mono}`}>
-      <span className="text-red-600">{no}</span>
-      {label}
-    </p>
-  );
-}
-
 /* --------------------------------- component -------------------------------- */
 
 export default function LandingPage() {
   const siteCfg = useSiteConfig();
   const [pricingTiers, setPricingTiers] = useState<PricingTier[]>(FALLBACK_TIERS);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [health, setHealth] = useState<keyof typeof HEALTH_META>("checking");
-  const [copied, setCopied] = useState(false);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/health")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setHealth(d?.status ?? "down"))
-      .catch(() => setHealth("down"));
     fetch("/api/plans")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -197,63 +101,51 @@ export default function LandingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealKey]);
 
-  const base = siteCfg.baseUrl || "/api/v1";
-  const snippetText = `const openai = new OpenAI({\n  baseURL: "${base}",\n  apiKey: process.env.API_KEY,\n});\n\nawait openai.chat.completions.create({\n  model: "gpt-4o",\n  messages: [{ role: "user", content: "Halo!" }],\n});`;
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(snippetText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {}
-  };
-
-  const hm = HEALTH_META[health];
   const ctaHref = isAuthenticated ? "/dashboard" : "/register";
 
   return (
-    <div className={`${fraunces.variable} ${figtree.variable} ${plex.variable} min-h-screen bg-white font-(family-name:--font-figtree) text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white`}>
+    <div className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary selection:text-primary-foreground">
       <style>{`
         html { scroll-behavior: smooth; }
         @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-        .rise { opacity: 0; animation: rise .8s cubic-bezier(.22,.61,.36,1) forwards; }
+        @media (prefers-reduced-motion: no-preference) { .rise { opacity: 0; animation: rise .8s cubic-bezier(.22,.61,.36,1) forwards; } }
+        @media (prefers-reduced-motion: reduce) { .rise { opacity: 1; animation: none; } }
         @keyframes marquee { to { transform: translateX(-50%); } }
-        @keyframes pulse-dot { 0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,.35)} 50%{box-shadow:0 0 0 6px transparent} }
-        .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .animate-\\[marquee_10s_linear_infinite\\] { animation: none !important; } }
         /* Reveal on scroll */
         .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s cubic-bezier(.22,.61,.36,1), transform .7s cubic-bezier(.22,.61,.36,1); }
         .reveal.is-visible { opacity: 1; transform: translateY(0); }
         @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
-        /* Hero: pola kotak-kotak (grid) halus pada background */
+        /* Hero: pola grid halus pada background */
         .hero-grid {
           background-image:
-            linear-gradient(to right, rgba(23,23,23,.05) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(23,23,23,.05) 1px, transparent 1px);
-          background-size: 48px 48px;
-          animation: grid-drift 6s linear infinite;
+            radial-gradient(ellipse 80% 60% at 50% 0%, color-mix(in oklch, var(--color-primary) 12%, transparent), transparent),
+            linear-gradient(to right, color-mix(in oklch, var(--color-foreground) 4%, transparent) 1px, transparent 1px),
+            linear-gradient(to bottom, color-mix(in oklch, var(--color-foreground) 4%, transparent) 1px, transparent 1px);
+          background-size: 100% 100%, 48px 48px, 48px 48px;
         }
       `}</style>
 
       {/* ============================== Navigation ============================== */}
-      <header className="fixed top-0 inset-x-0 z-50 border-b border-neutral-200 bg-white/85 backdrop-blur-md">
+      <header className="fixed top-0 inset-x-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" aria-label="Beranda" className="flex items-center gap-2.5 transition-colors">
             {siteCfg.loaded ? (
               <>
                 {siteCfg.logoMode !== "name" && <BrandLogo siteCfg={siteCfg} />}
-                {siteCfg.logoMode !== "logo" && <span className={`text-base tracking-tight ${mono}`}>{siteCfg.siteName}</span>}
+                {siteCfg.logoMode !== "logo" && <span className="text-base font-bold">{siteCfg.siteName || siteConfig.brandName}</span>}
               </>
             ) : (
               <>
-                <Pulse className="h-7 w-7" />
-                <Pulse className="h-4 w-24" />
+                <Skeleton className="h-7 w-7 rounded-lg" />
+                <Skeleton className="h-4 w-24" />
               </>
             )}
           </Link>
 
-          <nav className="hidden items-center gap-8 md:flex">
+          <nav aria-label="Navigasi utama" className="hidden items-center gap-8 md:flex">
             {[["Cara kerja", "#cara-kerja"], ["Model", "#model"], ["Harga", "#harga"], ["FAQ", "#faq"]].map(([label, href]) => (
-              <a key={href} href={href} className="text-sm text-neutral-500 transition-colors hover:text-neutral-900">
+              <a key={href} href={href} className="text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground">
                 {label}
               </a>
             ))}
@@ -261,16 +153,16 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-2">
             {isAuthenticated ? (
-              <Link href="/dashboard" className="inline-flex h-9 items-center rounded-full border border-neutral-900 px-5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white">
+              <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9 px-4")}>
                 Dashboard
               </Link>
             ) : (
               <>
-                <Link href="/login" className="hidden h-9 items-center rounded-full px-4 text-sm text-neutral-500 transition-colors hover:text-neutral-900 sm:inline-flex">
+                <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden h-9 px-4 sm:inline-flex")}>
                   Masuk
                 </Link>
-                <Link href="/register" className={`inline-flex h-9 items-center gap-1.5 rounded-full bg-neutral-900 px-5 text-sm font-medium text-white transition-colors hover:bg-neutral-700`}>
-                  Daftar <ArrowRight className="h-3.5 w-3.5" />
+                <Link href="/register" className={cn(buttonVariants({ size: "sm" }), "h-9 px-4")}>
+                  Daftar <ArrowRight />
                 </Link>
               </>
             )}
@@ -279,47 +171,43 @@ export default function LandingPage() {
       </header>
 
       {/* ================================= Hero ================================= */}
-      <section className="hero-grid relative px-6 pb-20 pt-44">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-linear-to-b from-white via-white/70 to-transparent" />
-        <div className="relative mx-auto max-w-4xl text-center">
-          <p className={`rise inline-flex items-center gap-3 text-sm uppercase tracking-[0.28em] text-neutral-400 ${mono}`} style={{ animationDelay: "0ms" }}>
-            <span className={`h-1.5 w-1.5 rounded-full ${hm.dot} ${health === "ok" ? "pulse-dot" : ""}`} />
-            <span className={hm.cls}>{hm.label}</span>
-          </p>
+      <section className="hero-grid relative overflow-hidden px-6 pb-20 pt-44">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-linear-to-t from-background via-background/70 to-transparent" />
+        <div className="relative mx-auto flex max-w-4xl flex-col items-center text-center">
+          <HealthBadge className="rise gap-3 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs font-medium" />
 
-          <h1 className={`rise mx-auto mt-8 max-w-3xl text-4xl leading-[1.06] tracking-tight md:text-6xl ${serif}`} style={{ animationDelay: "80ms", fontWeight: 340 }}>
-            Satu endpoint,{" "}
-            <em className="text-red-700">semua model.</em>
+          <h1 className="rise mx-auto mt-8 max-w-3xl text-balance text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl" style={{ animationDelay: "80ms" }}>
+            Satu endpoint, <span className="text-primary">semua model.</span>
             <br />
             Harga lokal.
           </h1>
 
           {siteCfg.loaded ? (
-            <p className="rise mx-auto mt-8 max-w-xl text-lg leading-relaxed text-neutral-500" style={{ animationDelay: "160ms" }}>
+            <p className="rise mx-auto mt-8 max-w-xl text-lg leading-relaxed text-muted-foreground" style={{ animationDelay: "160ms" }}>
               {siteCfg.description}
             </p>
           ) : (
             <div className="rise mx-auto mt-10 max-w-xl space-y-2" style={{ animationDelay: "160ms" }}>
-              <Pulse className="h-5 w-full" />
-              <Pulse className="h-5 w-3/4" />
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="mx-auto h-5 w-3/4" />
             </div>
           )}
 
-          <div className="rise mt-10 flex flex-wrap items-center justify-center gap-4" style={{ animationDelay: "240ms" }}>
-            <Link href={ctaHref} className="group inline-flex h-12 items-center gap-2 rounded-full bg-neutral-900 px-8 text-sm font-medium text-white transition-colors hover:bg-neutral-700">
+          <div className="rise mt-10 flex flex-wrap items-center justify-center gap-3" style={{ animationDelay: "240ms" }}>
+            <Link href={ctaHref} className={cn(buttonVariants({ size: "lg" }), "h-11 px-6")}>
               {isAuthenticated ? "Buka Dashboard" : "Mulai Gratis"}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight />
             </Link>
-            <a href="#harga" className="inline-flex h-12 items-center rounded-full border border-neutral-200 px-8 text-sm text-neutral-700 transition-colors hover:border-neutral-900">
+            <Link href="#harga" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 px-6")}>
               Lihat harga
-            </a>
+            </Link>
           </div>
         </div>
       </section>
 
       {/* ============================ Ticker model ============================= */}
       {siteCfg.models.length > 0 && (
-        <section aria-hidden className="overflow-hidden border-y border-neutral-200 py-4">
+        <section aria-hidden className="motion-reduce:hidden overflow-hidden border-y border-border py-5">
           {/* Duplikasi list hingga cukup panjang untuk marquee mulus, lalu gandakan lagi untuk loop -50% */}
           {(() => {
             const base = siteCfg.models;
@@ -328,9 +216,9 @@ export default function LandingPage() {
             return (
               <div className="flex w-max animate-[marquee_10s_linear_infinite] whitespace-nowrap" style={{ animationDuration: `${Math.min(60, half.length * 1.5)}s` }}>
                 {[...half, ...half].map((m, i) => (
-                  <span key={i} className={`flex items-center text-sm text-neutral-400 ${mono}`}>
+                  <span key={i} className="flex items-center text-sm text-muted-foreground">
                     <span className="px-6">{m.name}</span>
-                    <span className="text-red-300">·</span>
+                    <span className="text-primary/60">·</span>
                   </span>
                 ))}
               </div>
@@ -340,19 +228,19 @@ export default function LandingPage() {
       )}
 
       {/* ============================== Cara kerja ============================== */}
-      <section id="cara-kerja" className="reveal scroll-mt-24 px-6 py-28">
+      <section id="cara-kerja" aria-labelledby="cara-kerja-title" className="reveal scroll-mt-24 px-6 py-28">
         <div className="mx-auto max-w-6xl">
           <SectionMark no="01" label="Cara kerja" />
-          <h2 className={`mt-4 max-w-xl text-3xl tracking-tight md:text-4xl ${serif}`}>
-            Integrasi dalam <em>tiga langkah</em>
+          <h2 id="cara-kerja-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
+            Integrasi dalam <span className="text-primary">tiga langkah</span>
           </h2>
 
-          <ol className="mt-16 grid gap-6 md:grid-cols-3">
+          <ol className="mt-16 grid gap-4 md:grid-cols-3">
             {steps.map((s, i) => (
-              <li key={s.n} className="group border border-neutral-200 bg-white p-10 transition-colors hover:bg-neutral-50 reveal" style={{ transitionDelay: `${i * 90}ms` }}>
-                <span className={`text-sm text-red-600 ${mono}`}>{s.n}</span>
-                <h3 className={`mt-4 text-xl tracking-tight ${serif}`}>{s.title}</h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-neutral-500">{s.desc}</p>
+              <li key={s.n} className="reveal rounded-xl bg-card p-8 ring-1 ring-border/40 transition-all duration-200 hover:-translate-y-0.5 hover:ring-primary/50 hover:bg-card/80 hover:shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--color-primary)_25%,transparent)]" style={{ transitionDelay: `${i * 90}ms` }}>
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-sm font-bold text-primary">{s.n}</span>
+                <h3 className="mt-5 text-lg font-semibold tracking-tight">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
               </li>
             ))}
           </ol>
@@ -361,43 +249,19 @@ export default function LandingPage() {
 
       {/* ================================= Model ================================ */}
       {siteCfg.models.length > 0 && (
-        <section id="model" className="reveal scroll-mt-24 border-t border-neutral-200 px-6 py-28">
+        <section id="model" aria-labelledby="model-title" className="reveal scroll-mt-24 border-t border-border px-6 py-28">
           <div className="mx-auto max-w-6xl">
             <SectionMark no="02" label="Model" />
-            <h2 className={`mt-4 max-w-xl text-3xl tracking-tight md:text-4xl ${serif}`}>
-              Katalog <em>{siteCfg.models.length} model</em>
+            <h2 id="model-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
+              Katalog <span className="text-primary">{siteCfg.models.length} model</span>
             </h2>
-            <p className="mt-2 max-w-lg text-sm leading-relaxed text-neutral-500">
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
               Semua model aktif beserta tarifnya. Harga dalam rupiah per 1.000 token.
             </p>
 
-            <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {siteCfg.models.map((m, i) => (
-                <article key={m.modelId} className="flex flex-col border border-neutral-200 bg-white p-6 transition-colors hover:bg-neutral-50 reveal" style={{ transitionDelay: `${(i % 3) * 80}ms` }}>
-                  <h3 className={`text-xl leading-snug tracking-tight ${serif}`}>{m.name}</h3>
-                  <p className={`mt-1 truncate text-sm text-neutral-400 ${mono}`}>{m.modelId}</p>
-
-                  <dl className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm">
-                    {m.maxOutputTokens != null && (
-                      <div className="flex items-baseline justify-between gap-4">
-                        <dt className="text-neutral-400">Maks. output</dt>
-                        <dd className={mono}>{m.maxOutputTokens.toLocaleString("id-ID")}</dd>
-                      </div>
-                    )}
-                    <div className="flex items-baseline justify-between gap-4">
-                      <dt className="text-neutral-400">Input / 1K</dt>
-                      <dd className={mono}>{priceLabel(m.paygPrompt)}</dd>
-                    </div>
-                    <div className="flex items-baseline justify-between gap-4">
-                      <dt className="text-neutral-400">Output / 1K</dt>
-                      <dd className={mono}>{priceLabel(m.paygCompletion)}</dd>
-                    </div>
-                  </dl>
-
-                  <p className={`mt-3 text-sm text-neutral-400 ${mono}`}>
-                    {priceLabel(m.planPrompt) === "Gratis" ? "Termasuk dalam paket token" : `Paket token: Rp ${formatPrice(m.planPrompt ?? 0)} / 1K input`}
-                  </p>
-                </article>
+                <ModelCard key={m.modelId} model={m} className="reveal" style={{ transitionDelay: `${(i % 3) * 80}ms` }} />
               ))}
             </div>
           </div>
@@ -405,90 +269,55 @@ export default function LandingPage() {
       )}
 
       {/* ================================= Harga ================================ */}
-      <section id="harga" className="reveal scroll-mt-24 border-t border-neutral-200 px-6 py-28">
+      <section id="harga" aria-labelledby="harga-title" className="reveal scroll-mt-24 border-t border-border px-6 py-28">
         <div className="mx-auto max-w-6xl">
           <SectionMark no="03" label="Harga" />
-          <h2 className={`mt-4 max-w-xl text-3xl tracking-tight md:text-4xl ${serif}`}>
-            Prabayar. <em>Tanpa langganan.</em>
+          <h2 id="harga-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
+            Prabayar. <span className="text-primary">Tanpa langganan.</span>
           </h2>
-          <p className="mt-2 max-w-lg text-sm leading-relaxed text-neutral-500">
+          <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
             Isi wallet, beli paket token, atau bayar per pemakaian. Setiap paket berlaku 30 hari.
           </p>
 
-          <ul className="mt-16 grid gap-6 md:grid-cols-3">
+          <ul className="mt-16 grid gap-4 md:grid-cols-3">
             {pricingTiers.map((t, i) => (
-              <li
-                key={t.name}
-                className={`flex flex-col border border-neutral-200 p-8 transition-colors reveal ${
-                  t.popular ? "bg-neutral-950 text-white" : "bg-white hover:bg-neutral-50"
-                }`}
-                style={{ transitionDelay: `${i * 90}ms` }}
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className={`text-xl tracking-tight ${serif}`}>{t.name}</h3>
-                  {t.popular && <span className={`bg-red-600 px-2 py-0.5 text-sm uppercase tracking-[0.18em] text-white ${mono}`}>Populer</span>}
-                </div>
-
-                <p className={`mt-1 text-sm ${t.popular ? "text-neutral-400" : "text-neutral-500"}`}>{t.description}</p>
-
-                <div className={`mt-5 text-4xl tracking-tight lg:text-5xl ${serif}`}>{t.price}</div>
-
-                <ul className={`mt-5 space-y-3 border-t pt-5 text-sm ${t.popular ? "border-white/10" : "border-neutral-100"}`}>
-                  {t.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5">
-                      <Check className={`mt-0.5 h-4 w-4 shrink-0 ${t.popular ? "text-red-400" : "text-red-600"}`} />
-                      <span className={t.popular ? "text-neutral-300" : "text-neutral-600"}>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link
-                  href={isAuthenticated ? "/my/plan" : "/register"}
-                  className={
-                    t.popular
-                      ? "mt-7 inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-white text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-200"
-                      : "mt-7 inline-flex h-11 items-center justify-center gap-1.5 rounded-full border border-neutral-200 text-sm text-neutral-700 transition-colors hover:border-neutral-900"
-                  }
-                >
-                  {t.cta} <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
-              </li>
+              <PricingCard key={t.name} tier={t} isAuthenticated={isAuthenticated} className="reveal" style={{ transitionDelay: `${i * 90}ms` }} />
             ))}
           </ul>
         </div>
       </section>
 
       {/* ================================== FAQ ================================= */}
-      <section id="faq" className="reveal scroll-mt-24 border-t border-neutral-200 px-6 py-28">
+      <section id="faq" className="reveal scroll-mt-24 border-t border-border px-6 py-28">
         <div className="mx-auto grid max-w-6xl gap-16 md:grid-cols-[1fr_1.6fr]">
           <div>
             <SectionMark no="04" label="FAQ" />
-            <h2 className={`mt-4 text-3xl tracking-tight md:text-4xl ${serif}`}>
-              Pertanyaan yang <em>sering diajukan</em>
+            <h2 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
+              Pertanyaan yang <span className="text-primary">sering diajukan</span>
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Ada pertanyaan lain?{" "}
-              <Link href="/support" className="underline decoration-neutral-300 underline-offset-4 transition-colors hover:text-neutral-900">
+              <Link href="/support" className="text-primary underline-offset-4 hover:underline">
                 Hubungi tim dukungan
               </Link>
               .
             </p>
           </div>
 
-          <dl className="divide-y divide-neutral-100 border-y border-neutral-100">
+          <dl className="divide-y divide-border/60 border-y border-border/60">
             {faqs.map((f) => (
               <div key={f.q}>
                 <dt>
                   <button
                     onClick={() => setOpenFaq(openFaq === f.q ? null : f.q)}
                     aria-expanded={openFaq === f.q}
-                    className="group flex w-full items-center justify-between gap-6 py-5 text-left"
+                    className="group -mx-2 flex w-full items-center justify-between gap-6 rounded-md px-2 py-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                   >
-                    <span className={`text-lg tracking-tight transition-colors group-hover:text-neutral-500 ${serif}`}>{f.q}</span>
-                    <ChevronDown className={`h-4 w-4 shrink-0 text-neutral-400 transition-transform duration-300 ${openFaq === f.q ? "rotate-180" : ""}`} />
+                    <span className="font-medium transition-colors group-hover:text-primary">{f.q}</span>
+                    <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300", openFaq === f.q && "rotate-180")} />
                   </button>
                 </dt>
-                {openFaq === f.q && <dd className="pb-6 pr-10 text-sm leading-relaxed text-neutral-500">{f.a}</dd>}
+                {openFaq === f.q && <dd className="pb-6 pr-10 text-sm leading-relaxed text-muted-foreground">{f.a}</dd>}
               </div>
             ))}
           </dl>
@@ -496,51 +325,50 @@ export default function LandingPage() {
       </section>
 
       {/* =============================== CTA akhir =============================== */}
-      <section className="reveal border-t border-neutral-200 px-6 py-32">
+      <section className="reveal border-t border-border px-6 py-32">
         <div className="mx-auto max-w-3xl text-center">
-          <h2 className={`text-3xl leading-tight tracking-tight md:text-4xl ${serif}`}>
-            Request pertama Anda <em className="text-red-700">lima menit</em> dari sekarang.
+          <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-4xl">
+            Request pertama Anda <span className="text-primary">lima menit</span> dari sekarang.
           </h2>
           <div className="mt-12">
-            <Link href={ctaHref} className="group inline-flex items-center gap-2 rounded-full bg-neutral-900 px-9 py-4 text-sm font-medium text-white transition-colors hover:bg-neutral-700">
+            <Link href={ctaHref} className={cn(buttonVariants({ size: "lg" }), "h-11 px-8")}>
               {isAuthenticated ? "Buka Dashboard" : "Daftar Sekarang"}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight />
             </Link>
           </div>
         </div>
       </section>
 
       {/* ================================ Footer ================================ */}
-      <footer className="border-t border-neutral-200 bg-neutral-50 px-6">
+      <footer className="border-t border-border bg-muted/40 px-6">
         <div className="mx-auto grid max-w-6xl gap-12 py-16 md:grid-cols-[1.6fr_1fr_1fr]">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2.5">
+            <Link href="/" aria-label="Beranda" className="inline-flex items-center gap-2.5 transition-colors">
               {siteCfg.loaded ? (
                 <>
                   {siteCfg.logoMode !== "name" && <BrandLogo size="lg" siteCfg={siteCfg} />}
-                  {siteCfg.logoMode !== "logo" && <span className={`text-base tracking-tight ${mono}`}>{siteCfg.siteName}</span>}
+                  {siteCfg.logoMode !== "logo" && <span className="text-base font-bold">{siteCfg.siteName || siteConfig.brandName}</span>}
                 </>
               ) : (
                 <>
-                  <Pulse className="h-8 w-8" />
-                  <Pulse className="h-4 w-24" />
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-4 w-24" />
                 </>
               )}
             </Link>
-            {siteCfg.loaded && <p className="mt-5 max-w-xs text-sm leading-relaxed text-neutral-500">{siteCfg.tagline}</p>}
+            {siteCfg.loaded && <p className="mt-5 max-w-xs text-sm leading-relaxed text-muted-foreground">{siteCfg.tagline}</p>}
 
-            <p className={`mt-6 inline-flex items-center gap-2 border border-neutral-200 bg-white px-3.5 py-1.5 text-sm ${mono}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${hm.dot} ${health === "ok" ? "pulse-dot" : ""}`} />
-              <span className={hm.cls}>{hm.label}</span>
+            <p className="mt-6">
+              <HealthBadge withBorder />
             </p>
 
-            <address className={`mt-6 text-sm not-italic leading-relaxed text-neutral-400 ${mono}`}>
+            <address className="mt-6 font-mono text-xs not-italic leading-relaxed text-muted-foreground">
               Jakarta, Indonesia&nbsp;·&nbsp;UTC+7
             </address>
           </div>
 
           <nav aria-label="Produk">
-            <h3 className={`text-sm uppercase tracking-[0.24em] text-neutral-400 ${mono}`}>Produk</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Produk</h3>
             <ul className="mt-5 space-y-3 text-sm">
               {[
                 ["Model AI", "/models"],
@@ -549,14 +377,14 @@ export default function LandingPage() {
                 ["Daftar", "/register"],
               ].map(([label, href]) => (
                 <li key={href}>
-                  <Link href={href} className="text-neutral-600 transition-colors hover:text-neutral-900">{label}</Link>
+                  <Link href={href} className="text-muted-foreground transition-colors hover:text-foreground">{label}</Link>
                 </li>
               ))}
             </ul>
           </nav>
 
           <nav aria-label="Dukungan">
-            <h3 className={`text-sm uppercase tracking-[0.24em] text-neutral-400 ${mono}`}>Dukungan</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Dukungan</h3>
             <ul className="mt-5 space-y-3 text-sm">
               {[
                 ["Pusat Bantuan", "/support"],
@@ -565,9 +393,9 @@ export default function LandingPage() {
               ].map(([label, href]) => (
                 <li key={label}>
                   {href.startsWith("mailto:") ? (
-                    <a href={href} className="text-neutral-600 transition-colors hover:text-neutral-900">{label}</a>
+                    <a href={href} className="text-muted-foreground transition-colors hover:text-foreground">{label}</a>
                   ) : (
-                    <Link href={href} className="text-neutral-600 transition-colors hover:text-neutral-900">{label}</Link>
+                    <Link href={href} className="text-muted-foreground transition-colors hover:text-foreground">{label}</Link>
                   )}
                 </li>
               ))}
@@ -575,9 +403,9 @@ export default function LandingPage() {
           </nav>
         </div>
 
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 border-t border-neutral-200 py-6 text-sm text-neutral-400 md:flex-row md:items-center md:justify-between">
-          <p>&copy; {new Date().getFullYear()} {siteCfg.siteName || "xPerimne"}. Semua hak dilindungi.</p>
-          <p className={`uppercase tracking-[0.18em] ${mono}`}>OpenAI-compatible&nbsp;·&nbsp;API v1</p>
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 border-t border-border py-6 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
+          <p>&copy; {new Date().getFullYear()} {siteCfg.siteName || siteConfig.brandName}. Semua hak dilindungi.</p>
+          <p className="font-mono uppercase tracking-wider">OpenAI-compatible&nbsp;·&nbsp;API v1</p>
         </div>
       </footer>
     </div>

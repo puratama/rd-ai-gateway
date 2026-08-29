@@ -163,6 +163,8 @@ async function tryProviderRaw(
     messages: req.messages,
     stream: req.stream || false,
   };
+  // Ask upstream for real token usage on the final SSE event (OpenAI-compatible).
+  if (req.stream) body.stream_options = { include_usage: true };
   if (req.temperature !== undefined) body.temperature = req.temperature;
   if (req.max_tokens !== undefined) {
     const configuredLimit = await getModelMaxOutputTokens(req.model);

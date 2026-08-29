@@ -13,20 +13,15 @@ import { siteConfig } from "@/lib/site-config";
 export default function AuthBrand() {
   const siteCfg = useSiteConfig();
 
-  if (!siteCfg.loaded) {
-    return (
-      <div className="flex items-center justify-center gap-2.5 mb-8">
-        <Skeleton className="h-9 w-9 rounded-xl" />
-        <Skeleton className="h-5 w-24" />
-      </div>
-    );
-  }
-
   return (
-    <Link href="/" className="flex items-center justify-center gap-2.5 mb-8">
-      {siteCfg.logoMode !== "name" && <BrandLogo size="lg" siteCfg={siteCfg} />}
-      {siteCfg.logoMode !== "logo" && (
-        <span className="text-xl font-bold">{siteCfg.siteName || siteConfig.brandName}</span>
+    <Link href="/" className="flex items-center gap-2.5 mb-8 transition-opacity hover:opacity-90">
+      {(!siteCfg.loaded || siteCfg.logoMode !== "name") && <BrandLogo size="lg" siteCfg={siteCfg} />}
+      {!siteCfg.loaded ? (
+        <Skeleton className="h-5 w-24" />
+      ) : (
+        siteCfg.logoMode !== "logo" && (
+          <span className="text-xl font-bold">{siteCfg.siteName || siteConfig.brandName}</span>
+        )
       )}
     </Link>
   );

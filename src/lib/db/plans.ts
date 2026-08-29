@@ -73,6 +73,75 @@ function mapPlan(p: {
 
 // ====== Plans ======
 
+// Whitelist of writable Plan fields (see prisma/schema.prisma model Plan).
+// NOTE: "features" is a mapped/display-only concept, not a DB column.
+const PLAN_WRITABLE_FIELDS = new Set([
+  "name",
+  "description",
+  "billingPeriod",
+  "price",
+  "maxTokensPerPeriod",
+  "allowedModels",
+  "allModels",
+  "allowedProviders",
+  "allProviders",
+  "streaming",
+  "imageGeneration",
+  "highlights",
+  "isActive",
+  "sortOrder",
+]);
+
+/**
+ * Validate + whitelist a plan payload.
+ * Returns { error } with a 400-worthy message, or { data } with only valid fields.
+ */
+export function validatePlanPayload(
+  body: Record<string, unknown>,
+  { partial = false }: { partial?: boolean } = {}
+): { data?: Record<string, unknown>; error?: string } {
+  if (!body || typeof body !== "object") return { error: "Invalid payload" };
+
+  const data: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (PLAN_WRITABLE_FIELDS.has(key)) data[key] = value;
+  }
+
+  if (!partial) {
+    if (typeof data.name !== "string" || !data.name.trim()) {
+      return { error: "name is required" };
+    }
+    if (data.maxTokensPerPeriod === undefined || data.maxTokensPerPeriod === null) {
+      return { error: "maxTokensPerPeriod is required" };
+    }
+    if (data.price === undefined || data.price === null) {
+      return { error: "price is required" };
+    }
+  }
+
+  if (data.price !== undefined) {
+    const price = Number(data.price);
+    if (!Number.isFinite(price) || price <= 0) {
+      return { error: "price must be a number greater than 0" };
+    }
+    data.price = price;
+  }
+
+  if (data.maxTokensPerPeriod !== undefined) {
+    const tokens = Number(data.maxTokensPerPeriod);
+    if (!Number.isFinite(tokens) || tokens <= 0) {
+      return { error: "maxTokensPerPeriod must be a number greater than 0" };
+    }
+    data.maxTokensPerPeriod = tokens;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return { error: "No valid fields provided" };
+  }
+
+  return { data };
+}
+
 export async function loadPlans(): Promise<MembershipPlan[]> {
   const plans = await prisma.plan.findMany({ orderBy: { sortOrder: "asc" } });
   return plans.map(mapPlan);

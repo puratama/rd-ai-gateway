@@ -2,6 +2,7 @@
 // Config loaded from PaymentGatewayConfig DB table.
 // Configure via Admin > Settings > Payment Gateway
 
+import { timingSafeEqual } from "crypto";
 import { getPaymentConfig } from "./payment-config";
 
 export interface XenditInvoiceNotification {
@@ -108,8 +109,10 @@ export async function verifyXenditSignature(tokenFromHeader: string | null): Pro
   if (_cachedCallbackToken === null) {
     await initXendit();
   }
-  if (_cachedCallbackToken && tokenFromHeader === _cachedCallbackToken) return true;
-  return false;
+  if (!_cachedCallbackToken) return false;
+  const a = Buffer.from(tokenFromHeader, "utf8");
+  const b = Buffer.from(_cachedCallbackToken, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 // Map Xendit Invoice status to our billing status

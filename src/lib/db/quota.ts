@@ -161,7 +161,7 @@ export async function holdBalanceOrTokens(
       expiresAt: { gt: new Date() },
       tokensRemaining: { gt: 0 },
     },
-    orderBy: [{ tokensRemaining: "desc" }, { expiresAt: "asc" }],
+    orderBy: [{ expiresAt: "asc" }, { tokensRemaining: "desc" }],
   });
 
   const estimatedTotalTokens = Math.max(100, estimatedPromptTokens * 3);
@@ -365,10 +365,17 @@ export async function settleUsage(
         data: { balance: { increment: diff } },
       });
     } else if (diff < 0) {
-      await prisma.wallet.update({
-        where: { userId },
-        data: { balance: { decrement: Math.abs(diff) } },
+      // Guarded surcharge: never drive balance negative; log shortfall for reconciliation
+      const surcharge = Math.abs(diff);
+      const res = await prisma.wallet.updateMany({
+        where: { userId, balance: { gte: surcharge } },
+        data: { balance: { decrement: surcharge } },
       });
+      if (res.count === 0) {
+        console.warn(
+          `[settleUsage] package_payg shortfall: user ${userId} owes Rp${surcharge} but balance insufficient — recording actual cost anyway`
+        );
+      }
     }
 
     // Report combined actual cost for usage record
@@ -391,11 +398,17 @@ export async function settleUsage(
       data: { balance: { increment: diff } },
     });
   } else if (diff < 0) {
-    // Surcharge wallet
-    await prisma.wallet.update({
-      where: { userId },
-      data: { balance: { decrement: Math.abs(diff) } },
+    // Guarded surcharge: never drive balance negative; log shortfall for reconciliation
+    const surcharge = Math.abs(diff);
+    const res = await prisma.wallet.updateMany({
+      where: { userId, balance: { gte: surcharge } },
+      data: { balance: { decrement: surcharge } },
     });
+    if (res.count === 0) {
+      console.warn(
+        `[settleUsage] PAYG shortfall: user ${userId} owes Rp${surcharge} but balance insufficient — recording actual cost anyway`
+      );
+    }
   }
 
   return actualCost;

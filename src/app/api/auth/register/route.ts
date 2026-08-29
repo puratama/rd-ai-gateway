@@ -8,10 +8,14 @@ import { rateLimit } from "@/lib/rate-limit";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, name } = body;
+    const { password, name } = body;
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
     if (!email || !password) {
       return NextResponse.json({ error: "email and password required" }, { status: 400 });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "Format email tidak valid" }, { status: 400 });
     }
     if (typeof password !== "string" || password.length < 8) {
       return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 });

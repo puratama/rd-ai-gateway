@@ -4,10 +4,14 @@ import { sendEmail, buildResetHtml, getResetUrl, getSiteName } from "@/lib/email
 import { randomBytes } from "crypto";
 import { rateLimit } from "@/lib/rate-limit";
 
+// Balasan identik untuk semua kasus (terdaftar/tidak, terkirim/gagal) — anti user-enumeration.
+const GENERIC_RESPONSE = {
+  message: "Jika email terdaftar, link reset password sudah dikirim ke inbox kamu.",
+};
+
 /**
  * POST /api/auth/forgot-password
- * Kirim email reset password. Balasan selalu sukses untuk email yang tidak
- * terdaftar (anti user-enumeration), dibedakan via `sent`.
+ * Kirim email reset password. Respons selalu sukses generik (anti user-enumeration).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -44,23 +48,13 @@ export async function POST(request: NextRequest) {
           subject: `Reset Password - ${await getSiteName()}`,
           html: await buildResetHtml(getResetUrl(resetToken)),
         });
-        return NextResponse.json({
-          sent: true,
-          message: "Email reset password sudah dikirim. Cek inbox kamu.",
-        });
-      } catch {
-        return NextResponse.json(
-          { sent: false, error: "Gagal mengirim email. Coba lagi nanti atau hubungi support." },
-          { status: 500 }
-        );
+      } catch (e) {
+        // Gagal kirim pun dibalas generik — jangan bocorkan status pengiriman.
+        console.error("[forgot-password] sendEmail failed:", e);
       }
     }
 
-    // Email tidak terdaftar — balas sukses tapi tidak kirim apa-apa
-    return NextResponse.json({
-      sent: false,
-      message: "Jika email terdaftar, link reset password sudah dikirim ke inbox kamu.",
-    });
+    return NextResponse.json(GENERIC_RESPONSE);
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

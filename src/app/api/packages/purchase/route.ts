@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { addBillingPeriod } from "@/lib/billing-fulfillment";
 import { apiError, corsOptions, resolvePublicUser, withPublicCors } from "@/lib/public-api";
 
 export async function POST(request: NextRequest) {
@@ -22,8 +21,11 @@ export async function POST(request: NextRequest) {
     }
 
     const price = Number(plan.price);
-    // Expiry follows the plan's billing period (e.g. monthly → +1 month from purchase time).
-    const expiry = addBillingPeriod(new Date(), plan.billingPeriod);
+    if (!Number.isFinite(price) || price <= 0) {
+      return NextResponse.json({ error: "Invalid plan price" }, { status: 400 });
+    }
+    // Fixed 30-day expiry from purchase time
+    const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     const userPackage = await prisma.$transaction(async (tx) => {
       const deducted = await tx.wallet.updateMany({
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
       });
       if (deducted.count !== 1) return null;
 
-      return tx.userPackage.create({
+      const pkg = await tx.userPackage.create({
         data: {
           userId,
           planId,
@@ -41,22 +43,24 @@ export async function POST(request: NextRequest) {
           expiresAt: expiry,
         },
       });
+
+      // Record the package purchase transaction atomically with the debit
+      await tx.billingRecord.create({
+        data: {
+          userId,
+          type: "package_purchase",
+          amount: price,
+          status: "paid",
+          planId,
+          description: `Pembelian paket ${plan.name}`,
+          paidAt: new Date(),
+        },
+      });
+
+      return pkg;
     });
 
     if (!userPackage) return apiError("Insufficient balance", 402, "insufficient_balance", "billing_error");
-
-    // Record the package purchase transaction
-    await prisma.billingRecord.create({
-      data: {
-        userId,
-        type: "package_purchase",
-        amount: price,
-        status: "paid",
-        planId,
-        description: `Pembelian paket ${plan.name}`,
-        paidAt: new Date(),
-      },
-    });
 
     return withPublicCors(NextResponse.json({
       id: userPackage.id,

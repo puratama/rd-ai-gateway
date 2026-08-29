@@ -16,6 +16,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/components/ui/format-currency";
 import { formatDate } from "@/components/ui/format-date";
@@ -49,7 +50,7 @@ const fmtDate = (d: string) => formatDate(d);
 
 function TokenBar({ used, max }: { used: number; max: number }) {
   const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
-  const color = pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-primary";
+  const color = pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-warning" : "bg-primary";
   return (
     <div>
       <div className="flex items-center justify-between text-xs">
@@ -68,13 +69,10 @@ function TokenBar({ used, max }: { used: number; max: number }) {
 function StatusBadge({ status }: { status: string }) {
   const ok = status === "active";
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-      ok ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground"
-    )}>
+    <Badge variant={ok ? "success" : "secondary"} size="sm">
       {ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
       {status}
-    </span>
+    </Badge>
   );
 }
 
@@ -107,7 +105,7 @@ export default function MyPlanPage() {
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Coins className="h-4 w-4 text-primary" /> Token Plan
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight">My Plan</h1>
+              <h1 className="text-3xl font-bold tracking-tight">My Plan</h1>
               <p className="text-sm text-muted-foreground">Paket token dan saldo Anda.</p>
             </div>
             <Link href="/plan" className={cn(buttonVariants(), "gap-2")}>
@@ -156,7 +154,7 @@ export default function MyPlanPage() {
                 <Card>
                   <CardContent className="p-5">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Wallet className="h-4 w-4 text-blue-500" /> Saldo Wallet
+                      <Wallet className="h-4 w-4 text-info" /> Saldo Wallet
                     </div>
                     <div className="mt-3 text-3xl font-semibold tabular-nums">{formatCurrency(data!.balance)}</div>
                     <Link href="/my/wallet" className={cn(buttonVariants({ variant: "link", size: "sm" }), "gap-1 px-0 text-xs")}>
@@ -167,7 +165,7 @@ export default function MyPlanPage() {
                 <Card>
                   <CardContent className="p-5">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Coins className="h-4 w-4 text-emerald-500" /> Paket Aktif
+                      <Coins className="h-4 w-4 text-success" /> Paket Aktif
                     </div>
                     <div className="mt-3 text-3xl font-semibold tabular-nums">{data!.packages.length}</div>
                     <p className="mt-1 text-xs text-muted-foreground">total paket token Anda</p>

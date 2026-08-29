@@ -23,7 +23,7 @@ const VIEWS: Record<
   },
   expired: {
     icon: Clock,
-    iconClass: "bg-amber-500/10 text-amber-500",
+    iconClass: "bg-warning/10 text-warning",
     title: "Link kedaluwarsa",
     message: "Link verifikasi sudah tidak berlaku (valid 24 jam). Coba login — dari sana kamu bisa kirim ulang email verifikasi.",
     ctaText: "Login",
@@ -31,7 +31,7 @@ const VIEWS: Record<
   },
   success: {
     icon: CheckCircle2,
-    iconClass: "bg-emerald-500/10 text-emerald-500",
+    iconClass: "bg-success/10 text-success",
     title: "Email Terverifikasi",
     message: "Akun kamu sudah aktif. Kamu akan dialihkan ke halaman login.",
     ctaText: "Login Sekarang",
@@ -71,14 +71,14 @@ export default async function VerifyEmailPage({
       <div className="w-full max-w-md">
         <AuthBrand />
 
-        <Card className="border-border bg-card/95 shadow-2xl shadow-primary/10">
+        <Card className="bg-card ring-1 ring-border/40">
           <CardContent className="pt-8 text-center">
-            <div className={`w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center ${v.iconClass}`}>
+            <div className={`w-14 h-14 mx-auto mb-4 rounded-xl flex items-center justify-center ${v.iconClass}`}>
               <Icon className="w-7 h-7" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">{v.title}</h2>
+            <h2 className="text-2xl font-bold tracking-tight mb-2">{v.title}</h2>
             <p className="text-sm text-muted-foreground mb-6">{v.message}</p>
-            <Link href={v.ctaHref} className={buttonVariants({ className: "w-full h-11" })}>
+            <Link href={v.ctaHref} className={buttonVariants({ size: "lg", className: "w-full" })}>
               {v.ctaText}
             </Link>
           </CardContent>

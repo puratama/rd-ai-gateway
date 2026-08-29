@@ -1,18 +1,6 @@
 import { NextRequest } from "next/server";
 import { routeRequest } from "@/lib/llm-router";
-import { publicCorsHeaders, corsOptions } from "@/lib/public-api-contract";
-
-// Derived provider from model ID — must match plan's allowedProviders
-function deriveProvider(modelId: string): string {
-  const id = modelId.toLowerCase();
-  if (id.includes("gpt") || id.includes("o1") || id.includes("o3")) return "openai";
-  if (id.includes("claude")) return "anthropic";
-  if (id.includes("gemini")) return "google";
-  if (id.includes("deepseek")) return "deepseek";
-  if (id.includes("llama") || id.includes("meta")) return "meta";
-  if (id.includes("mistral") || id.includes("mixtral")) return "mistral";
-  return "unknown";
-}
+import { publicCorsHeaders, corsOptions, apiError } from "@/lib/public-api-contract";
 
 export const runtime = "nodejs";
 
@@ -25,10 +13,7 @@ export async function POST(request: NextRequest) {
     let userId: string | null = null;
 
     if (!authHeader && !apiKeyHeader) {
-      return new Response(
-        JSON.stringify({ error: { message: "Authentication required", type: "authentication_error", param: null, code: "invalid_api_key" } }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
+      return apiError("Authentication required", 401, "invalid_api_key");
     }
 
     {
@@ -36,13 +21,25 @@ export async function POST(request: NextRequest) {
       const { validateServerKey } = await import("@/lib/server-store");
       const apiKey = await validateServerKey(token);
       if (!apiKey) {
-        return new Response(
-          JSON.stringify({ error: { message: "Invalid or inactive API key", type: "authentication_error", param: null, code: "invalid_api_key" } }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
+        return apiError("Invalid or inactive API key", 401, "invalid_api_key");
+      }
+      // Email verification gate — unverified accounts cannot consume the API
+      // (same rule as checkRateLimit in src/lib/db/quota.ts).
+      if (!apiKey.user.emailVerified) {
+        return apiError("Email belum diverifikasi. Cek email Anda.", 403, "email_not_verified", "permission_error");
       }
       apiKeyId = apiKey.id;
       userId = apiKey.userId;
+    }
+
+    // Rate limit early — before any heavy DB work (model lookup, quota checks)
+    const { rateLimit } = await import("@/lib/rate-limit");
+    const requestLimit = rateLimit(request, `api:${apiKeyId || userId}`, { limit: 120, windowMs: 60_000 });
+    if (!requestLimit.allowed) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded", retry_after: requestLimit.retryAfterSec }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": String(requestLimit.retryAfterSec), ...publicCorsHeaders },
+      });
     }
 
     // 2. Parse request body
@@ -53,10 +50,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!messages || !model) {
-      return new Response(
-        JSON.stringify({ error: "messages and model are required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      return apiError("messages and model are required", 400, "missing_required_parameter");
     }
 
     // Only priced AppModels may be used. Unknown aggregator IDs must not become free.
@@ -74,19 +68,13 @@ export async function POST(request: NextRequest) {
       },
     });
     if (!pricedModel || !pricedModel.isActive) {
-      return new Response(
-        JSON.stringify({ error: `Model "${model}" is not configured for billing` }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      return apiError(`Model "${model}" is not configured for billing`, 400, "model_not_available");
     }
 
     if (apiKeyId) {
       const { checkModelAccess } = await import("@/lib/db/quota");
       if (!(await checkModelAccess(apiKeyId, String(model)))) {
-        return new Response(
-          JSON.stringify({ error: `Model "${model}" is not enabled for this API key or plan` }),
-          { status: 403, headers: { "Content-Type": "application/json" } }
-        );
+        return apiError(`Model "${model}" is not enabled for this API key or plan`, 403, "model_not_allowed", "permission_error");
       }
 
       const apiKey = await prisma.apiKey.findUnique({
@@ -96,20 +84,8 @@ export async function POST(request: NextRequest) {
       const allowedModels = apiKey?.allowedModels ?? [];
       const modelAllowed = apiKey?.allModels !== false || allowedModels.includes(pricedModel.modelId);
       if (!modelAllowed) {
-        return new Response(
-          JSON.stringify({ error: `Model "${model}" is not enabled for this API key` }),
-          { status: 403, headers: { "Content-Type": "application/json" } }
-        );
+        return apiError(`Model "${model}" is not enabled for this API key`, 403, "model_not_allowed", "permission_error");
       }
-    }
-
-    const { rateLimit } = await import("@/lib/rate-limit");
-    const requestLimit = rateLimit(request, `api:${apiKeyId || userId}`, { limit: 120, windowMs: 60_000 });
-    if (!requestLimit.allowed) {
-      return new Response(JSON.stringify({ error: "Rate limit exceeded", retry_after: requestLimit.retryAfterSec }), {
-        status: 429,
-        headers: { "Content-Type": "application/json", "Retry-After": String(requestLimit.retryAfterSec) },
-      });
     }
 
     // Estimate prompt tokens for balance check
@@ -123,7 +99,7 @@ export async function POST(request: NextRequest) {
       if (!balanceCheck.ok) {
         return new Response(
           JSON.stringify({ error: balanceCheck.reason, upgradeUrl: "/my/wallet" }),
-          { status: 402, headers: { "Content-Type": "application/json" } }
+          { status: 402, headers: { "Content-Type": "application/json", ...publicCorsHeaders } }
         );
       }
 
@@ -188,7 +164,7 @@ export async function POST(request: NextRequest) {
         }),
         {
           status: result.status || 502,
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...publicCorsHeaders },
         }
       );
     }
@@ -212,13 +188,18 @@ export async function POST(request: NextRequest) {
           let fullText = "";
           let pending = "";
           let streamError = false;
+          // Actual usage reported by the provider (stream_options.include_usage).
+          let streamUsage: { prompt_tokens?: number; completion_tokens?: number } | null = null;
+          // One decoder for the whole stream — a new TextDecoder() per chunk
+          // breaks multibyte characters split across chunk boundaries.
+          const decoder = new TextDecoder();
 
           try {
             while (true) {
               const { done, value } = await streamReader.read();
               if (done) break;
 
-              pending += new TextDecoder().decode(value);
+              pending += decoder.decode(value, { stream: true });
               const lines = pending.split("\n");
               pending = lines.pop() || "";
 
@@ -232,6 +213,7 @@ export async function POST(request: NextRequest) {
                 }
                 try {
                   const parsed = JSON.parse(jsonStr);
+                  if (parsed.usage) streamUsage = parsed.usage;
                   const delta = parsed.choices?.[0]?.delta;
                   const content = delta?.content || "";
                   if (content) fullText += typeof content === "string" ? content : JSON.stringify(content);
@@ -247,13 +229,14 @@ export async function POST(request: NextRequest) {
             streamReader.releaseLock();
           }
 
-          // Settle or release the hold after the stream completes.
+          // Settle the hold after the stream ends.
           if (userId) {
             let usageCost = 0;
+            // Prefer provider-reported usage; fall back to the estimator.
+            const promptTokens = streamUsage?.prompt_tokens ?? estimateTokens(JSON.stringify(messages));
+            const completionTokens = streamUsage?.completion_tokens ?? estimateTokens(fullText);
             try {
-              const { settleUsage, releaseUsageHold } = await import("@/lib/db/quota");
-              const promptTokens = estimateTokens(JSON.stringify(messages));
-              const completionTokens = estimateTokens(fullText);
+              const { settleUsage } = await import("@/lib/db/quota");
               const billing = request as unknown as Record<string, unknown>;
               const tier = billing._billingTier as "payg" | "package" | "package_payg" | undefined;
               if (tier) {
@@ -264,11 +247,10 @@ export async function POST(request: NextRequest) {
                   heldTokens: billing._billingHeldTokens as number | undefined,
                   heldAmount: billing._billingHeldAmount as number | undefined,
                 };
-                if (streamError) {
-                  await releaseUsageHold(userId, holdInfo);
-                } else {
-                  usageCost = await settleUsage(userId, model, promptTokens, completionTokens, holdInfo);
-                }
+                // Client disconnect / mid-stream error: still settle with the
+                // (partial) estimate instead of a full release — a full release
+                // leaks revenue for work the provider already did.
+                usageCost = await settleUsage(userId, model, promptTokens, completionTokens, holdInfo);
               }
             } catch (e: unknown) {
               console.error("[Billing-Stream-Deduction-Error]:", e instanceof Error ? e.message : e);
@@ -285,9 +267,9 @@ export async function POST(request: NextRequest) {
                 model,
                 provider: result.provider,
                 source: apiKeyId ? "api" : "chat",
-                promptTokens: estimateTokens(JSON.stringify(messages)),
-                completionTokens: estimateTokens(fullText),
-                totalTokens: estimateTokens(JSON.stringify(messages)) + estimateTokens(fullText),
+                promptTokens,
+                completionTokens,
+                totalTokens: promptTokens + completionTokens,
                 endpoint: "/v1/chat/completions",
                 cost: usageCost,
               });
@@ -341,7 +323,7 @@ export async function POST(request: NextRequest) {
           // Return failure block since it was non-streaming (can safely return 402/500 before sending content)
           return new Response(
             JSON.stringify({ error: "Failed to finalize billing transaction. Request was aborted." }),
-            { status: 402, headers: { "Content-Type": "application/json" } }
+            { status: 402, headers: { "Content-Type": "application/json", ...publicCorsHeaders } }
           );
         }
       }
@@ -378,7 +360,7 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json", ...publicCorsHeaders } }
     );
   }
 }

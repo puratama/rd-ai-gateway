@@ -1,22 +1,17 @@
 "use client";
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
 import { Suspense, useState, useEffect, useCallback } from "react";
-import { Plus, Edit3, Trash2, Box, AlertTriangle, RefreshCw } from "lucide-react";
+import { Plus, Edit3, Trash2, Box, RefreshCw } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { FormSection, FormPanel } from "@/components/ui/form";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
+import { FormDialog } from "@/components/ui/form-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
@@ -127,7 +122,7 @@ function AdminModelsPageContent() {
       <div className="h-full overflow-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Models</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Models</h1>
             <p className="text-sm text-muted-foreground">
               Manage AI models, pricing, and availability.
             </p>
@@ -148,39 +143,39 @@ function AdminModelsPageContent() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Model</th>
-                    <th className="px-4 py-3 font-medium">Provider Model ID</th>
-                    <th className="px-4 py-3 font-medium">Public Model ID</th>
-                    <th className="px-4 py-3 text-center font-medium">
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-muted/50 text-left text-muted-foreground">
+                  <TableRow>
+                    <TableHead className="px-4 py-3 font-medium">Model</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Provider Model ID</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Public Model ID</TableHead>
+                    <TableHead className="px-4 py-3 text-center font-medium">
                       Status
-                    </th>
-                    <th className="px-4 py-3 font-medium sr-only">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+                    </TableHead>
+                    <TableHead className="px-4 py-3 font-medium sr-only">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
                   {models.map((m) => (
-                    <tr key={m.id} className="hover:bg-muted/40">
-                      <td className="px-4 py-3">
+                    <TableRow key={m.id} className="hover:bg-muted/40">
+                      <TableCell className="px-4 py-3">
                         <div className="font-medium">{m.name}</div>
                         <div className="text-xs text-muted-foreground font-mono">
                           {m.provider || "—"}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
                         {m.providerModelId || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
                         {m.modelId || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-center">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-center">
                         <span
                           className={cn(
-                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
                             m.isActive
-                              ? "bg-emerald-500/10 text-emerald-400"
+                              ? "bg-success/10 text-success"
                               : "bg-muted text-muted-foreground"
                           )}
                         >
@@ -188,20 +183,20 @@ function AdminModelsPageContent() {
                             className={cn(
                               "h-1.5 w-1.5 rounded-full",
                               m.isActive
-                                ? "bg-emerald-400"
+                                ? "bg-success"
                                 : "bg-muted-foreground"
                             )}
                           />
                           {m.isActive ? "Active" : "Inactive"}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           {testResults[m.id] && (
                             <span
                               className={cn(
-                                "text-[10px] mr-1",
-                                testResults[m.id].ok ? "text-emerald-400" : "text-destructive"
+                                "text-xs mr-1",
+                                testResults[m.id].ok ? "text-success" : "text-destructive"
                               )}
                               title={testResults[m.id].error}
                             >
@@ -216,7 +211,7 @@ function AdminModelsPageContent() {
                             onClick={() => handleTestConnection(m.id)}
                             disabled={testingId === m.id}
                           >
-                            <RefreshCw className={cn("h-3.5 w-3.5", testingId === m.id && "animate-spin")} />
+                            <RefreshCw className={cn("h-3.5 w-3.5", testingId === m.id && "animate-spin motion-reduce:animate-none")} />
                           </Button>
                           <Button
                             variant="ghost"
@@ -241,17 +236,17 @@ function AdminModelsPageContent() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}
 
         {/* Model Create/Edit Dialog */}
-        <Dialog
+        <ModelForm
           open={showCreate}
           onOpenChange={(open) => {
             if (!open) {
@@ -259,85 +254,54 @@ function AdminModelsPageContent() {
               setEditing(null);
             }
           }}
-        >
-          <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-            <div className="border-b border-border px-6 py-4 flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                <Box className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <DialogTitle className="text-base">{editing ? "Edit Model Mapping" : "Add Model Mapping"}</DialogTitle>
-                </div>
-                <DialogDescription className="text-xs mt-0.5">
-                  {editing
-                    ? "Update public model ID, provider model ID, and availability."
-                    : "Select provider model, then customize the public model ID shown to API clients."}
-                </DialogDescription>
-              </div>
-            </div>
-            <ModelForm
-              model={editing}
-              onSave={async (data) => {
-                const response = await fetch("/api/admin/models", {
-                  method: editing ? "PUT" : "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(editing ? { id: editing.id, ...data } : data),
-                });
-                if (!response.ok) {
-                  const error = await response.json().catch(() => null);
-                  throw new Error(getApiErrorMessage(error, "Failed to save model"));
-                }
-                setShowCreate(false);
-                setEditing(null);
-                fetchModels();
-              }}
-              onClose={() => {
-                setShowCreate(false);
-                setEditing(null);
-              }}
-            />
-         </DialogContent>
-       </Dialog>
+          model={editing}
+          onSave={async (data) => {
+            const response = await fetch("/api/admin/models", {
+              method: editing ? "PUT" : "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(editing ? { id: editing.id, ...data } : data),
+            });
+            if (!response.ok) {
+              const error = await response.json().catch(() => null);
+              throw new Error(getApiErrorMessage(error, "Failed to save model"));
+            }
+            setShowCreate(false);
+            setEditing(null);
+            fetchModels();
+          }}
+          onClose={() => {
+            setShowCreate(false);
+            setEditing(null);
+          }}
+        />
 
         {/* Model Delete Confirmation */}
-        <Dialog
+        <ConfirmDialog
           open={!!deletingId}
-          onOpenChange={(open) => {
-            if (!open) setDeletingId(null);
-          }}
-        >
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-destructive/10">
-                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-               </div>
-                <DialogTitle>Delete Model</DialogTitle>
-             </div>
-              <DialogDescription>
-                This will permanently remove this model from the gateway.
-                Existing API requests using this model will fail.
-             </DialogDescription>
-           </DialogHeader>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline">Cancel</Button>} />
-              <Button variant="destructive" onClick={handleDeleteModel}>
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
-             </Button>
-           </DialogFooter>
-         </DialogContent>
-       </Dialog>
-     </div>
-   </AppShell>
+          onOpenChange={(open) => { if (!open) setDeletingId(null); }}
+          title="Delete Model"
+          description="This will permanently remove this model from the gateway. Existing API requests using this model will fail."
+          confirmLabel={
+            <>
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+            </>
+          }
+          onConfirm={handleDeleteModel}
+        />
+      </div>
+    </AppShell>
   );
 }
 
 function ModelForm({
+  open,
+  onOpenChange,
   model,
   onSave,
   onClose,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   model: AppModelItem | null;
   onSave: (data: Record<string, unknown>) => void;
   onClose: () => void;
@@ -445,8 +409,38 @@ function ModelForm({
   const registeredModelIds = aggregatorModels.filter((m) => m.alreadyConfigured);
 
   return (
-    <div className="flex flex-col max-h-[70vh]">
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={<Box className="h-4 w-4 text-primary" />}
+      title={model ? "Edit Model Mapping" : "Add Model Mapping"}
+      description={
+        model
+          ? "Update public model ID, provider model ID, and availability."
+          : "Select provider model, then customize the public model ID shown to API clients."
+      }
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <>
+                <svg className="animate-spin motion-reduce:animate-none -ml-1 mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Saving...
+              </>
+            ) : (
+              model ? "Update" : "Create"
+            )}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
         {/* ── Source ── */}
         <section>
           <FormSection>Source</FormSection>
@@ -484,7 +478,7 @@ function ModelForm({
                   isSearchable={false}
                 />
                 {aggregators.length === 0 && !loadingAggregators && (
-                  <p className="text-[11px] text-amber-500 mt-1.5">
+                  <p className="text-xs text-warning mt-1.5">
                     No active aggregators. Add one in Settings → Aggregator.
                   </p>
                 )}
@@ -541,7 +535,7 @@ function ModelForm({
                   placeholder="Select a model"
                 />
                 {modelError && (
-                  <p className="text-[11px] text-destructive mt-1.5">{modelError}</p>
+                  <p className="text-xs text-destructive mt-1.5">{modelError}</p>
                 )}
               </div>
             </div>
@@ -573,7 +567,7 @@ function ModelForm({
                 placeholder="Actual model ID from the provider"
                 className="bg-background font-mono text-xs"
               />
-              <p className="text-[10px] text-muted-foreground/60 mt-1">
+              <p className="text-xs text-muted-foreground/60 mt-1">
                 The actual model ID from the provider. This is the reference model ID.
               </p>
             </div>
@@ -587,7 +581,7 @@ function ModelForm({
                 placeholder="e.g. deepseek-flash"
                 className="bg-background font-mono text-xs"
               />
-              <p className="text-[10px] text-muted-foreground/60 mt-1">
+              <p className="text-xs text-muted-foreground/60 mt-1">
                 The model name used by API clients. Customize this to mask the provider model ID.
               </p>
             </div>
@@ -629,7 +623,6 @@ function ModelForm({
                   min={1}
                   value={form.maxOutputTokens}
                   onChange={(event) => update("maxOutputTokens", Number(event.target.value) || 1)}
-                  className="bg-background"
                 />
               </div>
             )}
@@ -655,27 +648,7 @@ function ModelForm({
           </FormPanel>
         </section>
       </div>
-
-      {/* ── Footer ── */}
-      <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 bg-muted/10">
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Saving...
-            </>
-          ) : (
-            model ? "Update" : "Create"
-          )}
-        </Button>
-      </div>
-    </div>
+    </FormDialog>
   );
 }
 

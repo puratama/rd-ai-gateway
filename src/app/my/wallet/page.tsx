@@ -7,12 +7,13 @@ import { CheckCircle2, Clock, Download, Image as ImageIcon, Plus, QrCode, Receip
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatCurrency } from "@/components/ui/format-currency";
@@ -332,7 +333,7 @@ export default function WalletPage() {
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Wallet className="h-4 w-4 text-primary" /> Wallet
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight">My Wallet</h1>
+              <h1 className="text-3xl font-bold tracking-tight">My Wallet</h1>
               <p className="text-sm text-muted-foreground">Add balance to keep your API usage running.</p>
             </div>
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="cursor-pointer">
@@ -343,7 +344,7 @@ export default function WalletPage() {
           <Card>
             <CardContent className="p-5">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Wallet className="h-4 w-4 text-blue-500" /> Current balance
+                <Wallet className="h-4 w-4 text-info" /> Current balance
               </div>
               {loading ? (
                 <div className="mt-3">
@@ -399,7 +400,7 @@ export default function WalletPage() {
 
             <Card>
               <CardContent className="p-5">
-                <h2 className="text-lg font-semibold">Recent transactions</h2>
+                <h2 className="text-lg font-bold tracking-tight">Recent transactions</h2>
                 <div className="mt-4 space-y-3">
                   {billingLoading ? (
                     <div className="space-y-3">
@@ -450,8 +451,8 @@ export default function WalletPage() {
               }
             }}
           >
-            <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
-              <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader className="flex-row items-center gap-3 space-y-0">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                   <QrCode className="h-4 w-4 text-primary" />
                 </div>
@@ -461,12 +462,12 @@ export default function WalletPage() {
                     Scan QR lalu bayar sebelum masa berlaku habis. Setelah membayar, klik konfirmasi.
                   </DialogDescription>
                 </div>
-              </div>
-              <div className="max-h-[70vh] overflow-y-auto p-6">
+              </DialogHeader>
+              <DialogBody className="p-6">
               {qrisPayment && submitted ? (
                 <div className="flex flex-col items-center gap-3 py-6 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10">
-                    <CheckCircle2 className="h-7 w-7 text-emerald-500" />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10">
+                    <CheckCircle2 className="h-7 w-7 text-success" />
                   </div>
                   <h3 className="text-base font-semibold">Bukti Pembayaran Terkirim</h3>
                   <p className="text-sm text-muted-foreground">
@@ -481,16 +482,10 @@ export default function WalletPage() {
                 <div className="flex flex-col items-center gap-3">
                   <div className="flex w-full items-center justify-between text-xs">
                     <span className="font-medium">{qrisPayment.merchantName ?? "Merchant"}</span>
-                    <span
-                      className={
-                        qrisExpired
-                          ? "inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-destructive"
-                          : "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-muted-foreground"
-                      }
-                    >
+                    <Badge variant={qrisExpired ? "destructive" : "secondary"} size="sm">
                       <Clock className="h-3 w-3" />
                       {qrisExpired ? "Kedaluwarsa" : qrisRemaining}
-                    </span>
+                    </Badge>
                   </div>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -534,7 +529,7 @@ export default function WalletPage() {
                           ) : (
                             <>
                               <ImageIcon className="h-4 w-4 text-muted-foreground/60" />
-                              <span className="text-[11px] text-muted-foreground">
+                              <span className="text-xs text-muted-foreground">
                                 {uploading ? "Mengupload..." : "Klik untuk upload screenshot"}
                               </span>
                             </>
@@ -559,13 +554,13 @@ export default function WalletPage() {
                           className="h-auto min-h-0 text-xs"
                         />
                       </div>
-                      <p className="w-full text-center text-[11px] text-muted-foreground">
+                      <p className="w-full text-center text-xs text-muted-foreground">
                         Pastikan Anda sudah membayar sebelum mengirim konfirmasi.
                       </p>
                       <Button className="w-full" onClick={handleQrisConfirm} disabled={confirmLoading}>
                         {confirmLoading ? (
                           <>
-                            <RefreshCw className="h-4 w-4 animate-spin" /> Memverifikasi...
+                            <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" /> Memverifikasi...
                           </>
                         ) : (
                           "Saya Sudah Bayar"
@@ -584,7 +579,7 @@ export default function WalletPage() {
                   </Button>
                 </div>
               )}
-              </div>
+              </DialogBody>
             </DialogContent>
           </Dialog>
         </div>

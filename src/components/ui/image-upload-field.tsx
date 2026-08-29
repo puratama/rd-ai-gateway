@@ -36,6 +36,14 @@ export function ImageUploadField({
 
   const upload = async (file: File) => {
     if (uploading) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("File harus berupa gambar");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Ukuran file maksimal 2MB");
+      return;
+    }
     const fd = new FormData();
     fd.append("type", uploadType);
     fd.append("file", file);
@@ -48,8 +56,9 @@ export function ImageUploadField({
       toast.success(`${label} berhasil diupload`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload gagal");
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   return (
@@ -58,6 +67,7 @@ export function ImageUploadField({
       <div
         role="button"
         tabIndex={0}
+        aria-label={`Upload ${label}`}
         onClick={() => inputRef.current?.click()}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
@@ -109,7 +119,7 @@ export function ImageUploadField({
         placeholder={placeholder}
         className="mt-2 h-9 bg-background"
       />
-      {hint && <p className="mt-1 text-[11px] text-muted-foreground/70">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-muted-foreground/70">{hint}</p>}
     </div>
   );
 }

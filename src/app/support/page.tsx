@@ -19,9 +19,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -62,11 +64,11 @@ interface Ticket {
 
 type StatusFilter = "all" | "open" | "in_progress" | "resolved" | "closed";
 
-const statusColors: Record<string, string> = {
-  open: "bg-amber-500/15 text-amber-500",
-  in_progress: "bg-blue-500/15 text-blue-500",
-  resolved: "bg-emerald-500/15 text-emerald-500",
-  closed: "bg-muted text-muted-foreground",
+const statusVariants: Record<string, "warning" | "info" | "success" | "secondary"> = {
+  open: "warning",
+  in_progress: "info",
+  resolved: "success",
+  closed: "secondary",
 };
 
 const STATUS_OPTIONS: { key: StatusFilter; label: string }[] = [
@@ -99,9 +101,9 @@ function formatTime(ts: number) {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={cn("inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium", statusColors[status] || statusColors.open)}>
+    <Badge variant={statusVariants[status] || statusVariants.open} size="sm">
       {titleCase(status)}
-    </span>
+    </Badge>
   );
 }
 
@@ -273,7 +275,7 @@ function SupportPageContent() {
             <Card>
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <TicketIcon className="h-4 w-4 text-blue-500" /> Total tickets
+                  <TicketIcon className="h-4 w-4 text-info" /> Total tickets
                 </div>
                 <div className="mt-3 text-3xl font-semibold">{stats.total}</div>
               </CardContent>
@@ -281,7 +283,7 @@ function SupportPageContent() {
             <Card>
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4 text-amber-500" /> Active
+                  <Clock className="h-4 w-4 text-warning" /> Active
                 </div>
                 <div className="mt-3 text-3xl font-semibold">{stats.active}</div>
               </CardContent>
@@ -289,7 +291,7 @@ function SupportPageContent() {
             <Card>
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Resolved
+                  <CheckCircle2 className="h-4 w-4 text-success" /> Resolved
                 </div>
                 <div className="mt-3 text-3xl font-semibold">{stats.resolved}</div>
               </CardContent>
@@ -308,7 +310,7 @@ function SupportPageContent() {
                 <Clock className="h-3.5 w-3.5" /> Last updated {tickets.length ? formatTime(Math.max(...tickets.map((t) => t.updatedAt))) : "—"}
               </p>
               <Button variant="outline" size="sm" onClick={() => void fetchTickets()} disabled={loading} className="cursor-pointer">
-                <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", loading && "animate-spin")} /> Refresh
+                <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", loading && "animate-spin motion-reduce:animate-none")} /> Refresh
               </Button>
             </div>
           </div>
@@ -351,7 +353,7 @@ function SupportPageContent() {
                       {categoryLabel(t.category)} <span className="mx-2">·</span> {titleCase(t.priority)} Priority
                       <span className="mx-2">·</span> {t.messages.length} {t.messages.length === 1 ? "message" : "messages"}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">updated {formatTime(t.updatedAt)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">updated {formatTime(t.updatedAt)}</p>
                   </button>
                 ))}
               </div>
@@ -381,7 +383,7 @@ function SupportPageContent() {
                       <div className="max-h-[45vh] space-y-3 overflow-y-auto pr-1">
                         {activeTicket.messages.map((m, i) => (
                           <div key={i} className={cn("max-w-[85%] w-fit wrap-break-word rounded-xl border px-3 py-2 text-sm", m.authorRole === "admin" ? "border-border/70 bg-muted/60" : "border-primary/25 bg-primary/15 ml-auto")}>
-                            <div className={cn("mb-1 text-[11px] font-medium", m.authorRole === "admin" ? "text-muted-foreground" : "text-primary")}>
+                            <div className={cn("mb-1 text-xs font-medium", m.authorRole === "admin" ? "text-muted-foreground" : "text-primary")}>
                               {m.authorRole === "admin" ? "Support team" : "You"} <span className="mx-2">·</span> {formatTime(m.createdAt)}
                             </div>
                             <p className="whitespace-pre-wrap">{m.body}</p>
@@ -420,7 +422,7 @@ function SupportPageContent() {
             <DialogTitle>New Support Ticket</DialogTitle>
             <DialogDescription>Describe your issue. Our team will reply here.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
+          <DialogBody className="space-y-2">
             <div>
               <Label htmlFor="ticket-subject">Subject</Label>
               <Input
@@ -475,7 +477,7 @@ function SupportPageContent() {
                 <AlertTriangle className="h-4 w-4 shrink-0" /> {formError}
               </div>
             )}
-          </div>
+          </DialogBody>
           <DialogFooter>
             <DialogClose render={<Button variant="outline">Cancel</Button>} />
             <Button onClick={handleCreate} disabled={saving}>{saving ? "Submitting..." : "Submit Ticket"}</Button>

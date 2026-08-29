@@ -20,7 +20,7 @@ function Feedback({ type, message }: { type: "success" | "error"; message: strin
       className={cn(
         "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
         type === "success"
-          ? "bg-green-500/10 text-green-600 dark:text-green-400"
+          ? "bg-success/10 text-success"
           : "bg-destructive/10 text-destructive"
       )}
     >
@@ -113,7 +113,7 @@ function ProfileTab() {
           className="bg-muted text-muted-foreground cursor-not-allowed"
           placeholder="you@example.com"
         />
-        <p className="text-[11px] text-muted-foreground">Email cannot be changed.</p>
+        <p className="text-xs text-muted-foreground">Email cannot be changed.</p>
       </div>
       {feedback && <Feedback type={feedback.type} message={feedback.message} />}
       <Button onClick={handleSave} disabled={saving}>
@@ -225,7 +225,7 @@ export default function SettingsPage() {
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <SettingsIcon className="h-4 w-4 text-primary" /> Settings
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight">Account settings</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Account settings</h1>
               <p className="text-sm text-muted-foreground">Manage your profile and security preferences.</p>
             </div>
           </header>

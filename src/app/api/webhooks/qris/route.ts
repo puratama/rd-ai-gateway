@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { handlePaidBilling } from "@/lib/billing-fulfillment";
+import { markBillingPaidOnce } from "@/lib/db/billing";
 
 // QRIS Merchant webhook (generic PSP callback — e.g. Xendit/Midtrans QRIS product).
 // Caveat: a pure merchant static QRIS has NO bank/e-wallet webhook. This endpoint is
@@ -55,16 +56,17 @@ export async function POST(request: NextRequest) {
 
     const normalizedStatus = mapQrisStatus(status);
 
-    const updatedBilling = await prisma.billingRecord.update({
-      where: { id: billing.id },
-      data: {
-        status: normalizedStatus,
-        paidAt: normalizedStatus === "paid" ? new Date() : billing.paidAt,
-      },
-    });
-
-    if (normalizedStatus === "paid" && billing.status !== "paid") {
-      await handlePaidBilling(updatedBilling);
+    if (normalizedStatus === "paid") {
+      // Atomic paid transition — fulfills exactly once across webhook/confirm races
+      const marked = await markBillingPaidOnce({ id: billing.id });
+      if (marked) {
+        await handlePaidBilling(billing);
+      }
+    } else if (normalizedStatus !== billing.status) {
+      await prisma.billingRecord.update({
+        where: { id: billing.id },
+        data: { status: normalizedStatus },
+      });
     }
 
     return NextResponse.json({ ok: true });

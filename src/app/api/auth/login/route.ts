@@ -7,7 +7,9 @@ import { rateLimit } from "@/lib/rate-limit";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { password } = body;
+    // Normalize before lookup & rate-limit key — "User@X.com " and "user@x.com" are the same account
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
     if (!email || !password) {
       return NextResponse.json({ error: "email and password required" }, { status: 400 });

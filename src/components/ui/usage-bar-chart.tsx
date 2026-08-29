@@ -32,7 +32,11 @@ function formatNumber(n: number) {
   return new Intl.NumberFormat("id-ID").format(n);
 }
 
-
+// ponytail: warna di-resolve sekali saat render; ganti tema tidak me-refresh chart — tambah listener/dep bila tema dinamis dibutuhkan.
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
 
 export function UsageBarChart({ data, heightClass = "h-72" }: UsageBarChartProps) {
   const chartData = useMemo(() => ({
@@ -40,22 +44,27 @@ export function UsageBarChart({ data, heightClass = "h-72" }: UsageBarChartProps
     datasets: [{
       label: "Tokens",
       data: data.map((day) => day.tokens),
-      backgroundColor: "oklch(0.68 0.16 235)",
+      backgroundColor: cssVar("--color-primary", "oklch(0.68 0.16 235)"),
       borderRadius: 4,
       borderSkipped: false as const,
     }],
   }), [data]);
 
-  const chartOptions = useMemo(() => ({
+  const chartOptions = useMemo(() => {
+    const popover = cssVar("--color-popover", "oklch(0.265 0.062 247)");
+    const popoverFg = cssVar("--color-popover-foreground", "oklch(0.97 0.015 240)");
+    const border = cssVar("--color-border", "oklch(0.39 0.065 246)");
+    const mutedFg = cssVar("--color-muted-foreground", "oklch(0.76 0.045 245)");
+    return {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: "oklch(0.265 0.062 247)",
-        titleColor: "oklch(0.97 0.015 240)",
-        bodyColor: "oklch(0.97 0.015 240)",
-        borderColor: "oklch(0.39 0.065 246)",
+        backgroundColor: popover,
+        titleColor: popoverFg,
+        bodyColor: popoverFg,
+        borderColor: border,
         borderWidth: 1,
         padding: 10,
         cornerRadius: 8,
@@ -77,22 +86,23 @@ export function UsageBarChart({ data, heightClass = "h-72" }: UsageBarChartProps
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: "oklch(0.76 0.045 245)", font: { size: 10 } },
+        ticks: { color: mutedFg, font: { size: 10 } },
       },
       y: {
         beginAtZero: true,
-        grid: { color: "oklch(0.39 0.065 246 / 0.4)" },
+        grid: { color: border },
         ticks: {
-          color: "oklch(0.76 0.045 245)",
+          color: mutedFg,
           font: { size: 10 },
           callback: (value: string | number) => Number(value).toLocaleString("id-ID"),
         },
       },
     },
-  }), [data]);
+    };
+  }, [data]);
 
   return (
-    <div className={heightClass}>
+    <div className={heightClass} role="img" aria-label="Grafik penggunaan">
       <Bar data={chartData} options={chartOptions} />
     </div>
   );

@@ -44,16 +44,16 @@ function statusCopy(status: PaymentStatus) {
         title: "Pembayaran Berhasil",
         description: "Top up kamu sudah dikonfirmasi. Saldo wallet akan segera diperbarui.",
         icon: CheckCircle2,
-        tone: "text-emerald-500",
-        bg: "bg-emerald-500/10",
+        tone: "text-success",
+        bg: "bg-success/10",
       };
     case "pending":
       return {
         title: "Pembayaran Sedang Diproses",
         description: "Kami menunggu konfirmasi dari payment gateway. Saldo akan bertambah setelah pembayaran lunas.",
         icon: Clock3,
-        tone: "text-amber-500",
-        bg: "bg-amber-500/10",
+        tone: "text-warning",
+        bg: "bg-warning/10",
       };
     case "failed":
       return {
@@ -224,7 +224,7 @@ export default function PaymentCallbackPage() {
         <AppShell variant="user">
           <div className="flex h-full items-center justify-center p-6">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Memuat status pembayaran...
+              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> Memuat status pembayaran...
             </div>
           </div>
         </AppShell>

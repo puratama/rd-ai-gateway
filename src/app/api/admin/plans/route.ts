@@ -36,12 +36,17 @@ export async function PUT(request: NextRequest) {
   if (authError) return authError;
   try {
     const { updatePlan } = await import("@/lib/server-store");
+    const { validatePlanPayload } = await import("@/lib/db/plans");
     const body = await request.json();
     const { id, ...updates } = body;
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
-    const plan = await updatePlan(id, updates);
+    const { data, error } = validatePlanPayload(updates, { partial: true });
+    if (error) {
+      return NextResponse.json({ error }, { status: 400 });
+    }
+    const plan = await updatePlan(id, data!);
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }

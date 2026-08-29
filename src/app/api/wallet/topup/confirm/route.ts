@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { handlePaidBilling } from "@/lib/billing-fulfillment";
+import { markBillingPaidOnce } from "@/lib/db/billing";
 import { apiError, corsOptions, resolvePublicUser, withPublicCors } from "@/lib/public-api";
 import { notifyPaymentPending } from "@/lib/telegram";
 import { getTransactionStatus, mapTransactionStatus, initMidtrans } from "@/lib/midtrans";
@@ -64,7 +65,8 @@ export async function POST(request: NextRequest) {
       }));
     }
 
-    // Optional: verify with Midtrans if still pending
+    // Verify with Midtrans if still pending. Xendit payments are ONLY trusted
+    // via webhook — a failed status check must never fulfill.
     let shouldFulfill = false;
     try {
       await initMidtrans();
@@ -72,9 +74,9 @@ export async function POST(request: NextRequest) {
       const mapped = mapTransactionStatus(status.transaction_status, status.fraud_status);
       if (mapped === "completed") shouldFulfill = true;
     } catch {
-      // Midtrans check failed (or Xendit) — trust client signal only if type is topup
-      // For Xendit we rely on webhook; for Midtrans onSuccess we fulfill here as safety net
-      shouldFulfill = billing.type === "topup";
+      // Status check failed (or Xendit, which has no Midtrans status API) —
+      // return the status as-is without fulfilling.
+      shouldFulfill = false;
     }
 
     if (!shouldFulfill) {
@@ -85,14 +87,10 @@ export async function POST(request: NextRequest) {
       }));
     }
 
-    const updated = await prisma.billingRecord.update({
-      where: { id: billing.id },
-      data: { status: "paid", paidAt: new Date() },
-    });
-
-    // Only fulfill if we just flipped to paid (idempotent vs webhook race)
-    if (billing.status !== "paid") {
-      await handlePaidBilling(updated);
+    // Atomic paid transition — fulfills exactly once across webhook/confirm races
+    const marked = await markBillingPaidOnce({ id: billing.id });
+    if (marked) {
+      await handlePaidBilling(billing);
     }
 
     const wallet = await prisma.wallet.findUnique({ where: { userId } });

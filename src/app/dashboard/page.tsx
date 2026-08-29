@@ -117,7 +117,7 @@ export default function DashboardPage() {
 
   return (
     <AppShell variant="user">
-      <div className="h-full overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,.18),transparent_32rem),radial-gradient(circle_at_bottom_right,rgba(244,63,94,.12),transparent_28rem)]">
+      <div className="h-full overflow-y-auto bg-[radial-gradient(circle_at_top_left,color-mix(in_oklch,var(--color-primary)_16%,transparent),transparent_32rem),radial-gradient(circle_at_bottom_right,color-mix(in_oklch,var(--color-primary)_10%,transparent),transparent_28rem)]">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4 md:p-8">
           <section className="overflow-hidden rounded-3xl border border-border/80 bg-card/80 shadow-2xl shadow-black/20 backdrop-blur">
             <div className="grid gap-6 p-6 md:grid-cols-[1.2fr_.8fr] md:p-8">
@@ -126,7 +126,7 @@ export default function DashboardPage() {
                   <Rocket className="h-3.5 w-3.5" /> Dashboard Hub
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight md:text-5xl">Selamat datang, {displayName}</h1>
+                  <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Selamat datang, {displayName}</h1>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
                     Mulai dari sini: salin Base URL, cek API key, atau pantau usage. Semua jalur utama ada dalam satu layar.
                   </p>
@@ -156,8 +156,8 @@ export default function DashboardPage() {
                     { label: "Base URL", value: siteCfg.baseUrl, id: "base" },
                     { label: "API Key", value: apiKey || "Generate key dari halaman API Keys", id: "key", masked: maskedKey },
                   ].map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-border bg-muted/30 p-3">
-                      <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                    <div key={item.id} className="rounded-xl border border-border bg-muted/30 p-3">
+                      <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.2em] text-muted-foreground">
                         <span>{item.label}</span>
                         {item.id === "base" && (
                           <Button variant="ghost" size="xs" onClick={() => copy(item.value, item.id)}>
@@ -217,7 +217,7 @@ export default function DashboardPage() {
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Link key={item.href} href={item.href} className="group flex items-center gap-4 rounded-2xl border border-border bg-muted/20 p-4 transition hover:border-primary/40 hover:bg-primary/5">
+                    <Link key={item.href} href={item.href} className="group flex items-center gap-4 rounded-xl border border-border bg-muted/20 p-4 transition hover:border-primary/40 hover:bg-primary/5">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <Icon className="h-4 w-4" />
                       </div>

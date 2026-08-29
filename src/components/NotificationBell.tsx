@@ -10,9 +10,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-type Notification = {
+type NotificationItem = {
   id: string;
   type: string;
   title: string;
@@ -29,27 +30,31 @@ const typeIcons: Record<string, ComponentType<{ className?: string }>> = {
 
 function timeAgo(value: string) {
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return "baru saja";
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${minutes} mnt lalu`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return `${hours} jam lalu`;
+  return `${Math.floor(hours / 24)} hari lalu`;
 }
 
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   async function loadNotifications() {
-    const response = await fetch("/api/notifications", { cache: "no-store" });
-    if (!response.ok) return;
-    const data = (await response.json()) as {
-      notifications?: Notification[];
-      unreadCount?: number;
-    };
-    setNotifications(data.notifications ?? []);
-    setUnreadCount(data.unreadCount ?? 0);
+    try {
+      const response = await fetch("/api/notifications", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        notifications?: NotificationItem[];
+        unreadCount?: number;
+      };
+      setNotifications(data.notifications ?? []);
+      setUnreadCount(data.unreadCount ?? 0);
+    } catch {
+      // abaikan kegagalan jaringan agar interval tidak memicu unhandled rejection
+    }
   }
 
   useEffect(() => {
@@ -66,11 +71,12 @@ export default function NotificationBell() {
     }
   }
 
-  async function markRead(id: string) {
-    const response = await fetch(`/api/notifications/${id}`, { method: "PUT" });
+  async function markRead(item: NotificationItem) {
+    if (item.read) return;
+    const response = await fetch(`/api/notifications/${item.id}`, { method: "PUT" });
     if (response.ok) {
       setNotifications((items) =>
-        items.map((item) => (item.id === id ? { ...item, read: true } : item))
+        items.map((n) => (n.id === item.id ? { ...n, read: true } : n))
       );
       setUnreadCount((count) => Math.max(0, count - 1));
     }
@@ -79,38 +85,38 @@ export default function NotificationBell() {
   return (
     <DropdownMenu onOpenChange={(open) => { if (open) void loadNotifications(); }}>
       <DropdownMenuTrigger render={
-        <Button variant="ghost" size="icon-sm" className="relative" aria-label="Notifications">
+        <Button variant="ghost" size="icon-sm" className="relative transition-colors hover:bg-muted/70" aria-label="Notifikasi">
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-destructive px-1 text-[10px] font-semibold leading-4 text-destructive-foreground">
+            <Badge variant="destructive" className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 ring-2 ring-background">
               {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
+            </Badge>
           )}
         </Button>
       } />
       <DropdownMenuContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
-            <p className="text-sm font-semibold">Notifications</p>
-            <p className="text-xs text-muted-foreground">{unreadCount} unread</p>
+            <p className="text-sm font-semibold">Notifikasi</p>
+            <p className="text-xs text-muted-foreground">{unreadCount} belum dibaca</p>
           </div>
           <Button variant="ghost" size="sm" onClick={() => void markAllRead()} disabled={unreadCount === 0}>
-            Mark all read
+            Tandai semua dibaca
           </Button>
         </div>
 
         <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-muted-foreground">No notifications</p>
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">Belum ada notifikasi</p>
           ) : (
             notifications.slice(0, 10).map((notification) => {
               const Icon = typeIcons[notification.type] ?? Bell;
               return (
                 <DropdownMenuItem
                   key={notification.id}
-                  onClick={() => void markRead(notification.id)}
+                  onClick={() => void markRead(notification)}
                   className={cn(
-                    "flex rounded-none gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer",
+                    "flex rounded-none gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors hover:bg-muted/60",
                     !notification.read && "bg-primary/5"
                   )}
                 >

@@ -1,5 +1,8 @@
 "use client";
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Pagination } from "@/components/ui/pagination";
+
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, Wallet, Search, Pencil } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
@@ -7,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -112,7 +117,7 @@ export default function AdminWalletPage() {
       <div className="h-full overflow-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Wallets</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Wallets</h1>
             <p className="text-sm text-muted-foreground">Monitor all user wallet balances and activity.</p>
           </div>
           <Button variant="outline" size="icon-lg" onClick={() => fetchWallets(search, page, limit)} aria-label="Refresh wallets" title="Refresh wallets">
@@ -126,19 +131,7 @@ export default function AdminWalletPage() {
         </div>
 
         {loading ? (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="animate-pulse">
-              <div className="h-11 bg-muted/50" />
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-12 border-t border-border flex items-center gap-4 px-4">
-                  <div className="h-4 w-32 bg-muted rounded" />
-                  <div className="h-4 w-20 bg-muted rounded" />
-                  <div className="h-4 w-16 bg-muted rounded" />
-                  <div className="h-4 w-16 bg-muted rounded" />
-                </div>
-              ))}
-            </div>
-          </div>
+          <TableSkeleton rows={5} cols={7} />
         ) : wallets.length === 0 ? (
           <EmptyState
             icon={Wallet}
@@ -148,68 +141,65 @@ export default function AdminWalletPage() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">User</th>
-                    <th className="px-4 py-3 font-medium">Role</th>
-                    <th className="px-4 py-3 text-right font-medium">Balance</th>
-                    <th className="px-4 py-3 text-right font-medium">30d Spend</th>
-                    <th className="px-4 py-3 text-right font-medium">Billings</th>
-                    <th className="px-4 py-3 text-right font-medium">Requests</th>
-                    <th className="px-4 py-3 text-right font-medium sr-only">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-muted/50 text-left text-muted-foreground">
+                  <TableRow>
+                    <TableHead className="px-4 py-3 font-medium">User</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Role</TableHead>
+                    <TableHead className="px-4 py-3 text-right font-medium">Balance</TableHead>
+                    <TableHead className="px-4 py-3 text-right font-medium">30d Spend</TableHead>
+                    <TableHead className="px-4 py-3 text-right font-medium">Billings</TableHead>
+                    <TableHead className="px-4 py-3 text-right font-medium">Requests</TableHead>
+                    <TableHead className="px-4 py-3 text-right font-medium sr-only">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
                   {wallets.map((w) => (
-                    <tr key={w.id} className="hover:bg-muted/40">
-                      <td className="px-4 py-3">
+                    <TableRow key={w.id} className="hover:bg-muted/40">
+                      <TableCell className="px-4 py-3">
                         <div className="font-medium">{w.email}</div>
                         <div className="text-xs text-muted-foreground">{w.name || "—"}</div>
-                      </td>
-                      <td className="px-4 py-3 capitalize text-muted-foreground">{w.role}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold">{formatCurrency(w.balance)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{formatCurrency(w.monthlySpend)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{w.billingCount}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{w.usageCount.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 capitalize text-muted-foreground">{w.role}</TableCell>
+                      <TableCell className="px-4 py-3 text-right tabular-nums font-semibold">{formatCurrency(w.balance)}</TableCell>
+                      <TableCell className="px-4 py-3 text-right tabular-nums text-muted-foreground">{formatCurrency(w.monthlySpend)}</TableCell>
+                      <TableCell className="px-4 py-3 text-right tabular-nums text-muted-foreground">{w.billingCount}</TableCell>
+                      <TableCell className="px-4 py-3 text-right tabular-nums text-muted-foreground">{w.usageCount.toLocaleString()}</TableCell>
+                      <TableCell className="px-4 py-3 text-right">
                         <Button variant="outline" size="icon-sm" onClick={() => { setEditingWallet(w); setAmount(""); }} aria-label={`Update saldo ${w.email}`} title="Update saldo">
                           <Pencil className="h-3 w-3" />
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
-            <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-muted-foreground">
-              <span>{total} total wallets</span>
-              <div className="flex items-center gap-2">
-                <span>Page {page} of {totalPages}</span>
-                <div className="flex gap-1">
-                  <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="h-7 text-xs">Prev</Button>
-                  <Button variant="outline" size="xs" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="h-7 text-xs">Next</Button>
-                </div>
-              </div>
-            </div>
+            <Pagination page={page} pageCount={totalPages} onPageChange={setPage} />
           </div>
         )}
       </div>
       <Dialog open={!!editingWallet} onOpenChange={(open) => { if (!open) setEditingWallet(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Update Saldo Wallet</DialogTitle>
-            <DialogDescription>{editingWallet?.email} · saldo saat ini {editingWallet ? formatCurrency(editingWallet.balance) : ""}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="wallet-amount">Perubahan saldo (IDR)</Label>
-            <Input id="wallet-amount" className="bg-background" type="text" inputMode="numeric" value={formatAmount(amount)} onChange={(event) => setAmount(event.target.value.replace(/\D/g, "") ? `${event.target.value.trim().startsWith("-") ? "-" : ""}${event.target.value.replace(/\D/g, "")}` : event.target.value.trim().startsWith("-") ? "-" : "")} placeholder="Contoh: 100.000 atau -50.000" autoFocus />
-            <p className="text-xs text-muted-foreground">Gunakan angka negatif untuk mengurangi saldo.</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingWallet(null)}>Batal</Button>
-            <Button onClick={updateBalance} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
-          </DialogFooter>
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
+          <DialogHeader className="flex-row items-center gap-3 space-y-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <Wallet className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-base">Update Saldo Wallet</DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">{editingWallet?.email} · saldo saat ini {editingWallet ? formatCurrency(editingWallet.balance) : ""}</DialogDescription>
+              </div>
+            </DialogHeader>
+
+            <DialogBody className="space-y-2">
+              <Label htmlFor="wallet-amount">Perubahan saldo (IDR)</Label>
+              <Input id="wallet-amount" className="bg-background" type="text" inputMode="numeric" value={formatAmount(amount)} onChange={(event) => setAmount(event.target.value.replace(/\D/g, "") ? `${event.target.value.trim().startsWith("-") ? "-" : ""}${event.target.value.replace(/\D/g, "")}` : event.target.value.trim().startsWith("-") ? "-" : "")} placeholder="Contoh: 100.000 atau -50.000" autoFocus />
+              <p className="text-xs text-muted-foreground">Gunakan angka negatif untuk mengurangi saldo.</p>
+            </DialogBody>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingWallet(null)}>Batal</Button>
+              <Button onClick={updateBalance} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppShell>

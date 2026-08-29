@@ -1,12 +1,14 @@
 "use client";
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, CreditCard, CheckCircle2, XCircle, Eye } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { Tabs } from "@/components/ui/tabs";
@@ -30,9 +32,9 @@ interface PaymentRecord {
 function statusLabel(status: string) {
   switch (status) {
     case "pending_confirmation":
-      return { text: "Menunggu Verifikasi", cls: "bg-amber-500/10 text-amber-600" };
+      return { text: "Menunggu Verifikasi", cls: "bg-warning/10 text-warning" };
     case "paid":
-      return { text: "Dibayar", cls: "bg-emerald-500/10 text-emerald-600" };
+      return { text: "Dibayar", cls: "bg-success/10 text-success" };
     case "failed":
       return { text: "Ditolak", cls: "bg-destructive/10 text-destructive" };
     default:
@@ -97,7 +99,7 @@ export default function AdminPaymentsPage() {
       <div className="h-full overflow-auto p-6 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Verifikasi Pembayaran</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Verifikasi Pembayaran</h1>
             <p className="text-sm text-muted-foreground">
               Konfirmasi manual pembayaran QRIS merchant (tanpa webhook).
             </p>
@@ -135,56 +137,56 @@ export default function AdminPaymentsPage() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">User</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Tanggal</th>
-                    <th className="px-4 py-3 text-right font-medium">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+              <Table className="w-full text-sm">
+                <TableHeader className="bg-muted/50 text-left text-muted-foreground">
+                  <TableRow>
+                    <TableHead className="px-4 py-3 font-medium">User</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Status</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Tanggal</TableHead>
+                    <TableHead className="px-4 py-3 text-right font-medium">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
                   {records.map((r) => {
                     const status = statusLabel(r.status);
                     return (
-                      <tr key={r.id}>
-                        <td className="px-4 py-3">
+                      <TableRow key={r.id}>
+                        <TableCell className="px-4 py-3">
                           <p className="font-medium">{r.user.name ?? r.user.email}</p>
                           <p className="text-xs text-muted-foreground">{r.user.email}</p>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <span className={"rounded-full px-2 py-0.5 text-xs " + status.cls}>
                             {status.text}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-xs text-muted-foreground">
                           {formatDateTime(r.createdAt)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-right">
                           <Button size="sm" variant="outline" onClick={() => setDetail(r)}>
                             <Eye className="h-4 w-4" /> Detail
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}
 
         <Dialog open={Boolean(detail)} onOpenChange={(open) => { if (!open) setDetail(null); }}>
-          <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
-            <div className="border-b border-border px-6 py-4">
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
               <DialogTitle className="text-base">Detail Pembayaran</DialogTitle>
               <DialogDescription className="text-xs mt-0.5">
                 {detail?.user.name ?? detail?.user.email ?? "Pembayaran"}
               </DialogDescription>
-            </div>
+            </DialogHeader>
             {detail && (
-              <div className="max-h-[70vh] overflow-y-auto space-y-3 p-6">
+              <DialogBody className="space-y-3 p-6">
                 {(() => {
                   const status = statusLabel(detail.status);
                   return (
@@ -252,7 +254,7 @@ export default function AdminPaymentsPage() {
                     </Button>
                   </div>
                 )}
-              </div>
+              </DialogBody>
             )}
           </DialogContent>
         </Dialog>

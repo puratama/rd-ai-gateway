@@ -1,5 +1,7 @@
 "use client";
 
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
 import { useMemo, useState, useEffect } from "react";
 import {
   ArrowLeftRight,
@@ -14,9 +16,10 @@ import {
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -25,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { FormSelect } from "@/components/ui/form-select";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { fetchPricingFromDB } from "@/lib/pricing-db";
 import type { ModelPricing } from "@/types";
 
@@ -34,9 +38,9 @@ function getMinPrice(models: ModelPricing[]) { return models.reduce((min, m) => 
 function getMaxPrice(models: ModelPricing[]) { return models.reduce((max, m) => Math.max(max, m.pricing.prompt), 0); }
 
 const speedColor = (speed: string) =>
-  speed === "fast" ? "text-emerald-400" : speed === "balanced" ? "text-amber-400" : speed === "slow" ? "text-rose-400" : "text-muted-foreground";
+  speed === "fast" ? "text-success" : speed === "balanced" ? "text-warning" : speed === "slow" ? "text-destructive" : "text-muted-foreground";
 const speedBg = (speed: string) =>
-  speed === "fast" ? "bg-emerald-500/10 border-emerald-500/20" : speed === "balanced" ? "bg-amber-500/10 border-amber-500/20" : speed === "slow" ? "bg-rose-500/10 border-rose-500/20" : "bg-muted/20 border-border";
+  speed === "fast" ? "bg-success/10 border-success/20" : speed === "balanced" ? "bg-warning/10 border-warning/20" : speed === "slow" ? "bg-destructive/10 border-destructive/20" : "bg-muted/20 border-border";
 const speedLabel = (speed: string) =>
   speed === "fast" ? "⚡ Fast" : speed === "balanced" ? "⚖️ Balanced" : speed === "slow" ? "🐢 Slow" : speed;
 
@@ -132,10 +136,10 @@ export default function ModelsPage() {
           {/* Stats bar */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: "Total Models", value: pricingData.length, icon: Layers, tone: "text-blue-500" },
-              { label: "Providers", value: providers.length, icon: Layers, tone: "text-violet-500" },
-              { label: "Cheapest Prompt", value: `${formatPrice(getMinPrice(pricingData))}/1K`, icon: Coins, tone: "text-emerald-500" },
-              { label: "Most Expensive", value: `${formatPrice(getMaxPrice(pricingData))}/1K`, icon: Coins, tone: "text-amber-500" },
+              { label: "Total Models", value: pricingData.length, icon: Layers, tone: "text-info" },
+              { label: "Providers", value: providers.length, icon: Layers, tone: "text-primary" },
+              { label: "Cheapest Prompt", value: `${formatPrice(getMinPrice(pricingData))}/1K`, icon: Coins, tone: "text-success" },
+              { label: "Most Expensive", value: `${formatPrice(getMaxPrice(pricingData))}/1K`, icon: Coins, tone: "text-warning" },
             ].map((stat) => {
               const Icon = stat.icon;
               return (
@@ -191,7 +195,7 @@ export default function ModelsPage() {
               {loading ? "Loading models..." : `Showing ${filteredModels.length} of ${pricingData.length} models`}
             </p>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground">Sort:</span>
+              <span className="text-xs text-muted-foreground">Sort:</span>
               {(["name", "prompt", "completion"] as const).map((field) => (
                 <Button
                   type="button"
@@ -200,7 +204,7 @@ export default function ModelsPage() {
                   key={field}
                   onClick={() => toggleSort(field)}
                   className={cn(
-                    "flex items-center rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all",
+                    "flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold transition-all",
                     sortBy === field
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
@@ -218,7 +222,7 @@ export default function ModelsPage() {
             <Card className="border-primary/20">
               <CardContent className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-[11px] font-semibold text-primary">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
                     {compareList.length}
                   </div>
                   <span className="text-xs text-primary">
@@ -242,56 +246,56 @@ export default function ModelsPage() {
 
           {/* Comparison table modal */}
           <Dialog open={expandedModel === "compare" && compareList.length >= 2} onOpenChange={(open) => { if (!open) setExpandedModel(null); }}>
-            <DialogContent className="sm:max-w-5xl p-0 overflow-hidden border-primary/20">
+            <DialogContent className="sm:max-w-5xl border-primary/20">
               <DialogHeader className="border-b border-border bg-muted/20 px-6 py-4">
                 <DialogTitle className="text-base font-semibold">Model Comparison</DialogTitle>
               </DialogHeader>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="sticky left-0 bg-card px-4 py-3 text-left text-xs font-medium text-muted-foreground">Feature</th>
+              <DialogBody className="overflow-x-auto">
+                <Table className="w-full text-sm">
+                  <TableHeader>
+                    <TableRow className="border-b border-border">
+                      <TableHead className="sticky left-0 bg-card px-4 py-3 text-left text-xs font-medium text-muted-foreground">Feature</TableHead>
                       {compareList.map((id) => {
                         const m = pricingData.find((m) => m.id === id);
                         return (
-                          <th key={id} className="px-4 py-3 text-left text-xs font-semibold">{m?.name || id}</th>
+                          <TableHead key={id} className="px-4 py-3 text-left text-xs font-semibold">{m?.name || id}</TableHead>
                         );
                       })}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {[
                       { key: "provider", label: "Provider" },
                       { key: "speed", label: "Speed", render: (m: ModelPricing) => speedLabel(m.speed) },
                       { key: "quality", label: "Quality" },
                     ].map((row) => (
-                      <tr key={row.key} className="border-b border-border last:border-b-0">
-                        <td className="sticky left-0 bg-card px-4 py-3 text-xs text-muted-foreground">{row.label}</td>
+                      <TableRow key={row.key} className="border-b border-border last:border-b-0">
+                        <TableCell className="sticky left-0 bg-card px-4 py-3 text-xs text-muted-foreground">{row.label}</TableCell>
                         {compareList.map((id) => {
                           const m = pricingData.find((m) => m.id === id);
-                          if (!m) return <td key={id} className="px-4 py-3 text-xs" />;
+                          if (!m) return <TableCell key={id} className="px-4 py-3 text-xs" />;
                           const val = row.render ? row.render(m) : String(m[row.key as keyof ModelPricing] ?? "");
-                          return <td key={id} className="px-4 py-3 text-xs">{val}</td>;
+                          return <TableCell key={id} className="px-4 py-3 text-xs">{val}</TableCell>;
                         })}
-                      </tr>
+                      </TableRow>
                     ))}
-                    <tr className="border-t-2 border-primary/20 bg-primary/5">
-                      <td className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Prompt IDR/1K</td>
+                    <TableRow className="border-t-2 border-primary/20 bg-primary/5">
+                      <TableCell className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Prompt IDR/1K</TableCell>
                       {compareList.map((id) => {
                         const m = pricingData.find((m) => m.id === id);
-                        return <td key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.prompt) : "-"}</td>;
+                        return <TableCell key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.prompt) : "-"}</TableCell>;
                       })}
-                    </tr>
-                    <tr className="bg-primary/5">
-                      <td className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Completion IDR/1K</td>
+                    </TableRow>
+                    <TableRow className="bg-primary/5">
+                      <TableCell className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Completion IDR/1K</TableCell>
                       {compareList.map((id) => {
                         const m = pricingData.find((m) => m.id === id);
-                        return <td key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.completion) : "-"}</td>;
+                        return <TableCell key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.completion) : "-"}</TableCell>;
                       })}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </DialogBody>
             </DialogContent>
           </Dialog>
 
@@ -338,7 +342,7 @@ export default function ModelsPage() {
                     className="group relative animate-in fade-in slide-in-from-bottom-2 duration-300"
                   >
                     <Card className={cn(
-                      "overflow-hidden rounded-2xl border transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 shadow-none",
+                      "overflow-hidden rounded-xl border transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 shadow-none",
                       isCompared
                         ? "border-2 border-primary"
                         : "border-border"
@@ -370,7 +374,7 @@ export default function ModelsPage() {
                             <div className="flex items-center gap-2">
                               <h3 className="truncate text-sm font-semibold">{model.name}</h3>
                               {model.quality === "Best" && (
-                                <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning">
                                   <Sparkles className="h-2.5 w-2.5" /> BEST
                                 </span>
                               )}
@@ -381,7 +385,7 @@ export default function ModelsPage() {
 
                         {/* Tags row */}
                         <div className="mb-4 flex flex-wrap gap-1.5">
-                          <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium", speedBg(model.speed), speedColor(model.speed))}>
+                          <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold", speedBg(model.speed), speedColor(model.speed))}>
                             <Gauge className="h-2.5 w-2.5" /> {speedLabel(model.speed)}
                           </span>
                         </div>
@@ -395,20 +399,20 @@ export default function ModelsPage() {
 
                         {/* Expanded quality info */}
                         {model.quality && (
-                          <div className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                          <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground/60">
                             <div className={cn(
                               "h-1.5 w-1.5 rounded-full",
-                              model.quality === "Best" ? "bg-amber-400" : model.quality === "Excellent" ? "bg-emerald-400" : "bg-blue-400"
+                              model.quality === "Best" ? "bg-warning" : model.quality === "Excellent" ? "bg-success" : "bg-info"
                             )} />
                             {model.quality} quality tier
                             {model.available ? (
-                              <span className="ml-auto flex items-center gap-1 text-emerald-400/60">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Available
-                              </span>
+                              <Badge variant="success" size="sm" className="ml-auto flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-success" /> Available
+                              </Badge>
                             ) : (
-                              <span className="ml-auto flex items-center gap-1 text-rose-400/60">
-                                <span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> Unavailable
-                              </span>
+                              <Badge variant="destructive" size="sm" className="ml-auto flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-destructive" /> Unavailable
+                              </Badge>
                             )}
                           </div>
                         )}
