@@ -1,15 +1,21 @@
 # ============================================================
-# Xperimne AI Gateway — stack: postgres + migrate + app
+# Xperimne AI Gateway — stack: migrate + app
 #
 # Reverse proxy: Traefik EKSTERNAL (dijalankan terpisah, di luar
 # compose ini) pada network external `internet-net`.
 # Referensi: docker-compose.yml rakitdigital.
 #
+# Database: Postgres SUDAH ADA di host VPS (di luar Docker). App & migrate
+# menjangkau via `host.docker.internal` (extra_hosts: host-gateway) →
+# port 5432 Postgres host. Pastikan Postgres host:
+#   - listen_addresses bukan cuma localhost
+#   - pg_hba.conf izinkan subnet Docker (172.16.0.0/12)
+#   - firewall VPS buka 5432 untuk subnet Docker
+#
 # Topologi network (DUA network):
-#   - `rd-ai-network`  : bridge lokal, dibuat otomatis compose.
-#                            Untuk komunikasi antar service (postgres,
-#                            migrate, app). App connect DB via host
-#                            `postgres:5432` di network ini.
+#   - `database-net`   : external (harus dibuat manual di host).
+#                            Hanya jalur app/migrate ↔ host Postgres.
+#                            DB dijangkau via `host.docker.internal`.
 #   - `internet-net`       : external (harus dibuat manual di host).
 #                            Hanya `app` yang attach — jalur app ↔ Traefik.
 #
@@ -17,44 +23,23 @@
 # TLS/HTTPS ditangani Cloudflare; traefik hanya proxy HTTP.
 #
 # Syarat:
-#   - network external sudah dibuat:  docker network create internet-net
+#   - network external sudah dibuat:
+#       docker network create database-net
+#       docker network create internet-net
 #   - instance Traefik host sudah attach ke `internet-net` dengan entrypoint `web`.
-#   - file .env.production berisi APP_DOMAIN, POSTGRES_PASSWORD, dst.
-#     (acuan: .env.production.example)
-#
-# Akses DB dari luar Docker (opsional, DBeaver/psql di host):
-#   postgres publish `0.0.0.0:5444:5432` → localhost:5444.
-#   App TIDAK pakai port ini; app tetap via `postgres:5432` (rd-ai-network).
+#   - file .env.production berisi APP_DOMAIN, DB_HOST (default host.docker.internal),
+#     DB_USERNAME, DB_PASSWORD, DB_DATABASE (acuan: .env.production.example)
 #
 # Jalankan:  docker compose --env-file .env.production up -d --build
-# Migrate otomatis via service `migrate` (jalan sekali, setelah postgres healthy).
+# Migrate otomatis via service `migrate` (jalan sekali, sebelum app up).
 # Cron (/api/cron/*, auth Bearer $CRON_SECRET) → jadwalkan dari host cron:
 #   0 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://APP_DOMAIN/api/cron/expire-packages
 #   0 0 1 * *  curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://APP_DOMAIN/api/cron/monthly-reset
 # ============================================================
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: rdai-db
-    restart: unless-stopped
-    ports:
-      - 0.0.0.0:5444:5432
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-rdai-user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
-      POSTGRES_DB: ${POSTGRES_DB:-rdai-db}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rdai-user} -d ${POSTGRES_DB:-rdai-db}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - rd-ai-network
-
-  # Service one-off untuk migrasi database (automatis setelah postgres healthy)
+  # Service one-off untuk migrasi database (otomatis sebelum app jalan).
+  # DB sudah ada di host VPS — dijangkau via host.docker.internal.
   # Jalankan: docker compose --env-file .env.production up -d --build
   migrate:
     build:
@@ -63,13 +48,12 @@ services:
     container_name: rdai-migrate
     env_file: .env.production
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai-user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-rdai-db}?schema=public
-    depends_on:
-      postgres:
-        condition: service_healthy
+      DATABASE_URL: postgresql://${DB_USERNAME:-rdai-user}:${DB_PASSWORD:?set DB_PASSWORD in .env.production}@${DB_HOST:-host.docker.internal}:5432/${DB_DATABASE:-rdai-db}?schema=public
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     entrypoint: ["npx", "prisma", "migrate", "deploy"]
     networks:
-      - rd-ai-network
+      - database-net
     restart: "no"
 
   # Prisma CLI manual tersedia DI DALAM image app (runner).
@@ -88,12 +72,14 @@ services:
     restart: unless-stopped
     env_file: .env.production
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rdai-user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-rdai-db}?schema=public
+      DATABASE_URL: postgresql://${DB_USERNAME:-rdai-user}:${DB_PASSWORD:?set DB_PASSWORD in .env.production}@${DB_HOST:-host.docker.internal}:5432/${DB_DATABASE:-rdai-db}?schema=public
       HOSTNAME: 0.0.0.0
       PORT: 3035
     depends_on:
       migrate:
         condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - uploads:/app/public/uploads
     labels:
@@ -102,16 +88,15 @@ services:
       - "traefik.http.services.gateway.loadbalancer.server.port=3035"
       - "traefik.http.routers.gateway.entrypoints=web"
     networks:
-      - rd-ai-network
+      - database-net
       - internet-net
 
 volumes:
-  pgdata:
   uploads:
 
 networks:
-  rd-ai-network:
-    driver: bridge
+  database-net:
+    external: true
 
   internet-net:
     external: true
