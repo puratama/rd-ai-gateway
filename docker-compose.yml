@@ -84,6 +84,7 @@ services:
       - uploads:/app/public/uploads
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=internet-net"
       - "traefik.http.routers.gateway.rule=Host(`${APP_DOMAIN:?set APP_DOMAIN in .env.production}`)"
       - "traefik.http.services.gateway.loadbalancer.server.port=3035"
       - "traefik.http.routers.gateway.entrypoints=web"
