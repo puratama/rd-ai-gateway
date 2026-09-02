@@ -387,8 +387,8 @@ export default function LandingPage() {
             <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Produk</h3>
             <ul className="mt-5 space-y-3 text-sm">
               {[
-                ...(siteCfg.models.length > 0 ? [["Model AI", "/models"]] : []),
-                ...(pricingTiers.length > 0 ? [["Paket & Harga", "/plan"]] : []),
+                ...(siteCfg.models.length > 0 ? [["Model AI", "#model"]] : []),
+                ...(pricingTiers.length > 0 ? [["Paket & Harga", "#harga"]] : []),
                 ["Masuk", "/login"],
                 ["Daftar", "/register"],
               ].map(([label, href]) => (
