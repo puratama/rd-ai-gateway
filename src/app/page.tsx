@@ -170,7 +170,12 @@ export default function LandingPage() {
           </Link>
 
           <nav aria-label="Navigasi utama" className="hidden items-center gap-8 md:flex">
-            {[["Cara kerja", "#cara-kerja"], ["Model", "#model"], ["Harga", "#harga"], ["FAQ", "#faq"]].map(([label, href]) => (
+            {[
+              ["Cara kerja", "#cara-kerja"],
+              ...(siteCfg.models.length > 0 ? [["Model", "#model"]] : []),
+              ...(pricingTiers.length > 0 ? [["Harga", "#harga"]] : []),
+              ["FAQ", "#faq"],
+            ].map(([label, href]) => (
               <a key={href} href={href} className="text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground">
                 {label}
               </a>
@@ -382,8 +387,8 @@ export default function LandingPage() {
             <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Produk</h3>
             <ul className="mt-5 space-y-3 text-sm">
               {[
-                ["Model AI", "/models"],
-                ["Paket & Harga", "/plan"],
+                ...(siteCfg.models.length > 0 ? [["Model AI", "/models"]] : []),
+                ...(pricingTiers.length > 0 ? [["Paket & Harga", "/plan"]] : []),
                 ["Masuk", "/login"],
                 ["Daftar", "/register"],
               ].map(([label, href]) => (
