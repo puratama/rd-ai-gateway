@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import { formatCurrency } from "@/components/ui/format-currency";
 import { formatShortDate } from "@/components/ui/format-date";
@@ -32,29 +32,37 @@ function formatNumber(n: number) {
   return new Intl.NumberFormat("id-ID").format(n);
 }
 
-// ponytail: warna di-resolve sekali saat render; ganti tema tidak me-refresh chart — tambah listener/dep bila tema dinamis dibutuhkan.
-function cssVar(name: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+// ponytail: CSS vars di-resolve hanya di client (useEffect) untuk menghindari hydration mismatch.
+// SSR selalu memakai fallback yang stabil.
+function useCssVar(name: string, fallback: string): string {
+  const [value, setValue] = useState(fallback);
+  useEffect(() => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    if (v) setValue(v);
+  }, [name]);
+  return value;
 }
 
 export function UsageBarChart({ data, heightClass = "h-72" }: UsageBarChartProps) {
+  const primary = useCssVar("--color-primary", "oklch(0.68 0.16 235)");
+
   const chartData = useMemo(() => ({
     labels: data.map((day) => formatShortDate(day.date)),
     datasets: [{
       label: "Tokens",
       data: data.map((day) => day.tokens),
-      backgroundColor: cssVar("--color-primary", "oklch(0.68 0.16 235)"),
+      backgroundColor: primary,
       borderRadius: 4,
       borderSkipped: false as const,
     }],
-  }), [data]);
+  }), [data, primary]);
+
+  const popover = useCssVar("--color-popover", "oklch(0.265 0.062 247)");
+  const popoverFg = useCssVar("--color-popover-foreground", "oklch(0.97 0.015 240)");
+  const border = useCssVar("--color-border", "oklch(0.39 0.065 246)");
+  const mutedFg = useCssVar("--color-muted-foreground", "oklch(0.76 0.045 245)");
 
   const chartOptions = useMemo(() => {
-    const popover = cssVar("--color-popover", "oklch(0.265 0.062 247)");
-    const popoverFg = cssVar("--color-popover-foreground", "oklch(0.97 0.015 240)");
-    const border = cssVar("--color-border", "oklch(0.39 0.065 246)");
-    const mutedFg = cssVar("--color-muted-foreground", "oklch(0.76 0.045 245)");
     return {
     responsive: true,
     maintainAspectRatio: false,
@@ -99,7 +107,7 @@ export function UsageBarChart({ data, heightClass = "h-72" }: UsageBarChartProps
       },
     },
     };
-  }, [data]);
+  }, [data, popover, popoverFg, border, mutedFg]);
 
   return (
     <div className={heightClass} role="img" aria-label="Grafik penggunaan">

@@ -9,7 +9,7 @@ import { ModelCard } from "@/components/ModelCard";
 import { PricingCard } from "@/components/PricingCard";
 import { useSiteConfig } from "@/lib/use-site-config";
 import { siteConfig } from "@/lib/site-config";
-import { FALLBACK_TIERS, planToTier, type PricingTier } from "@/lib/pricing-tiers";
+import { planToTier, type PricingTier } from "@/lib/pricing-tiers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionMark } from "@/components/ui/section-mark";
 import { buttonVariants } from "@/components/ui/button";
@@ -64,9 +64,35 @@ const faqs = [
 
 /* --------------------------------- component -------------------------------- */
 
+function MarqueeTicker({ models }: { models: { name: string }[] }) {
+  // SSR-safe fixed count so initial HTML matches client render
+  const reps = Math.max(2, Math.ceil(1920 / (models.length * 120)) + 1);
+  const half = Array.from({ length: reps }, () => models).flat();
+  const items = [...half, ...half];
+
+  const [duration, setDuration] = useState(`${Math.min(60, items.length * 1.5)}s`);
+  useEffect(() => {
+    const clientReps = Math.max(2, Math.ceil(window.innerWidth / (models.length * 120)) + 1);
+    setDuration(`${Math.min(60, clientReps * 1.5)}s`);
+  }, [models.length]);
+
+  return (
+    <section aria-hidden className="motion-reduce:hidden overflow-hidden border-y border-border py-5">
+      <div className="flex w-max animate-[marquee_10s_linear_infinite] whitespace-nowrap" style={{ animationDuration: duration }}>
+        {items.map((m, i) => (
+          <span key={i} className="flex items-center text-sm text-muted-foreground">
+            <span className="px-6">{m.name}</span>
+            <span className="text-primary/60">·</span>
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage() {
   const siteCfg = useSiteConfig();
-  const [pricingTiers, setPricingTiers] = useState<PricingTier[]>(FALLBACK_TIERS);
+  const [pricingTiers, setPricingTiers] = useState<PricingTier[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
 
@@ -207,30 +233,13 @@ export default function LandingPage() {
 
       {/* ============================ Ticker model ============================= */}
       {siteCfg.models.length > 0 && (
-        <section aria-hidden className="motion-reduce:hidden overflow-hidden border-y border-border py-5">
-          {/* Duplikasi list hingga cukup panjang untuk marquee mulus, lalu gandakan lagi untuk loop -50% */}
-          {(() => {
-            const base = siteCfg.models;
-            const reps = Math.max(2, Math.ceil((typeof window !== "undefined" ? window.innerWidth : 1920) / (base.length * 120)) + 1);
-            const half = Array.from({ length: reps }, () => base).flat();
-            return (
-              <div className="flex w-max animate-[marquee_10s_linear_infinite] whitespace-nowrap" style={{ animationDuration: `${Math.min(60, half.length * 1.5)}s` }}>
-                {[...half, ...half].map((m, i) => (
-                  <span key={i} className="flex items-center text-sm text-muted-foreground">
-                    <span className="px-6">{m.name}</span>
-                    <span className="text-primary/60">·</span>
-                  </span>
-                ))}
-              </div>
-            );
-          })()}
-        </section>
+        <MarqueeTicker models={siteCfg.models} />
       )}
 
       {/* ============================== Cara kerja ============================== */}
       <section id="cara-kerja" aria-labelledby="cara-kerja-title" className="reveal scroll-mt-24 px-6 py-28">
         <div className="mx-auto max-w-6xl">
-          <SectionMark no="01" label="Cara kerja" />
+          <SectionMark label="Cara kerja" />
           <h2 id="cara-kerja-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
             Integrasi dalam <span className="text-primary">tiga langkah</span>
           </h2>
@@ -251,7 +260,7 @@ export default function LandingPage() {
       {siteCfg.models.length > 0 && (
         <section id="model" aria-labelledby="model-title" className="reveal scroll-mt-24 border-t border-border px-6 py-28">
           <div className="mx-auto max-w-6xl">
-            <SectionMark no="02" label="Model" />
+          <SectionMark label="Model" />
             <h2 id="model-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
               Katalog <span className="text-primary">{siteCfg.models.length} model</span>
             </h2>
@@ -269,29 +278,31 @@ export default function LandingPage() {
       )}
 
       {/* ================================= Harga ================================ */}
-      <section id="harga" aria-labelledby="harga-title" className="reveal scroll-mt-24 border-t border-border px-6 py-28">
-        <div className="mx-auto max-w-6xl">
-          <SectionMark no="03" label="Harga" />
-          <h2 id="harga-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
-            Prabayar. <span className="text-primary">Tanpa langganan.</span>
-          </h2>
-          <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
-            Isi wallet, beli paket token, atau bayar per pemakaian. Setiap paket berlaku 30 hari.
-          </p>
+      {pricingTiers.length > 0 && (
+        <section id="harga" aria-labelledby="harga-title" className="reveal scroll-mt-24 border-t border-border px-6 py-28">
+          <div className="mx-auto max-w-6xl">
+          <SectionMark label="Harga" />
+            <h2 id="harga-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
+              Prabayar. <span className="text-primary">Tanpa langganan.</span>
+            </h2>
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
+              Isi wallet, beli paket token, atau bayar per pemakaian. Setiap paket berlaku 30 hari.
+            </p>
 
-          <ul className="mt-16 grid gap-4 md:grid-cols-3">
-            {pricingTiers.map((t, i) => (
-              <PricingCard key={t.name} tier={t} isAuthenticated={isAuthenticated} className="reveal" style={{ transitionDelay: `${i * 90}ms` }} />
-            ))}
-          </ul>
-        </div>
-      </section>
+            <ul className="mt-16 grid gap-4 md:grid-cols-3">
+              {pricingTiers.map((t, i) => (
+                <PricingCard key={t.name} tier={t} isAuthenticated={isAuthenticated} className="reveal" style={{ transitionDelay: `${i * 90}ms` }} />
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* ================================== FAQ ================================= */}
       <section id="faq" className="reveal scroll-mt-24 border-t border-border px-6 py-28">
         <div className="mx-auto grid max-w-6xl gap-16 md:grid-cols-[1fr_1.6fr]">
           <div>
-            <SectionMark no="04" label="FAQ" />
+          <SectionMark label="FAQ" />
             <h2 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
               Pertanyaan yang <span className="text-primary">sering diajukan</span>
             </h2>

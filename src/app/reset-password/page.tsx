@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,14 +14,16 @@ import { getApiErrorMessage } from "@/lib/api-error";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const [token] = useState(() =>
-    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token") || "" : ""
-  );
+  const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setToken(new URLSearchParams(window.location.search).get("token") || "");
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

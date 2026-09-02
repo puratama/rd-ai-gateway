@@ -7,12 +7,6 @@ export interface PricingTier {
   popular: boolean;
 }
 
-export const FALLBACK_TIERS: PricingTier[] = [
-  { name: "Starter", price: "Gratis", description: "Untuk mencoba platform", features: ["1.000 token/hari", "Model dasar", "Community support"], cta: "Mulai", popular: false },
-  { name: "Pro", price: "Rp 99K", description: "Untuk developer serius", features: ["1 juta token / 30 hari", "Semua model", "Streaming & analytics"], cta: "Beli Paket", popular: true },
-  { name: "Enterprise", price: "Custom", description: "Untuk tim dan bisnis", features: ["Volume besar", "Dukungan khusus", "SLA"], cta: "Hubungi Kami", popular: false },
-];
-
 interface PlanRaw {
   id: string;
   name: string;
