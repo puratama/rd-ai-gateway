@@ -4,25 +4,17 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { FormDialog } from "@/components/ui/form-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { FormSection, FormPanel } from "@/components/ui/form";
 import { toast } from "sonner";
-import { Cpu, Edit3, RefreshCw } from "lucide-react";
+import { Cpu, Edit3, RefreshCw, Search } from "lucide-react";
 import { formatCurrency } from "@/components/ui/format-currency";
 
 interface PricedModel {
@@ -94,6 +86,7 @@ export default function AdminModelPricingPage() {
   const [saving, setSaving] = useState(false);
   const [editingModel, setEditingModel] = useState<PricedModel | null>(null);
   const [draft, setDraft] = useState<PricingDraft | null>(null);
+  const [search, setSearch] = useState("");
 
   const fetchPricing = useCallback(async () => {
     setLoading(true);
@@ -112,6 +105,14 @@ export default function AdminModelPricingPage() {
   useEffect(() => {
     void fetchPricing();
   }, [fetchPricing]);
+
+  const filteredModels = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return models;
+    return models.filter((m) =>
+      [m.name, m.modelId, m.provider].some((v) => (v ?? "").toLowerCase().includes(term))
+    );
+  }, [models, search]);
 
   const openEditor = (model: PricedModel) => {
     setEditingModel(model);
@@ -196,13 +197,23 @@ export default function AdminModelPricingPage() {
             </Button>
           </div>
 
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search models..."
+              className="pl-9"
+            />
+          </div>
+
           {loading ? (
             <TableSkeleton rows={6} cols={8} />
-          ) : models.length === 0 ? (
+          ) : filteredModels.length === 0 ? (
             <EmptyState
               icon={Cpu}
               title="No models found"
-              description="Add a model first to configure pricing."
+              description={search.trim() ? "Tidak ada model yang cocok dengan pencarian." : "Add a model first to configure pricing."}
             />
           ) : (
             <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -221,7 +232,7 @@ export default function AdminModelPricingPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border">
-                    {models.map((model) => (
+                    {filteredModels.map((model) => (
                       <TableRow key={model.id} className="hover:bg-muted/40">
                         <TableCell className="px-4 py-3">
                           <div className="min-w-44">
@@ -256,18 +267,25 @@ export default function AdminModelPricingPage() {
         </div>
       </div>
 
-      <Dialog open={Boolean(editingModel)} onOpenChange={closeEditor}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-base">Edit Model Pricing</DialogTitle>
-            <DialogDescription className="text-xs mt-0.5">
-              {editingModel?.name} · all values use IDR per 1K tokens.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogBody>
-            {draft && (
-              <div className="space-y-5">
+      <FormDialog
+        open={Boolean(editingModel)}
+        onOpenChange={closeEditor}
+        icon={<Cpu className="h-4 w-4 text-primary" />}
+        title="Edit Model Pricing"
+        description={`${editingModel?.name ?? ""} · all values use IDR per 1K tokens.`}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => closeEditor(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={() => void savePricing()} disabled={saving || !draft}>
+              {saving ? "Saving..." : "Save Pricing"}
+            </Button>
+          </>
+        }
+      >
+        {draft && (
+          <div className="space-y-5">
               {/* ── Biaya (Harga Modal) ── */}
               <section>
                 <FormSection>Biaya (Harga Modal)</FormSection>
@@ -358,19 +376,7 @@ export default function AdminModelPricingPage() {
               </section>
               </div>
             )}
-          </DialogBody>
-
-          {/* ── Footer ── */}
-          <DialogFooter className="bg-muted/10">
-            <Button variant="outline" onClick={() => closeEditor(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button onClick={() => void savePricing()} disabled={saving || !draft}>
-              {saving ? "Saving..." : "Save Pricing"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </FormDialog>
     </AppShell>
   );
 }

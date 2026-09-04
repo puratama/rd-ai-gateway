@@ -417,7 +417,24 @@ export async function settleUsage(
 // ====== App Models ======
 
 export async function loadAppModels() {
-  return prisma.appModel.findMany({ orderBy: [{ provider: "asc" }, { name: "asc" }] });
+  return prisma.appModel.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
+}
+
+/**
+ * Persist urutan model sesuai array id yang diberikan (indeks = sortOrder baru).
+ * Menggunakan transaksi agar urutan atomik.
+ */
+export async function reorderAppModels(ids: string[]): Promise<boolean> {
+  if (!Array.isArray(ids) || ids.length === 0) return false;
+  await prisma.$transaction(
+    ids.map((id, index) =>
+      prisma.appModel.update({
+        where: { id },
+        data: { sortOrder: index },
+      })
+    )
+  );
+  return true;
 }
 
 export async function updateAppModel(id: string, data: Record<string, unknown>) {

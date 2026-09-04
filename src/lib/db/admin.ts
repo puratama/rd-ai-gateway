@@ -15,6 +15,23 @@ export async function updateAggregatorConfig(data: Record<string, unknown>) {
   return prisma.aggregatorConfig.create({ data: data as Parameters<typeof prisma.aggregatorConfig.create>[0]["data"] });
 }
 
+/**
+ * Persist urutan aggregator sesuai array id yang diberikan (indeks = sortOrder baru).
+ * Menggunakan transaksi agar urutan atomik.
+ */
+export async function reorderAggregators(ids: string[]): Promise<boolean> {
+  if (!Array.isArray(ids) || ids.length === 0) return false;
+  await prisma.$transaction(
+    ids.map((id, index) =>
+      prisma.aggregatorConfig.update({
+        where: { id },
+        data: { sortOrder: index },
+      })
+    )
+  );
+  return true;
+}
+
 // ====== Admin Stats ======
 
 export async function getAdminStats() {

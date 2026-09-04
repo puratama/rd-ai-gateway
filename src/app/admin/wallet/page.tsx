@@ -44,9 +44,13 @@ interface WalletsResponse {
 }
 
 
+/**
+ * Format angka mentah (string digit, mungkin ada `-` di awal) menjadi display terformat.
+ * Hanya untuk display — tidak memodifikasi state. Cursor dikendalikan oleh onChange.
+ */
 const formatAmount = (value: string) => {
-  const negative = value.trim().startsWith("-");
-  const digits = value.replace(/\D/g, "");
+  const negative = value.startsWith("-");
+  const digits = value.replace(/^-?/, "").replace(/\D/g, "");
   return digits ? `${negative ? "-" : ""}${Number(digits).toLocaleString("id-ID")}` : negative ? "-" : "";
 };
 
@@ -87,7 +91,8 @@ export default function AdminWalletPage() {
 
   const updateBalance = async () => {
     if (!editingWallet) return;
-    const value = Number(amount);
+    // Parse dari display terformat (misal "100.000" → 100000)
+    const value = Number(amount.replace(/\./g, "").replace(/,/g, ""));
     if (!Number.isFinite(value) || value === 0) {
       toast.error("Masukkan nominal saldo selain 0");
       return;
@@ -193,7 +198,7 @@ export default function AdminWalletPage() {
 
             <DialogBody className="space-y-2">
               <Label htmlFor="wallet-amount">Perubahan saldo (IDR)</Label>
-              <Input id="wallet-amount" className="bg-background" type="text" inputMode="numeric" value={formatAmount(amount)} onChange={(event) => setAmount(event.target.value.replace(/\D/g, "") ? `${event.target.value.trim().startsWith("-") ? "-" : ""}${event.target.value.replace(/\D/g, "")}` : event.target.value.trim().startsWith("-") ? "-" : "")} placeholder="Contoh: 100.000 atau -50.000" autoFocus />
+              <Input id="wallet-amount" className="bg-background" type="text" inputMode="numeric" value={formatAmount(amount)} onChange={(event) => setAmount(formatAmount(event.target.value))} placeholder="Contoh: 100.000 atau -50.000" autoFocus />
               <p className="text-xs text-muted-foreground">Gunakan angka negatif untuk mengurangi saldo.</p>
             </DialogBody>
             <DialogFooter>

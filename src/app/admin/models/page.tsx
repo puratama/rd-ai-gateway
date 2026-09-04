@@ -2,8 +2,8 @@
 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
-import { Plus, Edit3, Trash2, Box, RefreshCw } from "lucide-react";
+import { Suspense, useState, useEffect, useCallback, useMemo } from "react";
+import { Plus, Edit3, Trash2, Box, RefreshCw, GripVertical, Search } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,15 @@ interface ModelForm {
   isActive: boolean;
 }
 
+// Susun ulang elemen array secara immutabel (dipakai untuk drag & drop model).
+function reorderList<T>(list: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return list;
+  const next = [...list];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 function AdminModelsPageContent() {
   const [models, setModels] = useState<AppModelItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,6 +74,9 @@ function AdminModelsPageContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, ModelTestResult>>({});
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [search, setSearch] = useState("");
 
   const fetchModels = useCallback(async () => {
     setLoading(true);
@@ -83,6 +95,44 @@ function AdminModelsPageContent() {
   useEffect(() => {
     fetchModels();
   }, [fetchModels]);
+
+  const filteredModels = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return models;
+    return models.filter((m) =>
+      [m.name, m.modelId, m.provider, m.providerModelId]
+        .some((v) => (v ?? "").toLowerCase().includes(term))
+    );
+  }, [models, search]);
+
+  // Pindahkan model dari `from` ke `to` secara lokal (belum disimpan).
+  const moveModel = (from: number, to: number) => {
+    setModels((prev) => reorderList(prev, from, to));
+  };
+
+  // Simpan urutan model ke backend berdasarkan id array saat ini.
+  const persistReorder = async (ids: string[]) => {
+    setReordering(true);
+    try {
+      const res = await fetch("/api/admin/models/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Reorder failed" }));
+        throw new Error(err?.error || "Reorder failed");
+      }
+      toast.success("Model order updated");
+      fetchModels();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to reorder models");
+      // Kembalikan urutan ke kondisi server (belum berubah karena PATCH gagal).
+      fetchModels();
+    } finally {
+      setReordering(false);
+    }
+  };
 
   const handleTestConnection = async (id: string) => {
     setTestingId(id);
@@ -136,109 +186,151 @@ function AdminModelsPageContent() {
           </Button>
         </div>
 
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search models..."
+            className="pl-9"
+          />
+        </div>
+
         {loading ? (
           <TableSkeleton rows={6} cols={8} />
-        ) : models.length === 0 ? (
-          <EmptyState icon={Box} title="No models configured" description="Tambahkan model untuk mulai menjual akses ke model AI." />
+        ) : filteredModels.length === 0 ? (
+          <EmptyState icon={Box} title="No models configured" description={search.trim() ? "Tidak ada model yang cocok dengan pencarian." : "Tambahkan model untuk mulai menjual akses ke model AI."} />
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
               <Table className="w-full text-sm">
                 <TableHeader className="bg-muted/50 text-left text-muted-foreground">
                   <TableRow>
+                    <TableHead className="w-10 px-3 py-3" aria-label="Urutan" />
                     <TableHead className="px-4 py-3 font-medium">Model</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Provider Model ID</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Public Model ID</TableHead>
-                    <TableHead className="px-4 py-3 text-center font-medium">
-                      Status
-                    </TableHead>
+                    <TableHead className="px-4 py-3 text-center font-medium">Status</TableHead>
                     <TableHead className="px-4 py-3 font-medium sr-only">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border">
-                  {models.map((m) => (
-                    <TableRow key={m.id} className="hover:bg-muted/40">
-                      <TableCell className="px-4 py-3">
-                        <div className="font-medium">{m.name}</div>
-                        <div className="text-xs text-muted-foreground font-mono">
-                          {m.provider || "—"}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
-                        {m.providerModelId || "—"}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
-                        {m.modelId || "—"}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-center">
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                            m.isActive
-                              ? "bg-success/10 text-success"
-                              : "bg-muted text-muted-foreground"
-                          )}
-                        >
+                  {filteredModels.map((m) => {
+                    const i = models.findIndex((x) => x.id === m.id);
+                    return (
+                      <TableRow
+                        key={m.id}
+                        className={cn(
+                          "hover:bg-muted/40",
+                          dragIndex === i && "opacity-50"
+                        )}
+                      >
+                        <TableCell className="px-3 py-3">
+                          <span
+                            draggable={!reordering}
+                            onDragStart={() => setDragIndex(i)}
+                            onDragEnd={() => setDragIndex(null)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => {
+                              if (dragIndex === null) return;
+                              const from = dragIndex;
+                              const to = i;
+                              moveModel(from, to);
+                              setDragIndex(null);
+                              persistReorder(reorderList(models, from, to).map((x) => x.id));
+                            }}
+                            className={cn(
+                              "flex cursor-grab items-center justify-center rounded text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing",
+                              reordering && "cursor-wait opacity-50"
+                            )}
+                            title="Seret untuk urut ulang"
+                            aria-label={`Seret model ${m.name} untuk mengurutkan`}
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <div className="font-medium">{m.name}</div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {m.provider || "—"}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
+                          {m.providerModelId || "—"}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-sm tabular-nums font-mono text-muted-foreground">
+                          {m.modelId || "—"}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-center">
                           <span
                             className={cn(
-                              "h-1.5 w-1.5 rounded-full",
+                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
                               m.isActive
-                                ? "bg-success"
-                                : "bg-muted-foreground"
+                                ? "bg-success/10 text-success"
+                                : "bg-muted text-muted-foreground"
                             )}
-                          />
-                          {m.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          {testResults[m.id] && (
+                          >
                             <span
                               className={cn(
-                                "text-xs mr-1",
-                                testResults[m.id].ok ? "text-success" : "text-destructive"
+                                "h-1.5 w-1.5 rounded-full",
+                                m.isActive
+                                  ? "bg-success"
+                                  : "bg-muted-foreground"
                               )}
-                              title={testResults[m.id].error}
+                            />
+                            {m.isActive ? "Active" : "Inactive"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            {testResults[m.id] && (
+                              <span
+                                className={cn(
+                                  "text-xs mr-1",
+                                  testResults[m.id].ok ? "text-success" : "text-destructive"
+                                )}
+                                title={testResults[m.id].error}
+                              >
+                                {testResults[m.id].ok ? `${testResults[m.id].latency}ms` : "Fail"}
+                              </span>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="Test model connection"
+                              title="Test model connection"
+                              onClick={() => handleTestConnection(m.id)}
+                              disabled={testingId === m.id}
                             >
-                              {testResults[m.id].ok ? `${testResults[m.id].latency}ms` : "Fail"}
-                            </span>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label="Test model connection"
-                            title="Test model connection"
-                            onClick={() => handleTestConnection(m.id)}
-                            disabled={testingId === m.id}
-                          >
-                            <RefreshCw className={cn("h-3.5 w-3.5", testingId === m.id && "animate-spin motion-reduce:animate-none")} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label="Edit model"
-                            title="Edit model"
-                            onClick={() => {
-                              setEditing(m);
-                              setShowCreate(true);
-                            }}
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => setDeletingId(m.id)}
-                            aria-label="Delete model"
-                            title="Delete model"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                              <RefreshCw className={cn("h-3.5 w-3.5", testingId === m.id && "animate-spin motion-reduce:animate-none")} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="Edit model"
+                              title="Edit model"
+                              onClick={() => {
+                                setEditing(m);
+                                setShowCreate(true);
+                              }}
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeletingId(m.id)}
+                              aria-label="Delete model"
+                              title="Delete model"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -307,25 +399,42 @@ function ModelForm({
   onClose: () => void;
 }) {
   const isEdit = !!model;
-  const [form, setForm] = useState<ModelForm>(
-    model
-      ? {
-          modelId: model.modelId,
-          name: model.name,
-          provider: model.provider,
-          providerModelId: model.providerModelId || "",
-          maxOutputTokens: model.maxOutputTokens,
-          isActive: model.isActive,
-        }
-      : {
-          modelId: "",
-          name: "",
-          provider: "",
-          providerModelId: "",
-          maxOutputTokens: null,
-          isActive: true,
-        }
-  );
+  const [form, setForm] = useState<ModelForm>({
+    modelId: "",
+    name: "",
+    provider: "",
+    providerModelId: "",
+    maxOutputTokens: null,
+    isActive: true,
+  });
+  // Reset & pre-populate form setiap kali modal dibuka (open → true) atau
+  // model berubah. Dipicu oleh `open`, bukan hanya `model`, karena saat
+  // create→create model tetap null sehingga `useEffect([model])` tidak terpicu.
+  useEffect(() => {
+    if (!open) return;
+    if (model) {
+      setForm({
+        modelId: model.modelId,
+        name: model.name,
+        provider: model.provider,
+        providerModelId: model.providerModelId || "",
+        maxOutputTokens: model.maxOutputTokens,
+        isActive: model.isActive,
+      });
+    } else {
+      setForm({
+        modelId: "",
+        name: "",
+        provider: "",
+        providerModelId: "",
+        maxOutputTokens: null,
+        isActive: true,
+      });
+    }
+    setSelectedAggregatorId("");
+    setAggregatorModels([]);
+    setModelError("");
+  }, [open, model]);
   const [saving, setSaving] = useState<boolean>(false);
 
   // Aggregator integration (only when creating new model)
@@ -373,7 +482,9 @@ function ModelForm({
         setLoadingModels(false);
       })
       .catch((err: Error) => {
-        setModelError(`Gagal ambil model: ${err.message}`);
+        const message = `Gagal ambil model: ${err.message}`;
+        setModelError(message);
+        toast.error(message);
         setLoadingModels(false);
       });
   }, [selectedAggregatorId]);
@@ -464,13 +575,14 @@ function ModelForm({
                       : { value: "", label: loadingAggregators ? "Loading..." : "Select aggregator" }
                   }
                   onChange={(v) => {
+                    const agg = aggregators.find((a) => a.id === v);
                     setSelectedAggregatorId(v ?? "");
                     setForm((prev) => ({
                       ...prev,
                       modelId: "",
                       providerModelId: "",
                       name: "",
-                      provider: "",
+                      provider: agg ? agg.name : "",
                     }));
                   }}
                   disabled={loadingAggregators}
@@ -525,7 +637,7 @@ function ModelForm({
                       modelId: prev.modelId || suggestedModelId,
                       providerModelId: id ?? "",
                       provider: selectedAggregator
-                        ? selectedAggregator.name.toLowerCase()
+                        ? selectedAggregator.name
                         : prev.provider,
                       name: prev.name || m?.name || suggestedModelId,
                     }));
@@ -659,11 +771,11 @@ export default function AdminModelsPage() {
         <AppShell variant="admin">
           <div className="flex h-full items-center justify-center">
             <span className="text-sm text-muted-foreground">Loading</span>
-         </div>
-       </AppShell>
+          </div>
+        </AppShell>
       }
     >
       <AdminModelsPageContent />
-   </Suspense>
+    </Suspense>
   );
 }

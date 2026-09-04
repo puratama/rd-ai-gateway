@@ -284,6 +284,7 @@ model AppModel {
   tokenPlanPricePer1kCompletion  Decimal? @db.Decimal(18, 6)
 
   isActive Boolean @default(true)
+  sortOrder Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -297,6 +298,7 @@ model AggregatorConfig {
   baseUrl   String
   apiKeyEnc String // encrypted
   isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

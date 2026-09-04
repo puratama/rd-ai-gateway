@@ -4,7 +4,7 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 
-import { Suspense, useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo } from "react";
 import { FormSelect, type SelectOption } from "@/components/ui/form-select";
 import {
   Plus,
@@ -12,6 +12,7 @@ import {
   Trash2,
   CreditCard,
   GripVertical,
+  Search,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
@@ -19,16 +20,8 @@ import { FormSection, FormPanel } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { FormDialog } from "@/components/ui/form-dialog";
 
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -81,6 +74,15 @@ interface PlanForm {
 
 const formatNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
 
+// Susun ulang elemen array secara immutabel (dipakai untuk drag & drop plan).
+function reorderList<T>(list: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return list;
+  const next = [...list];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 function AddManualItem({
   placeholder,
   onAdd,
@@ -120,6 +122,9 @@ function AdminPlansPageContent() {
   const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [dragPlanIndex, setDragPlanIndex] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [search, setSearch] = useState("");
 
   const fetchPlans = useCallback(async () => {
     setLoading(true);
@@ -139,6 +144,14 @@ function AdminPlansPageContent() {
     fetchPlans();
   }, [fetchPlans]);
 
+  const filteredPlans = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return plans;
+    return plans.filter((p) =>
+      [p.name, p.description].some((v) => (v ?? "").toLowerCase().includes(term))
+    );
+  }, [plans, search]);
+
   const handleDeletePlan = async () => {
     if (!deletingPlanId) return;
     try {
@@ -152,6 +165,35 @@ function AdminPlansPageContent() {
       toast.success("Plan deleted");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to delete plan");
+    }
+  };
+
+  // Pindahkan plan dari `from` ke `to` secara lokal (belum disimpan).
+  const movePlan = (from: number, to: number) => {
+    setPlans((prev) => reorderList(prev, from, to));
+  };
+
+  // Simpan urutan plan ke backend berdasarkan id array saat ini.
+  const persistReorder = async (ids: string[]) => {
+    setReordering(true);
+    try {
+      const res = await fetch("/api/admin/plans/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Reorder failed" }));
+        throw new Error(getApiErrorMessage(err, "Reorder failed"));
+      }
+      toast.success("Plan order updated");
+      fetchPlans();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to reorder plans");
+      // Kembalikan urutan ke kondisi server (belum berubah karena PATCH gagal).
+      fetchPlans();
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -174,16 +216,27 @@ function AdminPlansPageContent() {
           </div>
         )}
 
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search plans..."
+            className="pl-9"
+          />
+        </div>
+
         {loading ? (
           <TableSkeleton rows={4} cols={8} />
-        ) : plans.length === 0 ? (
-          <EmptyState title="Belum ada plan" description="Belum ada paket token yang dikonfigurasi. Klik 'Tambah' untuk membuat plan pertama." />
+        ) : filteredPlans.length === 0 ? (
+          <EmptyState icon={CreditCard} title="Belum ada plan" description={search.trim() ? "Tidak ada plan yang cocok dengan pencarian." : "Belum ada paket token yang dikonfigurasi. Klik 'Tambah' untuk membuat plan pertama."} />
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
               <Table className="w-full text-sm">
                 <TableHeader className="bg-muted/50 text-left text-muted-foreground">
                   <TableRow>
+                    <TableHead className="w-10 px-3 py-3" aria-label="Urutan" />
                     <TableHead className="px-4 py-3 font-medium">Nama</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Harga</TableHead>
                     <TableHead className="px-4 py-3 text-center font-medium">Status</TableHead>
@@ -193,68 +246,101 @@ function AdminPlansPageContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border">
-                  {plans.map((plan) => (
-                    <TableRow key={plan.id} className="hover:bg-muted/40">
-                      <TableCell className="px-4 py-3">
-                        <p className="font-medium">{plan.name}</p>
-                        {plan.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-50">
-                            {plan.description}
-                          </p>
+                  {filteredPlans.map((plan) => {
+                    const i = plans.findIndex((x) => x.id === plan.id);
+                    return (
+                      <TableRow
+                        key={plan.id}
+                        className={cn(
+                          "hover:bg-muted/40",
+                          dragPlanIndex === i && "opacity-50"
                         )}
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        {plan.price === 0 ? (
-                          <Badge variant="success" size="sm">
-                            Free
-                          </Badge>
-                        ) : (
-                          <span className="text-xs font-medium">
-                            {formatCurrency(plan.price)}
+                      >
+                        <TableCell className="px-3 py-3">
+                          <span
+                            draggable={!reordering}
+                            onDragStart={() => setDragPlanIndex(i)}
+                            onDragEnd={() => setDragPlanIndex(null)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => {
+                              if (dragPlanIndex === null) return;
+                              const from = dragPlanIndex;
+                              const to = i;
+                              movePlan(from, to);
+                              setDragPlanIndex(null);
+                              persistReorder(reorderList(plans, from, to).map((p) => p.id));
+                            }}
+                            className={cn(
+                              "flex cursor-grab items-center justify-center rounded text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing",
+                              reordering && "cursor-wait opacity-50"
+                            )}
+                            title="Seret untuk urut ulang"
+                            aria-label={`Seret plan ${plan.name} untuk mengurutkan`}
+                          >
+                            <GripVertical className="h-4 w-4" />
                           </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-center">
-                        <Badge variant={plan.isActive ? "success" : "secondary"} size="sm">
-                          <span className={cn(
-                            "h-1.5 w-1.5 rounded-full",
-                            plan.isActive ? "bg-success" : "bg-muted-foreground"
-                          )} />
-                          {plan.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-right text-xs">
-                        {formatNumber(plan.features.maxTokensPerMonth)}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-center text-xs">
-                        {plan.features.allModels ? "All" : plan.features.allowedModels.length}
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => setEditingPlan(plan)
-                            }
-                            aria-label="Edit plan"
-                            title="Edit plan"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => setDeletingPlanId(plan.id)}
-                            aria-label="Delete plan"
-                            title="Delete plan"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <p className="font-medium">{plan.name}</p>
+                          {plan.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-50">
+                              {plan.description}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          {plan.price === 0 ? (
+                            <Badge variant="success" size="sm">
+                              Free
+                            </Badge>
+                          ) : (
+                            <span className="text-xs font-medium">
+                              {formatCurrency(plan.price)}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-center">
+                          <Badge variant={plan.isActive ? "success" : "secondary"} size="sm">
+                            <span className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              plan.isActive ? "bg-success" : "bg-muted-foreground"
+                            )} />
+                            {plan.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-right text-xs">
+                          {formatNumber(plan.features.maxTokensPerMonth)}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-center text-xs">
+                          {plan.features.allModels ? "All" : plan.features.allowedModels.length}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => setEditingPlan(plan)
+                              }
+                              aria-label="Edit plan"
+                              title="Edit plan"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeletingPlanId(plan.id)}
+                              aria-label="Delete plan"
+                              title="Delete plan"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -262,7 +348,7 @@ function AdminPlansPageContent() {
         )}
 
         {/* Plan Create/Edit Dialog */}
-        <Dialog
+        <PlanEditor
           open={editingPlan !== null || showCreate}
           onOpenChange={(open) => {
             if (!open) {
@@ -270,63 +356,45 @@ function AdminPlansPageContent() {
               setShowCreate(false);
             }
           }}
-        >
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader className="flex-row items-center gap-3 space-y-0">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                <CreditCard className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <DialogTitle className="text-base">{editingPlan ? "Edit Plan" : "Add Plan"}</DialogTitle>
-                <DialogDescription className="text-xs mt-0.5">
-                  {editingPlan
-                    ? "Update plan details, quota, and feature access."
-                    : "Create a membership plan or token package with quota and access rules."}
-                </DialogDescription>
-              </div>
-            </DialogHeader>
-            <PlanEditor
-              plan={editingPlan}
-              onSave={async (data) => {
-                const isNew = !editingPlan;
-                const url = "/api/admin/plans";
-                const method = isNew ? "POST" : "PUT";
-                // Flatten nested features -> top-level Prisma fields
-                const payload = {
-                  ...data,
-                  maxTokensPerPeriod: data.features.maxTokensPerMonth,
-                  allowedModels: data.features.allowedModels,
-                  allowedProviders: data.features.allowedProviders,
-                  allModels: data.features.allModels,
-                  allProviders: data.features.allProviders,
-                  streaming: data.features.streaming,
-                  imageGeneration: data.features.imageGeneration,
-                  highlights: data.features.highlights,
-                };
-                delete (payload as Record<string, unknown>).features;
-                const res = await fetch(url, {
-                  method,
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(
-                    isNew ? payload : { id: editingPlan!.id, ...payload }
-                  ),
-                });
-                if (!res.ok) {
-                  const err = await res.json().catch(() => ({ error: "Save failed" }));
-                  throw new Error(getApiErrorMessage(err, "Save failed"));
-                }
-                setEditingPlan(null);
-                setShowCreate(false);
-                fetchPlans();
-                toast.success(isNew ? "Plan created" : "Plan updated");
-              }}
-              onClose={() => {
-                setEditingPlan(null);
-                setShowCreate(false);
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+          plan={editingPlan}
+          onSave={async (data) => {
+            const isNew = !editingPlan;
+            const url = "/api/admin/plans";
+            const method = isNew ? "POST" : "PUT";
+            // Flatten nested features -> top-level Prisma fields
+            const payload = {
+              ...data,
+              maxTokensPerPeriod: data.features.maxTokensPerMonth,
+              allowedModels: data.features.allowedModels,
+              allowedProviders: data.features.allowedProviders,
+              allModels: data.features.allModels,
+              allProviders: data.features.allProviders,
+              streaming: data.features.streaming,
+              imageGeneration: data.features.imageGeneration,
+              highlights: data.features.highlights,
+            };
+            delete (payload as Record<string, unknown>).features;
+            const res = await fetch(url, {
+              method,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(
+                isNew ? payload : { id: editingPlan!.id, ...payload }
+              ),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({ error: "Save failed" }));
+              throw new Error(getApiErrorMessage(err, "Save failed"));
+            }
+            setEditingPlan(null);
+            setShowCreate(false);
+            fetchPlans();
+            toast.success(isNew ? "Plan created" : "Plan updated");
+          }}
+          onClose={() => {
+            setEditingPlan(null);
+            setShowCreate(false);
+          }}
+        />
 
         <ConfirmDialog
           open={!!deletingPlanId}
@@ -346,46 +414,76 @@ function AdminPlansPageContent() {
 }
 
 function PlanEditor({
+  open,
+  onOpenChange,
   plan,
   onSave,
   onClose,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   plan: PlanItem | null;
   onSave: (data: PlanForm) => void;
   onClose: () => void;
 }) {
   const isEdit = !!plan;
-  const [form, setForm] = useState<PlanForm>(
-    plan
-      ? {
-          id: plan.id,
-          name: plan.name,
-          description: plan.description || "",
-          price: plan.price,
-          billingPeriod: plan.billingPeriod,
-          features: { ...plan.features, allModels: plan.features.allModels ?? true, allProviders: plan.features.allProviders ?? true },
-          isActive: plan.isActive,
-          sortOrder: plan.sortOrder,
-        }
-      : {
-          name: "",
-          description: "",
-          price: 0,
-          billingPeriod: "monthly",
-          features: {
-            maxTokensPerMonth: 1000000,
-            allowedModels: [],
-            allModels: true,
-            allowedProviders: [],
-            allProviders: true,
-            streaming: true,
-            imageGeneration: false,
-            highlights: [],
-          },
-          isActive: true,
-          sortOrder: 0,
-        }
-  );
+  const [form, setForm] = useState<PlanForm>({
+    name: "",
+    description: "",
+    price: 0,
+    billingPeriod: "monthly",
+    features: {
+      maxTokensPerMonth: 1000000,
+      allowedModels: [],
+      allModels: true,
+      allowedProviders: [],
+      allProviders: true,
+      streaming: true,
+      imageGeneration: false,
+      highlights: [],
+    },
+    isActive: true,
+    sortOrder: 0,
+  });
+  // Sinkronkan form tiap kali modal dibuka / plan berubah (pre-population akurat)
+  useEffect(() => {
+    if (!open) return;
+    if (plan) {
+      setForm({
+        id: plan.id,
+        name: plan.name,
+        description: plan.description || "",
+        price: plan.price,
+        billingPeriod: plan.billingPeriod,
+        features: {
+          ...plan.features,
+          allModels: plan.features.allModels ?? true,
+          allProviders: plan.features.allProviders ?? true,
+        },
+        isActive: plan.isActive,
+        sortOrder: plan.sortOrder,
+      });
+    } else {
+      setForm({
+        name: "",
+        description: "",
+        price: 0,
+        billingPeriod: "monthly",
+        features: {
+          maxTokensPerMonth: 1000000,
+          allowedModels: [],
+          allModels: true,
+          allowedProviders: [],
+          allProviders: true,
+          streaming: true,
+          imageGeneration: false,
+          highlights: [],
+        },
+        isActive: true,
+        sortOrder: 0,
+      });
+    }
+  }, [open, plan]);
   const [saving, setSaving] = useState(false);
   const [editorError, setEditorError] = useState("");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -506,8 +604,38 @@ function PlanEditor({
   };
 
   return (
-    <>
-      <DialogBody className="space-y-5">
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={<CreditCard className="h-4 w-4 text-primary" />}
+      title={plan ? "Edit Plan" : "Add Plan"}
+      description={
+        plan
+          ? "Update plan details, quota, and feature access."
+          : "Create a membership plan or token package with quota and access rules."
+      }
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <>
+                <svg className="animate-spin motion-reduce:animate-none -ml-1 mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Saving...
+              </>
+            ) : (
+              isEdit ? "Update" : "Create"
+            )}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
         {editorError && (
           <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
             {editorError}
@@ -524,6 +652,7 @@ function PlanEditor({
                 value={form.name || ""}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="e.g. Pro"
+                className="bg-background"
               />
             </div>
             <div>
@@ -551,6 +680,7 @@ function PlanEditor({
                   value={fmtNumber(form.price)}
                   onChange={(e) => onNumericChange("price", e.target.value)}
                   placeholder="e.g. 50.000"
+                  className="bg-background"
                 />
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   0 = free plan
@@ -587,6 +717,7 @@ function PlanEditor({
                 value={fmtNumber(form.features.maxTokensPerMonth)}
                 onChange={(e) => onNumericChange("maxTokensPerMonth", e.target.value)}
                 placeholder="e.g. 1.000.000"
+                className="bg-background"
               />
               <p className="text-xs text-muted-foreground/60 mt-1">
                 Jatah token di paket. Berlaku untuk paket &amp; token plan.
@@ -613,7 +744,7 @@ function PlanEditor({
             ].map((f) => (
               <div
                 key={f.key}
-                className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-background px-3 py-2.5"
+                className="flex items-center justify-between gap-4"
               >
                 <div>
                   <p className="text-sm font-medium">{f.title}</p>
@@ -832,28 +963,8 @@ function PlanEditor({
             </div>
           </FormPanel>
         </section>
-      </DialogBody>
-
-      {/* ── Footer ── */}
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <>
-              <svg className="animate-spin motion-reduce:animate-none -ml-1 mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Saving...
-            </>
-          ) : (
-            isEdit ? "Update" : "Create"
-          )}
-        </Button>
-      </DialogFooter>
-    </>
+      </div>
+    </FormDialog>
   );
 }
 

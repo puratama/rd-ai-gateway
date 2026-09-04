@@ -8,7 +8,7 @@ export async function GET() {
 
   const models = await prisma.appModel.findMany({
     where: { isActive: true },
-    orderBy: [{ provider: "asc" }, { name: "asc" }],
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: {
       modelId: true,
       name: true,

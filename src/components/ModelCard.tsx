@@ -1,7 +1,6 @@
 import type { PublicModelInfo } from "@/lib/use-site-config";
 import { formatPrice, priceLabel } from "@/lib/pricing-tiers";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 /** Kartu katalog model: nama, modelId, tarif PAYG + info paket token. */
@@ -23,9 +22,6 @@ export function ModelCard({
       <div className="flex flex-col gap-4 p-6">
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-base font-semibold leading-snug tracking-tight">{m.name}</h3>
-          <Badge variant="secondary" size="sm" className="shrink-0">
-            {m.provider}
-          </Badge>
         </div>
         <p className="-mt-2 truncate font-mono text-xs text-muted-foreground">{m.modelId}</p>
 

@@ -7,7 +7,7 @@ export async function GET() {
   const authError = await requireSuperadmin();
   if (authError) return authError;
   try {
-    const models = await prisma.appModel.findMany({ orderBy: { name: "asc" } });
+    const models = await prisma.appModel.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
     return NextResponse.json(models.map((m) => ({
       id: m.id,
       modelId: m.modelId,

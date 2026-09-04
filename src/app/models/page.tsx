@@ -51,7 +51,7 @@ export default function ModelsPage() {
   const [search, setSearch] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("all");
 
-  const [sortBy, setSortBy] = useState<"name" | "prompt" | "completion">("name");
+  const [sortBy, setSortBy] = useState<"default" | "name" | "prompt" | "completion">("default");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [compareMode, setCompareMode] = useState(false);
   const [compareList, setCompareList] = useState<string[]>([]);
@@ -76,16 +76,18 @@ export default function ModelsPage() {
       result = result.filter((m) => m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q));
     }
     if (selectedProvider !== "all") result = result.filter((m) => m.provider === selectedProvider);
-    result.sort((a, b) => {
-      const cmp = sortBy === "name"
-        ? a.name.localeCompare(b.name)
-        : sortBy === "prompt"
-          ? a.pricing.prompt - b.pricing.prompt
-          : sortBy === "completion"
-            ? a.pricing.completion - b.pricing.completion
-            : 0;
-      return sortOrder === "asc" ? cmp : -cmp;
-    });
+    if (sortBy !== "default") {
+      result.sort((a, b) => {
+        const cmp = sortBy === "name"
+          ? a.name.localeCompare(b.name)
+          : sortBy === "prompt"
+            ? a.pricing.prompt - b.pricing.prompt
+            : sortBy === "completion"
+              ? a.pricing.completion - b.pricing.completion
+              : 0;
+        return sortOrder === "asc" ? cmp : -cmp;
+      });
+    }
     return result;
   }, [pricingData, search, selectedProvider, sortBy, sortOrder]);
 
@@ -93,7 +95,7 @@ export default function ModelsPage() {
     setCompareList((prev) => prev.includes(modelId) ? prev.filter((id) => id !== modelId) : prev.length < 4 ? [...prev, modelId] : prev);
   };
 
-  const toggleSort = (field: "name" | "prompt" | "completion") => {
+  const toggleSort = (field: "default" | "name" | "prompt" | "completion") => {
     if (sortBy === field) setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     else { setSortBy(field); setSortOrder("asc"); }
   };
@@ -105,7 +107,7 @@ export default function ModelsPage() {
     </div>
   );
 
-  const SortArrow = ({ field }: { field: "name" | "prompt" | "completion" }) =>
+  const SortArrow = ({ field }: { field: "default" | "name" | "prompt" | "completion" }) =>
     sortBy === field ? (
       sortOrder === "asc" ? <ChevronUp className="ml-0.5 h-3 w-3" /> : <ChevronDown className="ml-0.5 h-3 w-3" />
     ) : null;
@@ -196,7 +198,7 @@ export default function ModelsPage() {
             </p>
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-muted-foreground">Sort:</span>
-              {(["name", "prompt", "completion"] as const).map((field) => (
+              {(["default", "name", "prompt", "completion"] as const).map((field) => (
                 <Button
                   type="button"
                   variant="ghost"
@@ -210,7 +212,7 @@ export default function ModelsPage() {
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                 >
-                  {field === "name" ? "Name" : field === "prompt" ? "Prompt IDR" : "Completion IDR"}
+                  {field === "default" ? "Default" : field === "name" ? "Name" : field === "prompt" ? "Prompt IDR" : "Completion IDR"}
                   <SortArrow field={field} />
                 </Button>
               ))}
@@ -379,7 +381,6 @@ export default function ModelsPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="mt-0.5 text-xs text-muted-foreground">{model.provider}</p>
                           </div>
                         </div>
 

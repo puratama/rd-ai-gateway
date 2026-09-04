@@ -383,13 +383,24 @@ function GatewayForm({
   onClose: () => void;
 }) {
   const [form, setForm] = useState({
-    provider: gateway?.provider || "midtrans",
-    name: gateway?.name || "",
+    provider: "midtrans",
+    name: "",
     serverKey: "",
     clientKey: "",
-    environment: gateway?.environment || "sandbox",
-    isActive: gateway?.isActive ?? true,
+    environment: "sandbox",
+    isActive: true,
   });
+  // Sinkronkan form tiap kali gateway berubah (pre-population yang akurat)
+  useEffect(() => {
+    setForm({
+      provider: gateway?.provider || "midtrans",
+      name: gateway?.name || "",
+      serverKey: "", // Selalu reset — jangan tampilkan kredensial lama
+      clientKey: "",
+      environment: gateway?.environment || "sandbox",
+      isActive: gateway?.isActive ?? true,
+    });
+  }, [gateway]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 

@@ -2,7 +2,7 @@
 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo } from "react";
 import {
   Plus,
   Edit3,
@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Server,
   BarChart3,
+  GripVertical,
+  Search,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { FormDialog } from "@/components/ui/form-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -70,6 +73,15 @@ interface UsageStats {
   details: UsageDetail[];
 }
 
+// Susun ulang elemen array secara immutabel (dipakai untuk drag & drop provider).
+function reorderList<T>(list: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return list;
+  const next = [...list];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 function AdminProvidersPageContent() {
   const [providers, setProviders] = useState<ProviderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,9 +94,13 @@ function AdminProvidersPageContent() {
   const [usageProvider, setUsageProvider] = useState<ProviderItem | null>(null);
   const [usageData, setUsageData] = useState<UsageStats | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [search, setSearch] = useState("");
 
   const fetchProviders = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/admin/aggregators");
       if (res.ok) setProviders(await res.json());
@@ -98,11 +114,49 @@ function AdminProvidersPageContent() {
     fetchProviders();
   }, [fetchProviders]);
 
+  const filteredProviders = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return providers;
+    return providers.filter((p) =>
+      [p.name, p.baseUrl].some((v) => (v ?? "").toLowerCase().includes(term))
+    );
+  }, [providers, search]);
+
+  // Pindahkan provider dari `from` ke `to` secara lokal (belum disimpan).
+  const moveProvider = (from: number, to: number) => {
+    setProviders((prev) => reorderList(prev, from, to));
+  };
+
+  // Simpan urutan provider ke backend berdasarkan id array saat ini.
+  const persistReorder = async (ids: string[]) => {
+    setReordering(true);
+    try {
+      const res = await fetch("/api/admin/aggregators/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Reorder failed" }));
+        throw new Error(err?.error || "Reorder failed");
+      }
+      toast.success("Provider order updated");
+      fetchProviders();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to reorder providers");
+      // Kembalikan urutan ke kondisi server (belum berubah karena PATCH gagal).
+      fetchProviders();
+    } finally {
+      setReordering(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deletingId) return;
     try {
       await fetch(`/api/admin/aggregators?id=${deletingId}`, { method: "DELETE" });
       setDeletingId(null);
+      setError(""); // Reset error setelah operasi berhasil
       fetchProviders();
     } catch {
       setError("Failed to delete provider");
@@ -161,13 +215,23 @@ function AdminProvidersPageContent() {
           </div>
         )}
 
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search providers..."
+            className="pl-9"
+          />
+        </div>
+
         {loading ? (
           <TableSkeleton rows={4} cols={5} />
-        ) : providers.length === 0 ? (
+        ) : filteredProviders.length === 0 ? (
           <EmptyState
             icon={Server}
             title="Belum ada provider"
-            description="Tambahkan koneksi API provider untuk mulai merutekan permintaan model."
+            description={search.trim() ? "Tidak ada provider yang cocok dengan pencarian." : "Tambahkan koneksi API provider untuk mulai merutekan permintaan model."}
           />
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -175,6 +239,7 @@ function AdminProvidersPageContent() {
               <Table className="w-full text-sm">
                 <TableHeader className="bg-muted/50 text-left text-muted-foreground">
                   <TableRow>
+                    <TableHead className="w-10 px-3 py-3" aria-label="Urutan" />
                     <TableHead className="px-4 py-3 font-medium">Nama</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Base URL</TableHead>
                     <TableHead className="px-4 py-3 font-medium">API Key</TableHead>
@@ -183,93 +248,126 @@ function AdminProvidersPageContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border">
-                  {providers.map((p) => (
-                    <TableRow key={p.id} className="hover:bg-muted/40">
-                      <TableCell className="px-4 py-3 font-medium">{p.name}</TableCell>
-                      <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {p.baseUrl}
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        <span className={cn(
-                          p.hasApiKey
-                            ? "text-success text-xs"
-                            : "text-muted-foreground text-xs"
-                        )}>
-                          {p.hasApiKey ? "••••••••" : "None"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-center">
-                        <span className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                          p.isActive
-                            ? "bg-success/10 text-success"
-                            : "bg-muted text-muted-foreground"
-                        )}>
+                  {filteredProviders.map((p) => {
+                    const i = providers.findIndex((x) => x.id === p.id);
+                    return (
+                      <TableRow
+                        key={p.id}
+                        className={cn(
+                          "hover:bg-muted/40",
+                          dragIndex === i && "opacity-50"
+                        )}
+                      >
+                        <TableCell className="px-3 py-3">
+                          <span
+                            draggable={!reordering}
+                            onDragStart={() => setDragIndex(i)}
+                            onDragEnd={() => setDragIndex(null)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => {
+                              if (dragIndex === null) return;
+                              const from = dragIndex;
+                              const to = i;
+                              moveProvider(from, to);
+                              setDragIndex(null);
+                              persistReorder(reorderList(providers, from, to).map((x) => x.id));
+                            }}
+                            className={cn(
+                              "flex cursor-grab items-center justify-center rounded text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing",
+                              reordering && "cursor-wait opacity-50"
+                            )}
+                            title="Seret untuk urut ulang"
+                            aria-label={`Seret provider ${p.name} untuk mengurutkan`}
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 font-medium">{p.name}</TableCell>
+                        <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                          {p.baseUrl}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
                           <span className={cn(
-                            "h-1.5 w-1.5 rounded-full",
-                            p.isActive ? "bg-success" : "bg-muted-foreground"
-                          )} />
-                          {p.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => handleShowUsage(p)}
-                            title="Lihat Penggunaan"
-                          >
-                            <BarChart3 className="h-3.5 w-3.5" />
-                          </Button>
-                          {testResults[p.id] && (
+                            p.hasApiKey
+                              ? "text-success text-xs"
+                              : "text-muted-foreground text-xs"
+                          )}>
+                            {p.hasApiKey ? "••••••••" : "None"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-center">
+                          <span className={cn(
+                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                            p.isActive
+                              ? "bg-success/10 text-success"
+                              : "bg-muted text-muted-foreground"
+                          )}>
                             <span className={cn(
-                              "text-xs mr-1",
-                              testResults[p.id].ok
-                                ? "text-success"
-                                : "text-destructive"
-                            )}>
-                              {testResults[p.id].ok
-                                ? `${testResults[p.id].latency}ms`
-                                : "Fail"}
-                            </span>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => handleTestConnection(p.id)}
-                            disabled={testingId === p.id}
-                            aria-label="Test provider connection"
-                            title="Test connection"
-                          >
-                            <RefreshCw className={cn(
-                              "h-3.5 w-3.5",
-                              testingId === p.id && "animate-spin motion-reduce:animate-none"
+                              "h-1.5 w-1.5 rounded-full",
+                              p.isActive ? "bg-success" : "bg-muted-foreground"
                             )} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => { setEditing(p); setShowCreate(true); }}
-                            aria-label="Edit provider"
-                            title="Edit provider"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => setDeletingId(p.id)}
-                            aria-label="Delete provider"
-                            title="Delete provider"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {p.isActive ? "Active" : "Inactive"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleShowUsage(p)}
+                              title="Lihat Penggunaan"
+                            >
+                              <BarChart3 className="h-3.5 w-3.5" />
+                            </Button>
+                            {testResults[p.id] && (
+                              <span className={cn(
+                                "text-xs mr-1",
+                                testResults[p.id].ok
+                                  ? "text-success"
+                                  : "text-destructive"
+                              )}>
+                                {testResults[p.id].ok
+                                  ? `${testResults[p.id].latency}ms`
+                                  : "Fail"}
+                              </span>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleTestConnection(p.id)}
+                              disabled={testingId === p.id}
+                              aria-label="Test provider connection"
+                              title="Test connection"
+                            >
+                              <RefreshCw className={cn(
+                                "h-3.5 w-3.5",
+                                testingId === p.id && "animate-spin motion-reduce:animate-none"
+                              )} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => { setEditing(p); setShowCreate(true); }}
+                              aria-label="Edit provider"
+                              title="Edit provider"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeletingId(p.id)}
+                              aria-label="Delete provider"
+                              title="Delete provider"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -277,52 +375,32 @@ function AdminProvidersPageContent() {
         )}
 
         {/* Provider Create/Edit Dialog */}
-        <Dialog
+        <ProviderForm
           open={showCreate}
           onOpenChange={(open) => {
             if (!open) { setShowCreate(false); setEditing(null); }
           }}
-        >
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader className="flex-row items-center gap-3 space-y-0">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                <Server className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <DialogTitle className="text-base">
-                  {editing ? "Edit Provider" : "Add Provider"}
-                </DialogTitle>
-                <DialogDescription className="text-xs mt-0.5">
-                  {editing
-                    ? "Update connection details and credentials."
-                    : "Register a new API provider connection."}
-                </DialogDescription>
-              </div>
-            </DialogHeader>
-            <ProviderForm
-              provider={editing}
-              onSave={async (data) => {
-                const res = editing
-                  ? await fetch("/api/admin/aggregators", {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id: editing.id, ...data }),
-                    })
-                  : await fetch("/api/admin/aggregators", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(data),
-                    });
-                if (!res.ok) throw new Error("Save failed");
-                setShowCreate(false);
-                setEditing(null);
-                fetchProviders();
-                toast.success(editing ? "Provider updated" : "Provider created");
-              }}
-              onClose={() => { setShowCreate(false); setEditing(null); }}
-            />
-          </DialogContent>
-        </Dialog>
+          provider={editing}
+          onSave={async (data) => {
+            const res = editing
+              ? await fetch("/api/admin/aggregators", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ id: editing.id, ...data }),
+                })
+              : await fetch("/api/admin/aggregators", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(data),
+                });
+            if (!res.ok) throw new Error("Save failed");
+            setShowCreate(false);
+            setEditing(null);
+            fetchProviders();
+            toast.success(editing ? "Provider updated" : "Provider created");
+          }}
+          onClose={() => { setShowCreate(false); setEditing(null); }}
+        />
 
         {/* Delete Confirmation */}
         <ConfirmDialog
@@ -428,21 +506,37 @@ function AdminProvidersPageContent() {
 }
 
 function ProviderForm({
+  open,
+  onOpenChange,
   provider,
   onSave,
   onClose,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   provider: ProviderItem | null;
   onSave: (data: Record<string, unknown>) => void;
   onClose: () => void;
 }) {
+  // State persisten — di-reset otomatis saat `provider` berubah
   const [form, setForm] = useState({
-    name: provider?.name || "",
-    baseUrl: provider?.baseUrl || "",
+    name: "",
+    baseUrl: "",
     apiKey: "",
-    isActive: provider?.isActive ?? true,
+    isActive: true,
   });
   const [saving, setSaving] = useState(false);
+
+  // Sinkronkan form tiap kali modal dibuka / provider berubah (pre-population akurat)
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      name: provider?.name || "",
+      baseUrl: provider?.baseUrl || "",
+      apiKey: "", // Selalu reset — jangan tampilkan API key lama
+      isActive: provider?.isActive ?? true,
+    });
+  }, [open, provider]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -457,8 +551,28 @@ function ProviderForm({
   };
 
   return (
-    <>
-      <DialogBody className="space-y-5">
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={<Server className="h-4 w-4 text-primary" />}
+      title={provider ? "Edit Provider" : "Add Provider"}
+      description={
+        provider
+          ? "Update connection details and credentials."
+          : "Register a new API provider connection."
+      }
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving || !form.name || !form.baseUrl}>
+            {saving ? "Menyimpan..." : provider ? "Update" : "Create"}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
         {/* ── General ── */}
         <section>
           <FormSection>General</FormSection>
@@ -519,18 +633,8 @@ function ProviderForm({
             </div>
           </FormPanel>
         </section>
-      </DialogBody>
-
-      {/* ── Footer ── */}
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={saving || !form.name || !form.baseUrl}>
-          {saving ? "Menyimpan..." : provider ? "Update" : "Create"}
-        </Button>
-      </DialogFooter>
-    </>
+      </div>
+    </FormDialog>
   );
 }
 

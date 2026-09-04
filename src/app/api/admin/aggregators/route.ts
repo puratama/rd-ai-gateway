@@ -7,7 +7,7 @@ export async function GET() {
   if (authError) return authError;
   try {
     const aggregators = await prisma.aggregatorConfig.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
 
     return NextResponse.json(aggregators.map((a) => ({

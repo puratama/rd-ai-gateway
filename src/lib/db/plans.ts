@@ -121,8 +121,8 @@ export function validatePlanPayload(
 
   if (data.price !== undefined) {
     const price = Number(data.price);
-    if (!Number.isFinite(price) || price <= 0) {
-      return { error: "price must be a number greater than 0" };
+    if (!Number.isFinite(price) || price < 0) {
+      return { error: "price must be a non-negative number" };
     }
     data.price = price;
   }
@@ -190,4 +190,21 @@ export async function deletePlan(id: string) {
     }
     return false;
   }
+}
+
+/**
+ * Persist urutan plan sesuai array id yang diberikan (indeks = sortOrder baru).
+ * Menggunakan transaksi agar urutan atomik dan tidak meninggalkan nilai di tengah.
+ */
+export async function reorderPlans(ids: string[]): Promise<boolean> {
+  if (!Array.isArray(ids) || ids.length === 0) return false;
+  await prisma.$transaction(
+    ids.map((id, index) =>
+      prisma.plan.update({
+        where: { id },
+        data: { sortOrder: index },
+      })
+    )
+  );
+  return true;
 }
