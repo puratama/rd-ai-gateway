@@ -3,20 +3,29 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Clock,
   Coins,
   CreditCard,
-  Loader2,
   Wallet,
-  XCircle,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { SectionMark } from "@/components/ui/section-mark";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/components/ui/format-currency";
 import { formatDate } from "@/components/ui/format-date";
@@ -48,30 +57,86 @@ type MyPlanData = {
 const fmtNumber = (n: number) => new Intl.NumberFormat("id-ID").format(n);
 const fmtDate = (d: string) => formatDate(d);
 
+const TOKEN_BAR_CONFIG = {
+  ok: {
+    label: "Kuota aman",
+    bar: "bg-primary",
+    text: "text-success",
+    ring: "ring-success/20 bg-success/10",
+  },
+  warn: {
+    label: "Kuota menipis",
+    bar: "bg-warning",
+    text: "text-warning",
+    ring: "ring-warning/20 bg-warning/10",
+  },
+  danger: {
+    label: "Kuota hampir habis",
+    bar: "bg-destructive",
+    text: "text-destructive",
+    ring: "ring-destructive/20 bg-destructive/10",
+  },
+} as const;
+
 function TokenBar({ used, max }: { used: number; max: number }) {
   const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
-  const color = pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-warning" : "bg-primary";
+  const remaining = max - used;
+  const tone = pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok";
+  const config = TOKEN_BAR_CONFIG[tone];
+
   return (
-    <div>
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">
-          {fmtNumber(used)} / {fmtNumber(max)} token
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Penggunaan token
         </span>
-        <span className={cn("font-semibold tabular-nums", pct >= 90 ? "text-destructive" : "text-muted-foreground")}>{pct}%</span>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ring-1 ring-inset",
+            config.text,
+            config.ring
+          )}
+        >
+          {config.label}<span className="mx-1">·</span>{pct}%
+        </span>
       </div>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-        <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${pct}%` }} />
+
+      <Progress
+        value={pct}
+        indicatorClassName={config.bar}
+        className="h-2.5"
+        aria-label={config.label}
+      />
+
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">
+          Terpakai <span className="font-medium tabular-nums text-foreground">{fmtNumber(used)}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Sisa <span className="font-semibold tabular-nums text-foreground">{fmtNumber(remaining)}</span> token
+        </span>
       </div>
     </div>
   );
 }
 
+const STATUS_CONFIG: Record<string, { variant: "success" | "warning" | "secondary"; icon: typeof CheckCircle2; label: string }> = {
+  active: { variant: "success", icon: CheckCircle2, label: "Aktif" },
+  expired: { variant: "secondary", icon: Clock, label: "Kedaluwarsa" },
+  depleted: { variant: "warning", icon: AlertTriangle, label: "Habis" },
+};
+
 function StatusBadge({ status }: { status: string }) {
-  const ok = status === "active";
+  const config = STATUS_CONFIG[status] ?? {
+    variant: "secondary" as const,
+    icon: Clock,
+    label: status,
+  };
+  const Icon = config.icon;
   return (
-    <Badge variant={ok ? "success" : "secondary"} size="sm">
-      {ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-      {status}
+    <Badge variant={config.variant} size="sm">
+      <Icon className="h-3 w-3" />
+      {config.label}
     </Badge>
   );
 }
@@ -174,34 +239,41 @@ export default function MyPlanPage() {
               </div>
 
               {/* Packages */}
-              <section>
-                <h2 className="mb-3 text-sm font-semibold">Paket Token</h2>
+              <section className="space-y-3">
+                <div className="flex items-end justify-between gap-3">
+                  <SectionMark label="Paket Token" />
+                  <span className="text-xs text-muted-foreground">
+                    {data!.packages.length} paket
+                  </span>
+                </div>
                 {data!.packages.length === 0 ? (
                   <EmptyState
                     icon={Coins}
                     title="Belum ada paket token"
                     description="Beli dari halaman Token Plan untuk mulai memakai langganan token."
+                    action={
+                      <Link href="/plan" className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}>
+                        <Coins className="h-3.5 w-3.5" /> Lihat paket
+                      </Link>
+                    }
                   />
                 ) : (
                   <div className="space-y-3">
                     {data!.packages.map((p) => {
-                      const pct = p.tokensTotal > 0 ? Math.round((p.tokensRemaining / p.tokensTotal) * 100) : 0;
+                      const used = p.tokensTotal - p.tokensRemaining;
                       return (
                         <Card key={p.id}>
-                          <CardContent className="space-y-3 p-5">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-semibold">{p.plan.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatCurrency(p.plan.price)} · berlaku hingga {fmtDate(p.expiresAt)}
-                                </p>
-                              </div>
+                          <CardHeader>
+                            <CardTitle>{p.plan.name}</CardTitle>
+                            <CardDescription>
+                              {formatCurrency(p.plan.price)} · berlaku hingga {fmtDate(p.expiresAt)}
+                            </CardDescription>
+                            <CardAction>
                               <StatusBadge status={p.status} />
-                            </div>
-                            <TokenBar used={p.tokensTotal - p.tokensRemaining} max={p.tokensTotal} />
-                            <p className="text-xs text-muted-foreground">
-                              Sisa {fmtNumber(p.tokensRemaining)} token ({pct}%)
-                            </p>
+                            </CardAction>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <TokenBar used={used} max={p.tokensTotal} />
                           </CardContent>
                         </Card>
                       );
