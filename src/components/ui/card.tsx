@@ -21,7 +21,7 @@ function Card({
       className={cn(
         "group/card flex flex-col gap-(--card-spacing) rounded-xl bg-card text-sm text-card-foreground ring-1 ring-border/40 transition-all duration-200 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 data-[tone=muted]:bg-card/50 data-[tone=muted]:ring-border/30 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         interactive &&
-          "cursor-pointer hover:ring-primary/50 hover:bg-card/80 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--color-primary)_25%,transparent)]",
+          "hover:ring-primary/50 hover:bg-card/80 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--color-primary)_25%,transparent)]",
         className
       )}
       {...props}

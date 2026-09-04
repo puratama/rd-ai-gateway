@@ -195,6 +195,7 @@ CREATE TABLE "AppModel" (
     "tokenPlanPricePer1kPrompt" DECIMAL(18,6),
     "tokenPlanPricePer1kCompletion" DECIMAL(18,6),
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -208,6 +209,7 @@ CREATE TABLE "AggregatorConfig" (
     "baseUrl" TEXT NOT NULL,
     "apiKeyEnc" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

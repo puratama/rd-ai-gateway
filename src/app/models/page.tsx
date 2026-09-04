@@ -30,10 +30,11 @@ import { FormSelect } from "@/components/ui/form-select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { fetchPricingFromDB } from "@/lib/pricing-db";
+import { priceLabel } from "@/lib/pricing-tiers";
 import type { ModelPricing } from "@/types";
 
 function getProviders(models: ModelPricing[]) { return Array.from(new Set(models.map((m) => m.provider))); }
-function formatPrice(n: number) { return n === 0 ? "Free" : n.toFixed(2); }
+function formatPrice(n: number) { return n === 0 ? "Gratis" : `Rp ${n.toLocaleString("id-ID")}`; }
 function getMinPrice(models: ModelPricing[]) { return models.reduce((min, m) => Math.min(min, m.pricing.prompt), Infinity); }
 function getMaxPrice(models: ModelPricing[]) { return models.reduce((max, m) => Math.max(max, m.pricing.prompt), 0); }
 
@@ -42,7 +43,7 @@ const speedColor = (speed: string) =>
 const speedBg = (speed: string) =>
   speed === "fast" ? "bg-success/10 border-success/20" : speed === "balanced" ? "bg-warning/10 border-warning/20" : speed === "slow" ? "bg-destructive/10 border-destructive/20" : "bg-muted/20 border-border";
 const speedLabel = (speed: string) =>
-  speed === "fast" ? "⚡ Fast" : speed === "balanced" ? "⚖️ Balanced" : speed === "slow" ? "🐢 Slow" : speed;
+  speed === "fast" ? "Fast" : speed === "balanced" ? "Balanced" : speed === "slow" ? "Slow" : speed;
 
 
 export default function ModelsPage() {
@@ -140,8 +141,8 @@ export default function ModelsPage() {
             {[
               { label: "Total Models", value: pricingData.length, icon: Layers, tone: "text-info" },
               { label: "Providers", value: providers.length, icon: Layers, tone: "text-primary" },
-              { label: "Cheapest Prompt", value: `${formatPrice(getMinPrice(pricingData))}/1K`, icon: Coins, tone: "text-success" },
-              { label: "Most Expensive", value: `${formatPrice(getMaxPrice(pricingData))}/1K`, icon: Coins, tone: "text-warning" },
+              { label: "Cheapest Prompt", value: `${formatPrice(getMinPrice(pricingData) * 1000)} / 1M`, icon: Coins, tone: "text-success" },
+              { label: "Most Expensive", value: `${formatPrice(getMaxPrice(pricingData) * 1000)} / 1M`, icon: Coins, tone: "text-warning" },
             ].map((stat) => {
               const Icon = stat.icon;
               return (
@@ -150,7 +151,7 @@ export default function ModelsPage() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Icon className={cn("h-4 w-4", stat.tone)} /> {stat.label}
                     </div>
-                    <div className={cn("mt-3 text-3xl font-semibold", loading && "animate-pulse text-muted-foreground")}>{stat.value}</div>
+                    <div className={cn("mt-3 text-2xl font-semibold", loading && "animate-pulse text-muted-foreground")}>{stat.value}</div>
                   </CardContent>
                 </Card>
               );
@@ -222,7 +223,7 @@ export default function ModelsPage() {
           {/* Compare bar */}
           {compareMode && compareList.length > 0 && (
             <Card className="border-primary/20">
-              <CardContent className="flex items-center justify-between">
+              <CardContent className="flex items-center justify-between px-6 py-3">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
                     {compareList.length}
@@ -267,7 +268,6 @@ export default function ModelsPage() {
                   </TableHeader>
                   <TableBody>
                     {[
-                      { key: "provider", label: "Provider" },
                       { key: "speed", label: "Speed", render: (m: ModelPricing) => speedLabel(m.speed) },
                       { key: "quality", label: "Quality" },
                     ].map((row) => (
@@ -282,17 +282,17 @@ export default function ModelsPage() {
                       </TableRow>
                     ))}
                     <TableRow className="border-t-2 border-primary/20 bg-primary/5">
-                      <TableCell className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Prompt IDR/1K</TableCell>
+                      <TableCell className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Input / 1M</TableCell>
                       {compareList.map((id) => {
                         const m = pricingData.find((m) => m.id === id);
-                        return <TableCell key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.prompt) : "-"}</TableCell>;
+                        return <TableCell key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.prompt * 1000) : "-"}</TableCell>;
                       })}
                     </TableRow>
                     <TableRow className="bg-primary/5">
-                      <TableCell className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Completion IDR/1K</TableCell>
+                      <TableCell className="sticky left-0 bg-primary/5 px-4 py-3 text-xs font-medium text-primary">Output / 1M</TableCell>
                       {compareList.map((id) => {
                         const m = pricingData.find((m) => m.id === id);
-                        return <TableCell key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.completion) : "-"}</TableCell>;
+                        return <TableCell key={id} className="px-4 py-3 text-xs font-semibold tabular-nums">{m ? formatPrice(m.pricing.completion * 1000) : "-"}</TableCell>;
                       })}
                     </TableRow>
                   </TableBody>
@@ -343,14 +343,14 @@ export default function ModelsPage() {
                     style={{ animationDelay: `${idx * 30}ms` }}
                     className="group relative animate-in fade-in slide-in-from-bottom-2 duration-300"
                   >
-                    <Card className={cn(
-                      "overflow-hidden rounded-xl border transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 shadow-none",
-                      isCompared
-                        ? "border-2 border-primary"
-                        : "border-border"
-                    )}>
-
-                      <CardContent className="p-5">
+                    <Card
+                      interactive
+                      className={cn(
+                        "p-0 overflow-hidden",
+                        isCompared && "ring-2 ring-primary"
+                      )}
+                    >
+                      <div className="flex flex-col gap-4 p-6">
                         {/* Compare checkbox */}
                         {compareMode && (
                           <Button
@@ -371,36 +371,28 @@ export default function ModelsPage() {
                         )}
 
                         {/* Header */}
-                        <div className="mb-3 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h3 className="truncate text-sm font-semibold">{model.name}</h3>
-                              {model.quality === "Best" && (
-                                <span className="inline-flex items-center gap-0.5 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning">
-                                  <Sparkles className="h-2.5 w-2.5" /> BEST
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Tags row */}
-                        <div className="mb-4 flex flex-wrap gap-1.5">
-                          <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold", speedBg(model.speed), speedColor(model.speed))}>
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="text-base font-semibold leading-snug tracking-tight">{model.name}</h3>
+                          <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold", speedBg(model.speed), speedColor(model.speed))}>
                             <Gauge className="h-2.5 w-2.5" /> {speedLabel(model.speed)}
                           </span>
                         </div>
+                        <p className="-mt-2 truncate font-mono text-xs text-muted-foreground">{model.id}</p>
 
-                        {/* Pricing */}
-                        <div className="flex items-center gap-3 rounded-xl bg-muted/20 p-3">
-                          {renderPriceBadge(model.pricing.prompt, "Prompt /1K")}
-                          <div className="h-8 w-px bg-border" />
-                          {renderPriceBadge(model.pricing.completion, "Output /1K")}
-                        </div>
+                        <dl className="space-y-2 border-t border-border/40 pt-4 text-sm">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <dt className="text-muted-foreground">Input / 1M</dt>
+                            <dd className="font-mono text-sm font-medium tabular-nums">{priceLabel(model.pricing.prompt * 1000)}</dd>
+                          </div>
+                          <div className="flex items-baseline justify-between gap-4">
+                            <dt className="text-muted-foreground">Output / 1M</dt>
+                            <dd className="font-mono text-sm font-medium tabular-nums">{priceLabel(model.pricing.completion * 1000)}</dd>
+                          </div>
+                        </dl>
 
-                        {/* Expanded quality info */}
+                        {/* Quality + availability */}
                         {model.quality && (
-                          <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
                             <div className={cn(
                               "h-1.5 w-1.5 rounded-full",
                               model.quality === "Best" ? "bg-warning" : model.quality === "Excellent" ? "bg-success" : "bg-info"
@@ -417,7 +409,7 @@ export default function ModelsPage() {
                             )}
                           </div>
                         )}
-                      </CardContent>
+                      </div>
                     </Card>
                   </div>
                 );

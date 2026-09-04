@@ -15,7 +15,6 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { FormSection, FormPanel } from "@/components/ui/form";
 import { toast } from "sonner";
 import { Cpu, Edit3, RefreshCw, Search } from "lucide-react";
-import { formatCurrency } from "@/components/ui/format-currency";
 
 interface PricedModel {
   id: string;
@@ -34,26 +33,34 @@ interface PricedModel {
   isActive: boolean;
 }
 
-type PricingDraft = Pick<
-  PricedModel,
+type PricingField =
   | "costPer1kPrompt"
   | "costPer1kCompletion"
   | "markupPercent"
   | "sellPricePer1kPrompt"
   | "sellPricePer1kCompletion"
   | "tokenPlanPricePer1kPrompt"
-  | "tokenPlanPricePer1kCompletion"
->;
+  | "tokenPlanPricePer1kCompletion";
 
+// Draft values are kept as raw strings so a trailing decimal point ("2.") is
+// preserved while typing. They are parsed to numbers on calculation/save.
+type PricingDraft = Record<PricingField, string>;
+
+// Fractional IDR per 1K tokens (e.g. 0.0015) must not round to "Rp 0".
 const formatPrice = (value: number) =>
-  value === 0 ? "Gratis" : formatCurrency(value);
+  value === 0
+    ? "Gratis"
+    : `Rp ${value.toLocaleString("id-ID", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 6,
+      })}`;
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(value);
 
 // Mirrors src/lib/pricing-engine.ts calcSellPrice
 const calcSell = (cost: number, markupPercent: number) =>
-  cost <= 0 ? 0 : Math.ceil(cost * (1 + markupPercent / 100));
+  cost <= 0 ? 0 : Math.round(cost * (1 + markupPercent / 100) * 1e6) / 1e6;
 
 // Mirrors src/lib/pricing-engine.ts calcMargin
 const calcMarginPercent = (cost: number, sell: number) =>
@@ -63,21 +70,27 @@ const calcMarginPercent = (cost: number, sell: number) =>
 const clampTokenPlan = (tokenPlan: number, cost: number, sell: number) =>
   Math.min(Math.max(tokenPlan, cost), Math.max(sell, cost));
 
+const toNumericInput = (value: number | null | undefined) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? String(number) : "0";
+};
+
 const getDraft = (model: PricedModel): PricingDraft => ({
-  costPer1kPrompt: model.costPer1kPrompt,
-  costPer1kCompletion: model.costPer1kCompletion,
-  markupPercent: model.markupPercent,
-  sellPricePer1kPrompt: model.sellPricePer1kPrompt,
-  sellPricePer1kCompletion: model.sellPricePer1kCompletion,
-  // Default token plan price to sell price when unset (0/null)
-  tokenPlanPricePer1kPrompt:
+  costPer1kPrompt: toNumericInput(model.costPer1kPrompt),
+  costPer1kCompletion: toNumericInput(model.costPer1kCompletion),
+  markupPercent: toNumericInput(model.markupPercent),
+  sellPricePer1kPrompt: toNumericInput(model.sellPricePer1kPrompt),
+  sellPricePer1kCompletion: toNumericInput(model.sellPricePer1kCompletion),
+  tokenPlanPricePer1kPrompt: toNumericInput(
     model.tokenPlanPricePer1kPrompt > 0
       ? clampTokenPlan(model.tokenPlanPricePer1kPrompt, model.costPer1kPrompt, model.sellPricePer1kPrompt)
-      : model.sellPricePer1kPrompt,
-  tokenPlanPricePer1kCompletion:
+      : 0
+  ),
+  tokenPlanPricePer1kCompletion: toNumericInput(
     model.tokenPlanPricePer1kCompletion > 0
       ? clampTokenPlan(model.tokenPlanPricePer1kCompletion, model.costPer1kCompletion, model.sellPricePer1kCompletion)
-      : model.sellPricePer1kCompletion,
+      : 0
+  ),
 });
 
 export default function AdminModelPricingPage() {
@@ -126,48 +139,66 @@ export default function AdminModelPricingPage() {
     }
   };
 
-  const updateDraft = (key: keyof PricingDraft, value: string) => {
-    const number = Number(value);
-    const parsed = Number.isFinite(number) ? number : 0;
+  // Hanya angka dan satu titik desimal; nilai default 0 diganti saat angka baru diketik.
+  const normalizeNumericInput = (value: string) => {
+    const cleaned = value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+    if (!cleaned) return "0";
+    if (cleaned === ".") return "0.";
+    if (/^0+\./.test(cleaned)) return `0.${cleaned.slice(cleaned.indexOf(".") + 1)}`;
+    return cleaned.replace(/^0+(?=\d)/, "") || "0";
+  };
+
+  const updateDraft = (key: PricingField, value: string) => {
+    const cleaned = normalizeNumericInput(value);
     setDraft((current) => {
       if (!current) return current;
-      const next = { ...current, [key]: parsed };
+      const next = { ...current, [key]: cleaned };
       // Recalculate sell price live from cost + markup when markup changes
       if (key === "markupPercent") {
-        const oldSellP = next.sellPricePer1kPrompt;
-        const oldSellC = next.sellPricePer1kCompletion;
-        next.sellPricePer1kPrompt = calcSell(next.costPer1kPrompt, next.markupPercent);
-        next.sellPricePer1kCompletion = calcSell(next.costPer1kCompletion, next.markupPercent);
+        const markup = Number(cleaned) || 0;
+        const costP = Number(next.costPer1kPrompt) || 0;
+        const costC = Number(next.costPer1kCompletion) || 0;
+        const oldSellP = Number(next.sellPricePer1kPrompt) || 0;
+        const oldSellC = Number(next.sellPricePer1kCompletion) || 0;
+        next.sellPricePer1kPrompt = String(calcSell(costP, markup));
+        next.sellPricePer1kCompletion = String(calcSell(costC, markup));
         // Keep the token plan discount ratio when sell price changes
-        if (oldSellP > 0) next.tokenPlanPricePer1kPrompt = Math.round(next.tokenPlanPricePer1kPrompt * next.sellPricePer1kPrompt / oldSellP);
-        if (oldSellC > 0) next.tokenPlanPricePer1kCompletion = Math.round(next.tokenPlanPricePer1kCompletion * next.sellPricePer1kCompletion / oldSellC);
+        if (oldSellP > 0) next.tokenPlanPricePer1kPrompt = String(Math.round((Number(next.tokenPlanPricePer1kPrompt) || 0) * calcSell(costP, markup) / oldSellP));
+        if (oldSellC > 0) next.tokenPlanPricePer1kCompletion = String(Math.round((Number(next.tokenPlanPricePer1kCompletion) || 0) * calcSell(costC, markup) / oldSellC));
       }
       return next;
     });
   };
 
   // Clamp token plan price to [cost, sell] when leaving the field / before save
-  const clampDraft = (d: PricingDraft): PricingDraft => ({
-    ...d,
-    tokenPlanPricePer1kPrompt: clampTokenPlan(d.tokenPlanPricePer1kPrompt, d.costPer1kPrompt, d.sellPricePer1kPrompt),
-    tokenPlanPricePer1kCompletion: clampTokenPlan(d.tokenPlanPricePer1kCompletion, d.costPer1kCompletion, d.sellPricePer1kCompletion),
-  });
+  const clampDraft = (d: PricingDraft): PricingDraft => {
+    const costP = Number(d.costPer1kPrompt) || 0;
+    const costC = Number(d.costPer1kCompletion) || 0;
+    const sellP = Number(d.sellPricePer1kPrompt) || 0;
+    const sellC = Number(d.sellPricePer1kCompletion) || 0;
+    return {
+      ...d,
+      tokenPlanPricePer1kPrompt: String(clampTokenPlan(Number(d.tokenPlanPricePer1kPrompt) || 0, costP, sellP)),
+      tokenPlanPricePer1kCompletion: String(clampTokenPlan(Number(d.tokenPlanPricePer1kCompletion) || 0, costC, sellC)),
+    };
+  };
 
   const savePricing = async () => {
     if (!editingModel || !draft) return;
     // Enforce [cost, sell] range before saving
     const normalized = clampDraft(draft);
     setDraft(normalized);
+    // Convert raw string inputs back to numbers for the API
+    const payload: Record<string, unknown> = { action: "update-model", id: editingModel.id };
+    for (const [key, value] of Object.entries(normalized)) {
+      payload[key] = Number(value);
+    }
     setSaving(true);
     try {
       const response = await fetch("/api/admin/pricing", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update-model",
-          id: editingModel.id,
-          ...normalized,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) throw new Error("Failed to save pricing");
       toast.success(`${editingModel.name} pricing updated`);
@@ -222,11 +253,11 @@ export default function AdminModelPricingPage() {
                   <TableHeader className="bg-muted/50 text-left text-muted-foreground">
                     <TableRow>
                       <TableHead className="px-4 py-3 font-medium">Model</TableHead>
-                      <TableHead className="px-4 py-3 font-medium">Cost Prompt/1K</TableHead>
-                      <TableHead className="px-4 py-3 font-medium">Cost Completion/1K</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Cost Input/1K</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Cost Output/1K</TableHead>
                       <TableHead className="px-4 py-3 font-medium">Markup</TableHead>
-                      <TableHead className="px-4 py-3 font-medium">Sell Prompt/1K</TableHead>
-                      <TableHead className="px-4 py-3 font-medium">Sell Completion/1K</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Sell Input/1K</TableHead>
+                      <TableHead className="px-4 py-3 font-medium">Sell Output/1K</TableHead>
                       <TableHead className="px-4 py-3 font-medium">Status</TableHead>
                       <TableHead className="w-16 px-4 py-3" />
                     </TableRow>
@@ -253,8 +284,8 @@ export default function AdminModelPricingPage() {
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-right">
-                          <Button variant="outline" size="icon-sm" onClick={() => openEditor(model)} aria-label={`Edit pricing ${model.name}`} title="Edit pricing">
-                            <Edit3 className="h-3 w-3" />
+                          <Button variant="ghost" size="icon-sm" onClick={() => openEditor(model)} aria-label={`Edit pricing ${model.name}`} title="Edit pricing">
+                            <Edit3 className="w-4 h-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -296,13 +327,13 @@ export default function AdminModelPricingPage() {
                   </p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="cost-prompt">Cost Prompt/1K</Label>
-                      <Input className="bg-background" id="cost-prompt" type="text" inputMode="decimal" value={draft.costPer1kPrompt} onChange={(event) => updateDraft("costPer1kPrompt", event.target.value)} />
+                      <Label htmlFor="cost-input">Cost Input/1K</Label>
+                      <Input className="bg-background" id="cost-input" type="text" inputMode="decimal" value={draft.costPer1kPrompt} onChange={(event) => updateDraft("costPer1kPrompt", event.target.value)} />
                       <p className="text-xs text-muted-foreground/60">Biaya token input (pertanyaan).</p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="cost-completion">Cost Completion/1K</Label>
-                      <Input className="bg-background" id="cost-completion" type="text" inputMode="decimal" value={draft.costPer1kCompletion} onChange={(event) => updateDraft("costPer1kCompletion", event.target.value)} />
+                      <Label htmlFor="cost-output">Cost Output/1K</Label>
+                      <Input className="bg-background" id="cost-output" type="text" inputMode="decimal" value={draft.costPer1kCompletion} onChange={(event) => updateDraft("costPer1kCompletion", event.target.value)} />
                       <p className="text-xs text-muted-foreground/60">Biaya token output (jawaban).</p>
                     </div>
                   </div>
@@ -334,14 +365,14 @@ export default function AdminModelPricingPage() {
                   </p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="sell-prompt">Sell Prompt/1K (IDR)</Label>
-                      <Input className="bg-background" id="sell-prompt" type="text" inputMode="decimal" value={draft.sellPricePer1kPrompt} onChange={(event) => updateDraft("sellPricePer1kPrompt", event.target.value)} />
-                      <p className="text-xs text-muted-foreground">Margin {formatNumber(calcMarginPercent(draft.costPer1kPrompt, draft.sellPricePer1kPrompt))}%</p>
+                      <Label htmlFor="sell-input">Sell Input/1K (IDR)</Label>
+                      <Input className="bg-background" id="sell-input" type="text" inputMode="decimal" value={draft.sellPricePer1kPrompt} onChange={(event) => updateDraft("sellPricePer1kPrompt", event.target.value)} />
+                      <p className="text-xs text-muted-foreground">Margin {formatNumber(calcMarginPercent(Number(draft.costPer1kPrompt) || 0, Number(draft.sellPricePer1kPrompt) || 0))}%</p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sell-completion">Sell Completion/1K (IDR)</Label>
-                      <Input className="bg-background" id="sell-completion" type="text" inputMode="decimal" value={draft.sellPricePer1kCompletion} onChange={(event) => updateDraft("sellPricePer1kCompletion", event.target.value)} />
-                      <p className="text-xs text-muted-foreground">Margin {formatNumber(calcMarginPercent(draft.costPer1kCompletion, draft.sellPricePer1kCompletion))}%</p>
+                      <Label htmlFor="sell-output">Sell Output/1K (IDR)</Label>
+                      <Input className="bg-background" id="sell-output" type="text" inputMode="decimal" value={draft.sellPricePer1kCompletion} onChange={(event) => updateDraft("sellPricePer1kCompletion", event.target.value)} />
+                      <p className="text-xs text-muted-foreground">Margin {formatNumber(calcMarginPercent(Number(draft.costPer1kCompletion) || 0, Number(draft.sellPricePer1kCompletion) || 0))}%</p>
                     </div>
                   </div>
                 </FormPanel>
@@ -358,17 +389,17 @@ export default function AdminModelPricingPage() {
                   </p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="token-plan-prompt">Token Plan Prompt/1K</Label>
-                      <Input className="bg-background" id="token-plan-prompt" type="text" inputMode="decimal" value={draft.tokenPlanPricePer1kPrompt} onChange={(event) => updateDraft("tokenPlanPricePer1kPrompt", event.target.value)} onBlur={() => { if (draft) setDraft(clampDraft(draft)); }} />
+                      <Label htmlFor="token-plan-input">Token Plan Input/1K</Label>
+                      <Input className="bg-background" id="token-plan-input" type="text" inputMode="decimal" value={draft.tokenPlanPricePer1kPrompt} onChange={(event) => updateDraft("tokenPlanPricePer1kPrompt", event.target.value)} onBlur={() => { if (draft) setDraft(clampDraft(draft)); }} />
                       <p className="text-xs text-muted-foreground/60">
-                        Rentang {formatPrice(draft.costPer1kPrompt)} – {formatPrice(draft.sellPricePer1kPrompt)} (cost – harga jual).
+                        Rentang {formatPrice(Number(draft.costPer1kPrompt) || 0)} – {formatPrice(Number(draft.sellPricePer1kPrompt) || 0)} (cost – harga jual).
                       </p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="token-plan-completion">Token Plan Completion/1K</Label>
-                      <Input className="bg-background" id="token-plan-completion" type="text" inputMode="decimal" value={draft.tokenPlanPricePer1kCompletion} onChange={(event) => updateDraft("tokenPlanPricePer1kCompletion", event.target.value)} onBlur={() => { if (draft) setDraft(clampDraft(draft)); }} />
+                      <Label htmlFor="token-plan-output">Token Plan Output/1K</Label>
+                      <Input className="bg-background" id="token-plan-output" type="text" inputMode="decimal" value={draft.tokenPlanPricePer1kCompletion} onChange={(event) => updateDraft("tokenPlanPricePer1kCompletion", event.target.value)} onBlur={() => { if (draft) setDraft(clampDraft(draft)); }} />
                       <p className="text-xs text-muted-foreground/60">
-                        Rentang {formatPrice(draft.costPer1kCompletion)} – {formatPrice(draft.sellPricePer1kCompletion)} (cost – harga jual).
+                        Rentang {formatPrice(Number(draft.costPer1kCompletion) || 0)} – {formatPrice(Number(draft.sellPricePer1kCompletion) || 0)} (cost – harga jual).
                       </p>
                     </div>
                   </div>

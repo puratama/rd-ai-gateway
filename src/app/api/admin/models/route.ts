@@ -54,8 +54,13 @@ export async function POST(request: NextRequest) {
         providerModelId: providerModelId || null,
         provider,
         maxOutputTokens: maxOutputTokens ?? null,
-        sellPricePer1kPrompt: sellPricePer1kPrompt ?? null,
-        sellPricePer1kCompletion: sellPricePer1kCompletion ?? null,
+        costPer1kPrompt: 0,
+        costPer1kCompletion: 0,
+        markupPercent: 0,
+        sellPricePer1kPrompt: sellPricePer1kPrompt ?? 0,
+        sellPricePer1kCompletion: sellPricePer1kCompletion ?? 0,
+        tokenPlanPricePer1kPrompt: 0,
+        tokenPlanPricePer1kCompletion: 0,
       },
     });
 

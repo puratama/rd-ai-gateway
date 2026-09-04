@@ -393,7 +393,10 @@ function AdminProvidersPageContent() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(data),
                 });
-            if (!res.ok) throw new Error("Save failed");
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err?.error || "Save failed");
+            }
             setShowCreate(false);
             setEditing(null);
             fetchProviders();
@@ -546,8 +549,13 @@ function ProviderForm({
       isActive: form.isActive,
     };
     if (form.apiKey) data.apiKey = form.apiKey;
-    await onSave(data);
-    setSaving(false);
+    try {
+      await onSave(data);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -566,7 +574,7 @@ function ProviderForm({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || !form.name || !form.baseUrl}>
+          <Button onClick={handleSave} disabled={saving || !form.name || !form.baseUrl || (!provider && !form.apiKey)}>
             {saving ? "Menyimpan..." : provider ? "Update" : "Create"}
           </Button>
         </>

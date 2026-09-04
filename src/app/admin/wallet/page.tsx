@@ -4,7 +4,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Pagination } from "@/components/ui/pagination";
 
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Wallet, Search, Pencil } from "lucide-react";
+import { RefreshCw, Wallet, Search, Edit3 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,7 +102,7 @@ export default function AdminWalletPage() {
       const res = await fetch("/api/admin/wallets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: editingWallet.userId, amount: value }),
+        body: JSON.stringify({ userId: editingWallet.userId, amount: value, description: "Admin topup" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal mengupdate saldo");
@@ -171,8 +171,8 @@ export default function AdminWalletPage() {
                       <TableCell className="px-4 py-3 text-right tabular-nums text-muted-foreground">{w.billingCount}</TableCell>
                       <TableCell className="px-4 py-3 text-right tabular-nums text-muted-foreground">{w.usageCount.toLocaleString()}</TableCell>
                       <TableCell className="px-4 py-3 text-right">
-                        <Button variant="outline" size="icon-sm" onClick={() => { setEditingWallet(w); setAmount(""); }} aria-label={`Update saldo ${w.email}`} title="Update saldo">
-                          <Pencil className="h-3 w-3" />
+                        <Button variant="ghost" size="icon-sm" onClick={() => { setEditingWallet(w); setAmount(""); }} aria-label={`Update saldo ${w.email}`} title="Update saldo">
+                          <Edit3 className="h-3 w-3" />
                         </Button>
                       </TableCell>
                     </TableRow>

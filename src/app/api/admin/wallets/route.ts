@@ -53,35 +53,32 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(request.nextUrl.searchParams.get("limit") || "20", 10);
     const search = request.nextUrl.searchParams.get("search")?.trim();
 
-    const where: Record<string, unknown> = {};
-    if (search) {
-      where.user = {
-        OR: [
-          { email: { contains: search, mode: "insensitive" } },
-          { name: { contains: search, mode: "insensitive" } },
-        ],
-      };
-    }
+    const where = search
+      ? {
+          OR: [
+            { email: { contains: search, mode: "insensitive" as const } },
+            { name: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
 
-    const [wallets, total] = await Promise.all([
-      prisma.wallet.findMany({
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
         where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              role: true,
-              _count: { select: { billingRecords: true, usageRecords: true } },
-            },
-          },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          createdAt: true,
+          wallet: { select: { id: true, balance: true, updatedAt: true } },
+          _count: { select: { billingRecords: true, usageRecords: true } },
         },
-        orderBy: { balance: "desc" },
+        orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.wallet.count({ where }),
+      prisma.user.count({ where }),
     ]);
 
     // Aggregate actual usage cost per wallet (last 30 days)
@@ -94,17 +91,17 @@ export async function GET(request: NextRequest) {
     const monthlySpendMap = new Map(usageAgg.map((u) => [u.userId, Number(u._sum.cost || 0)]));
 
     return NextResponse.json({
-      wallets: wallets.map((w) => ({
-        id: w.id,
-        userId: w.userId,
-        email: w.user.email,
-        name: w.user.name,
-        role: w.user.role,
-        balance: Number(w.balance),
-        billingCount: w.user._count.billingRecords,
-        usageCount: w.user._count.usageRecords,
-        monthlySpend: monthlySpendMap.get(w.userId) || 0,
-        updatedAt: w.updatedAt,
+      wallets: users.map((u) => ({
+        id: u.wallet?.id ?? "",
+        userId: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        balance: Number(u.wallet?.balance ?? 0),
+        billingCount: u._count.billingRecords,
+        usageCount: u._count.usageRecords,
+        monthlySpend: monthlySpendMap.get(u.id) || 0,
+        updatedAt: u.wallet?.updatedAt ?? u.createdAt,
       })),
       total,
       page,

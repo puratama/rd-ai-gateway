@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { addBillingPeriod } from "@/lib/billing-fulfillment";
 import { apiError, corsOptions, resolvePublicUser, withPublicCors } from "@/lib/public-api";
 
 export async function POST(request: NextRequest) {
@@ -24,8 +25,8 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(price) || price <= 0) {
       return NextResponse.json({ error: "Invalid plan price" }, { status: 400 });
     }
-    // Fixed 30-day expiry from purchase time
-    const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    // Expiry follows the plan's billing period from purchase time
+    const expiry = addBillingPeriod(new Date(), plan.billingPeriod);
 
     const userPackage = await prisma.$transaction(async (tx) => {
       const deducted = await tx.wallet.updateMany({

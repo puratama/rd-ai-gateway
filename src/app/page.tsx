@@ -21,7 +21,7 @@ const steps = [
   {
     n: "01",
     title: "Daftar & isi wallet",
-    desc: "Buat akun, isi saldo prabayar via transfer, e-wallet, atau QRIS. Tanpa langganan bulanan, tanpa biaya tersembunyi.",
+    desc: "Buat akun dan isi saldo prabayar dengan metode pembayaran yang tersedia. Tanpa langganan bulanan, tanpa biaya tersembunyi.",
   },
   {
     n: "02",
@@ -70,10 +70,10 @@ function MarqueeTicker({ models }: { models: { name: string }[] }) {
   const half = Array.from({ length: reps }, () => models).flat();
   const items = [...half, ...half];
 
-  const [duration, setDuration] = useState(`${Math.min(60, items.length * 1.5)}s`);
+  const [duration, setDuration] = useState(`${Math.min(60, items.length * 5)}s`);
   useEffect(() => {
     const clientReps = Math.max(2, Math.ceil(window.innerWidth / (models.length * 120)) + 1);
-    setDuration(`${Math.min(60, clientReps * 1.5)}s`);
+    setDuration(`${Math.min(60, clientReps * 5)}s`);
   }, [models.length]);
 
   return (
@@ -377,10 +377,6 @@ export default function LandingPage() {
             <p className="mt-6">
               <HealthBadge withBorder />
             </p>
-
-            <address className="mt-6 font-mono text-xs not-italic leading-relaxed text-muted-foreground">
-              Jakarta, Indonesia&nbsp;·&nbsp;UTC+7
-            </address>
           </div>
 
           <nav aria-label="Produk">

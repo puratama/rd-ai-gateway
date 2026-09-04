@@ -702,14 +702,16 @@ function GeneratedKeyDialog({
             Copy this secret now. It will not be shown again.
           </DialogDescription>
         </DialogHeader>
-        <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-xs">
-          <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 break-all font-mono">{secret}</code>
-            <Button size="icon-sm" variant="ghost" onClick={onCopy}>
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            </Button>
+        <DialogBody>
+          <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-xs">
+            <div className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 break-all font-mono">{secret}</code>
+              <Button size="icon-sm" variant="ghost" onClick={onCopy}>
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)}>Done</Button>
         </DialogFooter>

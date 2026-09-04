@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import {
   Crown, Coins, RefreshCw, Wallet, Check, X,
-  Gauge, Image as ImageIcon,
+  Gauge, Image as ImageIcon, ArrowUpRight,
 } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { formatCurrency } from "@/components/ui/format-currency";
@@ -64,6 +67,7 @@ function FeatureRow({ icon, label, enabled }: { icon: React.ReactNode; label: st
 }
 
 export default function PlanPage() {
+  const router = useRouter();
   const [plans, setPlans] = useState<CatalogPlan[]>([]);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -115,6 +119,7 @@ export default function PlanPage() {
       }
       toast.success("Paket berhasil dibeli.");
       await loadBalance();
+      router.push("/my/plan");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal membeli paket");
     } finally {
@@ -179,55 +184,42 @@ export default function PlanPage() {
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {plans.map((plan, i) => {
-                const models = plan.features.allModels
-                  ? "Semua model"
-                  : plan.features.allowedModels.length > 0
-                    ? plan.features.allowedModels.join(", ")
-                    : "Tanpa model";
+              {plans.map((plan) => {
+                const popular = plan.name.toLowerCase().includes("pro");
                 return (
                   <Card
                     key={plan.id}
-                    className="animate-fade-in group relative overflow-hidden transition-all duration-300 group-hover"
-                    style={{ animationDelay: `${i * 60}ms` }}
+                    style={{ "--card-spacing": "0px" } as React.CSSProperties}
+                    className={cn(
+                      "p-0 transition-all duration-200",
+                      popular
+                        ? "ring-2 ring-primary shadow-[0_0_0_4px_color-mix(in_oklch,var(--color-primary)_10%,transparent)]"
+                        : "hover:-translate-y-0.5 hover:ring-primary/50 hover:bg-card/80 hover:shadow-[0_8px_30px_-12px_color-mix(in_oklch,var(--color-primary)_25%,transparent)]"
+                    )}
                   >
-                    <CardContent className="flex flex-col gap-4 p-5">
-                      <div>
-                        <p className="truncate text-xl font-semibold">{plan.name}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Harga</p>
-                        <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground tabular-nums">
-                          {plan.price === 0 ? "Gratis" : formatCurrency(plan.price)}
-                        </p>
-                        <p className="mt-2 text-sm text-muted-foreground">Berlaku {billingLabel(plan.billingPeriod)}</p>
+                    <div className="flex h-full flex-col gap-6 p-8">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold tracking-tight">{plan.name}</h3>
+                        {popular && <Badge>Populer</Badge>}
                       </div>
 
                       {plan.description && (
-                        <p className="line-clamp-2 group-hover:line-clamp-none text-sm text-muted-foreground">{plan.description}</p>
+                        <p className="text-sm leading-relaxed text-muted-foreground">{plan.description}</p>
                       )}
 
-                      <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Maks. Token</span>
-                          <span className="text-sm font-semibold tabular-nums">
-                            {fmtNumber(plan.features.maxTokensPerMonth)}
-                          </span>
+                      <div>
+                        <div className="text-4xl font-bold tracking-tight lg:text-4xl">
+                          {plan.price === 0 ? "Gratis" : formatCurrency(plan.price)}
                         </div>
+                        <p className="mt-2 text-sm text-muted-foreground">Berlaku {billingLabel(plan.billingPeriod)}</p>
                       </div>
 
-                      {/* <div className="space-y-2 rounded-lg border border-border/70 bg-muted/25 p-3">
-                        <FeatureRow icon={<Gauge className="h-3.5 w-3.5" />} label="Streaming" enabled={plan.features.streaming} />
-                        <FeatureRow icon={<ImageIcon className="h-3.5 w-3.5" />} label="Image generation" enabled={plan.features.imageGeneration} />
-                      </div> */}
-
                       {plan.features.highlights.length > 0 && (
-                        <ul className="space-y-1.5">
+                        <ul className="space-y-3 border-t border-border/40 pt-5 text-sm">
                           {plan.features.highlights.map((h) => (
-                            <li key={h} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                              {h}
+                            <li key={h} className="flex items-start gap-2.5">
+                              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                              <span className="text-muted-foreground">{h}</span>
                             </li>
                           ))}
                         </ul>
@@ -238,9 +230,9 @@ export default function PlanPage() {
                         disabled={buying !== null}
                         onClick={() => setConfirmPlan(plan)}
                       >
-                        Pilih Plan
+                        Pilih Plan <ArrowUpRight />
                       </Button>
-                    </CardContent>
+                    </div>
                   </Card>
                 );
               })}

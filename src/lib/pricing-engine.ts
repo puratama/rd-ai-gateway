@@ -17,10 +17,10 @@ export interface PricedModel {
   isActive: boolean;
 }
 
-/** Calculate selling price: cost × (1 + markup/100). Rounds up to nearest rupiah. */
+/** Calculate selling price: cost × (1 + markup/100). Rounded to 6 decimals (IDR per 1K tokens). */
 export function calcSellPrice(cost: number, markupPercent: number): number {
   if (cost <= 0) return 0;
-  return Math.ceil(cost * (1 + markupPercent / 100));
+  return Math.round(cost * (1 + markupPercent / 100) * 1e6) / 1e6;
 }
 
 /** Calculate margin: (sell - cost) / sell × 100 */

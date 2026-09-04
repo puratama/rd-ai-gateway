@@ -35,12 +35,12 @@ export function ModelCard({
             </div>
           )}
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-muted-foreground">Input / 1K</dt>
-            <dd className="font-mono text-sm font-medium tabular-nums">{priceLabel(m.paygPrompt)}</dd>
+            <dt className="text-muted-foreground">Input / 1M</dt>
+            <dd className="font-mono text-sm font-medium tabular-nums">{priceLabel((m.paygPrompt ?? 0) * 1000)}</dd>
           </div>
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-muted-foreground">Output / 1K</dt>
-            <dd className="font-mono text-sm font-medium tabular-nums">{priceLabel(m.paygCompletion)}</dd>
+            <dt className="text-muted-foreground">Output / 1M</dt>
+            <dd className="font-mono text-sm font-medium tabular-nums">{priceLabel((m.paygCompletion ?? 0) * 1000)}</dd>
           </div>
         </dl>
 
@@ -48,7 +48,7 @@ export function ModelCard({
           <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             {m.planPrompt === 0
               ? "Termasuk dalam paket token"
-              : `Paket token: Rp ${formatPrice(m.planPrompt)} / 1K input`}
+              : `Paket token: Rp ${formatPrice(m.planPrompt * 1000)} / 1M input`}
           </p>
         )}
       </div>

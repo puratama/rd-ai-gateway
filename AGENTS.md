@@ -11,7 +11,7 @@ Product: AI chat gateway. Users get an API key and pay per usage. Billing model:
 ## Billing rules
 
 - **Wallet** (`Wallet` model): prepaid IDR balance. Top-up via `/wallet` → `/api/wallet/balance`.
-- **Token plan** (`Plan` model): catalog in `/admin/plans`, read via `/api/plans`. Key limit field: `maxTokensPerPeriod` (mapped as `maxTokensPerMonth`).
+- **Token plan** (`Plan` model): catalog in `/admin/plans`, read via `/api/plans`. Key limit field: `maxTokensPerPeriod` (mapped as `maxTokensPerMonth`). Display features come from the free-text `highlights` list plus a `billingPeriod` label, not derived from the quota/access flags.
 - **Purchase** (`/api/packages/purchase`): user picks a plan, price deducted from wallet, creates a `UserPackage` with `tokensTotal`/`tokensRemaining` = `maxTokensPerPeriod`, default 30-day expiry (`expiresAt`).
 - **Consumption priority** (`src/lib/db/quota.ts` → `holdBalanceOrTokens`):
   1. If user has an active `UserPackage` (`tokensRemaining > 0`), reserve and draw tokens from it first (discounted `tokenPlan*` pricing).
@@ -24,7 +24,8 @@ Product: AI chat gateway. Users get an API key and pay per usage. Billing model:
 - `User`: roles `user` | `superadmin`; status `active` | `suspended` | `banned`.
 - `ApiKey`: user's key for gateway calls. New keys store `keyHash`; legacy plaintext `key` values remain supported for migration. Never expose secrets from list/update endpoints; return the plaintext secret only once after create/regenerate.
 - `UserPackage`: prepaid token balance (`tokensRemaining`). `status`: `active` | `expired` | `depleted`. A user may hold several.
-- `AppModel`: per-model pricing — `sellPricePer1k*` (PAYG) and `tokenPlanPricePer1k*` (package), IDR per 1K tokens.
+- `AppModel`: per-model pricing — `costPer1k*`, `sellPricePer1k*` (PAYG) and `tokenPlanPricePer1k*` (package), fractional IDR per 1K tokens (`Decimal(18,6)`). `sortOrder` controls display order in the admin list.
+- `AggregatorConfig`: has a `sortOrder` field for admin ordering (same as `AppModel`).
 
 ## Agent API contract
 
@@ -45,6 +46,8 @@ Product: AI chat gateway. Users get an API key and pay per usage. Billing model:
 
 ## Conventions
 
+- `AppModel` prices are fractional IDR per 1K tokens (`Decimal(18,6)`); `calcSellPrice` in `src/lib/pricing-engine.ts` rounds to 6 decimals (not `Math.ceil` to whole rupiah). Keep the admin editor's local `calcSell` mirror in sync.
+- Public pages render model prices per 1M tokens (`price × 1000`); the admin pricing editor stays per 1K tokens.
 - New feature schema → add Prisma migration (`npx prisma db push --accept-data-loss` for dev), then `npx prisma generate`.
 - Dev server must be (re)started after `prisma generate` or `/api/*` route registration can go stale.
 - Do not add `priority` or `apiAccess` fields to `Plan` — they were removed; they are display-only/no-op concepts.

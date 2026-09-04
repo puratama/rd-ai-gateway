@@ -3,6 +3,7 @@ export interface PricingTier {
   price: string;
   description: string;
   features: string[];
+  billingPeriod: string;
   cta: string;
   popular: boolean;
 }
@@ -10,26 +11,37 @@ export interface PricingTier {
 interface PlanRaw {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   price: number;
+  billingPeriod: string;
   features: Record<string, unknown>;
   isActive: boolean;
 }
 
+const billingLabel = (period: string) => {
+  switch (period) {
+    case "daily":
+      return "1 hari";
+    case "weekly":
+      return "1 minggu";
+    case "yearly":
+      return "1 tahun";
+    default:
+      return "1 bulan";
+  }
+};
+
 export function planToTier(p: PlanRaw): PricingTier {
-  const f = p.features;
-  const feats: string[] = [];
-  if (f.maxTokensPerMonth) feats.push(`${Number(f.maxTokensPerMonth).toLocaleString("id-ID")} token`);
-  if (f.streaming) feats.push("Streaming");
-  if (f.imageGeneration) feats.push("Image generation");
-  if (f.allowedModels && Array.isArray(f.allowedModels) && f.allowedModels.length > 0) feats.push(`${f.allowedModels.length} model`);
-  else feats.push("Semua model");
+  const highlights = Array.isArray(p.features?.highlights)
+    ? (p.features.highlights as string[])
+    : [];
 
   return {
     name: p.name,
     price: p.price === 0 ? "Gratis" : `Rp ${Number(p.price).toLocaleString("id-ID")}`,
-    description: p.description || p.name,
-    features: feats,
+    description: p.description || "",
+    features: highlights,
+    billingPeriod: `Berlaku ${billingLabel(p.billingPeriod)}`,
     cta: p.price === 0 ? "Mulai" : "Beli Paket",
     // heuristik: plan bernama "...pro..." dianggap paket unggulan
     popular: p.name.toLowerCase().includes("pro"),

@@ -35,23 +35,31 @@ export function PricingCard({
           {t.popular && <Badge>Populer</Badge>}
         </div>
 
-        <p className="text-sm text-muted-foreground leading-relaxed">{t.description}</p>
+        {t.description && (
+          <p className="text-sm leading-relaxed text-muted-foreground">{t.description}</p>
+        )}
 
-        <div className="text-4xl font-bold tracking-tight lg:text-5xl">{t.price}</div>
+        <div>
+          <div className="text-4xl font-bold tracking-tight lg:text-4xl">{t.price}</div>
+          <p className="mt-2 text-sm text-muted-foreground">{t.billingPeriod}</p>
+        </div>
 
-        <ul className="space-y-3 border-t border-border/40 pt-5 text-sm">
-          {t.features.map((f) => (
-            <li key={f} className="flex items-start gap-2.5">
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <span className="text-muted-foreground">{f}</span>
-            </li>
-          ))}
-        </ul>
+        {t.features.length > 0 && (
+          <ul className="space-y-3 border-t border-border/40 pt-5 text-sm">
+            {t.features.map((f) => (
+              <li key={f} className="flex items-start gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span className="text-muted-foreground">{f}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <Button
           render={<Link href={isAuthenticated ? "/my/plan" : "/register"} />}
           nativeButton={false}
-          variant={t.popular ? "default" : "outline"}
+          // variant={t.popular ? "default" : "outline"}
+          variant="default"
           className="mt-auto w-full"
         >
           {t.cta} <ArrowUpRight />
