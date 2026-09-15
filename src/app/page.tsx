@@ -20,45 +20,49 @@ import { cn } from "@/lib/utils";
 const steps = [
   {
     n: "01",
-    title: "Daftar & isi wallet",
-    desc: "Buat akun dan isi saldo prabayar dengan metode pembayaran yang tersedia. Tanpa langganan bulanan, tanpa biaya tersembunyi.",
+    title: "Buat Akun",
+    desc: "Daftar akun Rakit Digital AI dan siapkan wallet untuk kebutuhan API Anda.",
   },
   {
     n: "02",
-    title: "Terbitkan API key",
-    desc: "Satu key untuk seluruh katalog model. Disimpan sebagai hash kriptografis dan hanya tampil sekali saat dibuat.",
+    title: "Buat API Key",
+    desc: "Buat API key dari dashboard untuk menghubungkan aplikasi Anda dengan Rakit Digital AI.",
   },
   {
     n: "03",
-    title: "Kirim request pertama",
-    desc: "Arahkan SDK OpenAI ke base URL gateway. Ubah satu baris kode — aplikasi yang sudah ada tetap berjalan.",
+    title: "Kirim Request",
+    desc: "Gunakan endpoint Rakit Digital AI melalui SDK yang kompatibel dengan OpenAI dan mulai kirim request.",
   },
 ];
 
 const faqs = [
   {
-    q: "Apa itu AI gateway?",
-    a: "Gateway adalah perantara antara aplikasi Anda dan penyedia model AI. Alih-alih mendaftar dan mengelola banyak layanan, Anda cukup satu akun, satu API key, dan satu titik masuk untuk semua model.",
+    q: "Apa itu Rakit Digital AI?",
+    a: "Rakit Digital AI adalah perantara antara aplikasi Anda dan penyedia model AI. Alih-alih mendaftar dan mengelola banyak layanan, Anda cukup satu akun, satu API key, dan satu titik masuk untuk semua model.",
   },
   {
-    q: "Bagaimana cara pembayarannya?",
-    a: "Semuanya prabayar. Isi saldo wallet lewat transfer bank, e-wallet, atau QRIS, lalu beli paket token atau biarkan pemakaian dipotong langsung dari saldo. Tidak ada langganan dan tidak ada biaya bulanan.",
+    q: "Apakah Rakit Digital AI kompatibel dengan OpenAI API?",
+    a: "Ya. Rakit Digital AI menyediakan API yang kompatibel dengan OpenAI sehingga aplikasi yang menggunakan OpenAI SDK dapat diintegrasikan dengan perubahan yang minimal.",
   },
   {
-    q: "Apa yang terjadi jika saldo habis di tengah pemakaian?",
-    a: "Paket token aktif akan dipakai lebih dulu; sisanya otomatis fallback ke saldo wallet. Jika keduanya tidak cukup, permintaan ditolak dengan jelas — tidak ada tagihan mengejutkan.",
+    q: "Apakah saya harus berlangganan bulanan?",
+    a: "Tidak. Rakit Digital AI menggunakan sistem Pay As You Go. Anda dapat mengisi saldo dan membayar berdasarkan penggunaan.",
   },
   {
-    q: "Apakah API key saya aman?",
-    a: "Key disimpan dalam bentuk yang tidak dapat dibaca dan hanya ditampilkan sekali saat dibuat. Anda bisa membatasi model yang boleh diakses, mengatur masa berlaku, dan me-regenerate kapan saja.",
+    q: "Apakah saya bisa menggunakan lebih dari satu model AI?",
+    a: "Ya. Anda dapat menggunakan model yang tersedia di Rakit Digital AI melalui satu API.",
   },
   {
-    q: "Apakah kode saya harus diubah untuk pindah ke sini?",
-    a: "Hampir tidak. Gateway menggunakan format API standar industri — umumnya cukup mengganti base URL dan API key pada SDK yang sudah ada.",
+    q: "Apakah saya perlu membuat API key untuk setiap model?",
+    a: "Tidak. Anda dapat menggunakan satu API key Rakit Digital AI untuk mengakses model yang tersedia melalui gateway.",
   },
   {
-    q: "Model apa saja yang tersedia?",
-    a: "Katalog mencakup puluhan hingga ratusan model dari berbagai penyedia besar. Daftar lengkap beserta tarif per model dapat dilihat pada bagian Model di halaman ini atau halaman katalog.",
+    q: "Apa yang terjadi jika saldo saya habis?",
+    a: "Ketika saldo tidak mencukupi, request yang membutuhkan saldo tidak dapat diproses sampai Anda mengisi ulang wallet.",
+  },
+  {
+    q: "Model AI apa saja yang tersedia?",
+    a: "Rakit Digital AI menyediakan berbagai model AI dari provider yang didukung. Anda dapat melihat daftar model dan harga terbaru pada halaman model.",
   },
 ];
 
@@ -70,15 +74,9 @@ function MarqueeTicker({ models }: { models: { name: string }[] }) {
   const half = Array.from({ length: reps }, () => models).flat();
   const items = [...half, ...half];
 
-  const [duration, setDuration] = useState(`${Math.min(60, items.length * 5)}s`);
-  useEffect(() => {
-    const clientReps = Math.max(2, Math.ceil(window.innerWidth / (models.length * 120)) + 1);
-    setDuration(`${Math.min(60, clientReps * 5)}s`);
-  }, [models.length]);
-
   return (
     <section aria-hidden className="motion-reduce:hidden overflow-hidden border-y border-border py-5">
-      <div className="flex w-max animate-[marquee_10s_linear_infinite] whitespace-nowrap" style={{ animationDuration: duration }}>
+      <div className="flex w-max animate-[marquee_20s_linear_infinite] whitespace-nowrap">
         {items.map((m, i) => (
           <span key={i} className="flex items-center text-sm text-muted-foreground">
             <span className="px-6">{m.name}</span>
@@ -207,10 +205,9 @@ export default function LandingPage() {
         <div className="relative mx-auto flex max-w-4xl flex-col items-center text-center">
           <HealthBadge className="rise gap-3 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs font-medium" />
 
-          <h1 className="rise mx-auto mt-8 max-w-3xl text-balance text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl" style={{ animationDelay: "80ms" }}>
-            Satu endpoint, <span className="text-primary">semua model.</span>
-            <br />
-            Harga lokal.
+          <h1 className="rise mx-auto mt-8 max-w-3xl text-balance text-3xl font-bold leading-[1.1] tracking-tight md:text-6xl" style={{ animationDelay: "80ms" }}>
+            Satu API key
+            <span className="block text-primary">berbagai model AI.</span>
           </h1>
 
           {siteCfg.loaded ? (
@@ -229,9 +226,13 @@ export default function LandingPage() {
               {isAuthenticated ? "Buka Dashboard" : "Mulai Gratis"}
               <ArrowRight />
             </Link>
-            <Link href="#harga" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 px-6")}>
-              Lihat harga
-            </Link>
+            {
+              pricingTiers.length > 0 && (
+                <Link href="#harga" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 px-6")}>
+                  Lihat harga
+                </Link>
+              )
+            }
           </div>
         </div>
       </section>
@@ -266,15 +267,25 @@ export default function LandingPage() {
         <section id="model" aria-labelledby="model-title" className="reveal scroll-mt-24 border-t border-border px-6 py-28">
           <div className="mx-auto max-w-6xl">
           <SectionMark label="Model" />
-            <h2 id="model-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
-              Katalog <span className="text-primary">{siteCfg.models.length} model</span>
-            </h2>
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
-              Semua model aktif beserta tarifnya. Harga dalam rupiah per 1.000 token.
-            </p>
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 id="model-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
+                  Pilih model <span className="text-primary">yang tepat.</span>
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Gunakan berbagai model AI — semuanya melalui satu API.
+                </p>
+              </div>
+
+              {siteCfg.models.length > 3 && (
+                <Link href="/models" className={cn(buttonVariants({ variant: "outline" }))}>
+                  Lihat Semua
+                </Link>
+              )}
+            </div>
 
             <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {siteCfg.models.map((m, i) => (
+              {siteCfg.models.slice(0, 3).map((m, i) => (
                 <ModelCard key={m.modelId} model={m} className="reveal" style={{ transitionDelay: `${(i % 3) * 80}ms` }} />
               ))}
             </div>
@@ -287,15 +298,25 @@ export default function LandingPage() {
         <section id="harga" aria-labelledby="harga-title" className="reveal scroll-mt-24 border-t border-border px-6 py-28">
           <div className="mx-auto max-w-6xl">
           <SectionMark label="Harga" />
-            <h2 id="harga-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
-              Prabayar. <span className="text-primary">Tanpa langganan.</span>
-            </h2>
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
-              Isi wallet, beli paket token, atau bayar per pemakaian. Setiap paket berlaku 30 hari.
-            </p>
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 id="harga-title" className="mt-4 max-w-xl text-3xl font-bold tracking-tight md:text-4xl">
+                  Prabayar. <span className="text-primary">Tanpa langganan.</span>
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Isi wallet, beli paket, atau bayar per pemakaian.
+                </p>
+              </div>
+
+              {pricingTiers.length > 3 && (
+                <Link href="/plan" className={cn(buttonVariants({ variant: "outline" }))}>
+                  Lihat Semua
+                </Link>
+              )}
+            </div>
 
             <ul className="mt-16 grid gap-4 md:grid-cols-3">
-              {pricingTiers.map((t, i) => (
+              {pricingTiers.slice(0, 3).map((t, i) => (
                 <PricingCard key={t.name} tier={t} isAuthenticated={isAuthenticated} className="reveal" style={{ transitionDelay: `${i * 90}ms` }} />
               ))}
             </ul>
@@ -344,8 +365,11 @@ export default function LandingPage() {
       <section className="reveal border-t border-border px-6 py-32">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-4xl">
-            Request pertama Anda <span className="text-primary">lima menit</span> dari sekarang.
+            Request pertama Anda <span className="text-primary">dimulai hari ini.</span>
           </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Buat akun, isi wallet, buat API key, dan kirim request pertama Anda.
+          </p>
           <div className="mt-12">
             <Link href={ctaHref} className={cn(buttonVariants({ size: "lg" }), "h-11 px-8")}>
               {isAuthenticated ? "Buka Dashboard" : "Daftar Sekarang"}

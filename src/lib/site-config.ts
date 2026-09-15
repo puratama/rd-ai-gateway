@@ -1,8 +1,8 @@
 export const siteConfig = {
-  brandName: "xPerimne",
-  shortName: "xPerimne",
-  tagline: "Banyak model AI premium. Satu API. Harga lokal.",
-  description: "Gateway OpenAI-compatible untuk developer. Akses model terbaik, kelola API key, pantau usage, dan mulai integrasi dalam hitungan menit.",
+  brandName: "Rakit Digital AI",
+  shortName: "Rakit Digital AI",
+  tagline: "Akses berbagai model AI melalui satu API.",
+  description: "Akses berbagai model AI melalui satu API yang kompatibel dengan OpenAI. Kelola satu API key, satu wallet, dan satu integrasi untuk membangun aplikasi AI lebih cepat.",
   baseUrl: "",
   logoMode: "bolt",
 } as const;
